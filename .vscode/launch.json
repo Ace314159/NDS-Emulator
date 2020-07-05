@@ -1,0 +1,23 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "(Windows) Launch",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceRoot}/target/debug/nds-emulator.exe",
+            "stopAtEntry": false,
+            // "args": [">", "stdout.log"],
+            "cwd": "${workspaceRoot}",
+            "externalConsole": true,
+            "sourceFileMap": {
+                "/rustc/c7087fe00d2ba919df1d813c040a5d47e43b0fe7": "${env:HOME}${env:USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/src/rust"
+            }
+        }
+        
+    ]
+}
