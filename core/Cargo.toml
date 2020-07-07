@@ -5,4 +5,7 @@ authors = ["Akash Munagala <akash.munagala@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+bitflags = "1.2.1"
+log = "0.4.8"
 num-traits = "0.2.12"
+simplelog = "0.8.0"

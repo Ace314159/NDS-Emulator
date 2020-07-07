@@ -8,9 +8,10 @@ pub struct NDS {
 
 impl NDS {
     pub fn new() -> Self {
+        let mut hw = HW::new();
         NDS {
-            arm7: ARM7::new(),
-            hw: HW::new(),
+            arm7: ARM7::new(false, &mut hw),
+            hw,
         }
     }
 

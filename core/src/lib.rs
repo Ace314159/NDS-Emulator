@@ -1,4 +1,6 @@
 use num_traits as num;
+pub use simplelog;
+
 mod arm7;
 mod hw;
 

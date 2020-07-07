@@ -12,4 +12,8 @@ impl HW {
             
         }
     }
+
+    pub fn interrupts_requested(&self) -> bool {
+        false
+    }
 }
