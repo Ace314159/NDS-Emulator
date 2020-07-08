@@ -1,4 +1,5 @@
 pub mod arm7;
+pub mod arm9;
 
 use std::mem::size_of;
 use crate::num::{self, cast::FromPrimitive, NumCast, PrimInt, Unsigned};
