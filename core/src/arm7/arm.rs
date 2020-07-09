@@ -73,7 +73,7 @@ impl ARM7 {
             let shift = (instr >> 8) & 0xF;
             let operand = instr & 0xFF;
             if (opcode < 0x5 || opcode > 0x7) && shift != 0 {
-                self.shift(hw, 3, operand, shift * 2, true, change_status)
+                self.shift(3, operand, shift * 2, true, change_status)
             } else { operand.rotate_right(shift * 2) }
         } else {
             let shift_by_reg = (instr >> 4) & 0x1 != 0;
@@ -88,7 +88,7 @@ impl ARM7 {
             let shift_type = (instr >> 5) & 0x3;
             let op2 = self.regs.get_reg_i(instr & 0xF);
             // TODO: I Cycle occurs too early
-            self.shift(hw, shift_type, op2, shift, !shift_by_reg,
+            self.shift(shift_type, op2, shift, !shift_by_reg,
                 change_status && (opcode < 0x5 || opcode > 0x7))
         };
         let op1 = self.regs.get_reg_i((instr >> 16) & 0xF);
@@ -174,9 +174,9 @@ impl ARM7 {
         let op3 = self.regs.get_reg_i(instr & 0xF);
         
         self.instruction_prefetch::<u32>(hw, AccessType::S);
-        self.inc_mul_clocks(hw, op2, true);
+        self.inc_mul_clocks(op2, true);
         let result = if accumulate {
-            self.internal(hw);
+            self.internal();
             op2.wrapping_mul(op3).wrapping_add(op1)
         } else {
             assert_eq!(op1_reg, 0);
@@ -202,12 +202,12 @@ impl ARM7 {
         let op2 = self.regs.get_reg_i(instr & 0xF);
 
         self.instruction_prefetch::<u32>(hw, AccessType::S);
-        self.internal(hw);
-        self.inc_mul_clocks(hw, op1 as u32, signed);
+        self.internal();
+        self.inc_mul_clocks(op1 as u32, signed);
         let result = if signed { (op1 as i32 as u64).wrapping_mul(op2 as i32 as u64) }
         else { (op1 as u64) * (op2 as u64) }.wrapping_add(
         if accumulate {
-            self.internal(hw);
+            self.internal();
             (self.regs.get_reg_i(src_dest_reg_high) as u64) << 32 |
             self.regs.get_reg_i(src_dest_reg_low) as u64
         } else { 0 });
@@ -241,7 +241,7 @@ impl ARM7 {
             let offset_reg = instr & 0xF;
             assert_ne!(offset_reg, 15);
             let operand = self.regs.get_reg_i(offset_reg);
-            self.shift(hw, shift_type, operand, shift, true, false)
+            self.shift(shift_type, operand, shift, true, false)
         } else {
             instr & 0xFFF
         };
@@ -253,7 +253,7 @@ impl ARM7 {
             } else {
                 self.read::<u32>(hw, access_type, addr & !0x3).rotate_right((addr & 0x3) * 8)
             };
-            self.internal(hw);
+            self.internal();
             self.regs.set_reg_i(src_dest_reg, value);
             if src_dest_reg == base_reg { write_back = false }
             if src_dest_reg == 15 { self.fill_arm_instr_buffer(hw) }
@@ -318,7 +318,7 @@ impl ARM7 {
                 3 => self.read::<u16>(hw, access_type, addr) as i16 as u32,
                 _ => unreachable!(),
             };
-            self.internal(hw);
+            self.internal();
             self.regs.set_reg_i(src_dest_reg, value);
             if src_dest_reg == 15 { self.fill_arm_instr_buffer(hw) }
         } else {
@@ -373,7 +373,7 @@ impl ARM7 {
             let value = self.read::<u32>(hw, AccessType::S, addr);
             self.regs.set_reg_i(reg, value);
             if write_back { self.regs.set_reg_i(base_reg, final_addr) }
-            if last_access { self.internal(hw) }
+            if last_access { self.internal() }
             if reg == 15 {
                 if psr_force_usr { self.regs.restore_cpsr() }
                 loaded_pc = true;
@@ -425,7 +425,7 @@ impl ARM7 {
             value
         };
         self.regs.set_reg_i(dest_reg, value);
-        self.internal(hw);
+        self.internal();
     }
 
     // ARM.13: Software Interrupt (SWI)
@@ -442,12 +442,12 @@ impl ARM7 {
     // ARM.14: Coprocessor Data Operations (CDP)
     // ARM.15: Coprocessor Data Transfers (LDC,STC)
     // ARM.16: Coprocessor Register Transfers (MRC, MCR)
-    fn coprocessor(&mut self, hw: &mut HW, _instr: u32) {
+    fn coprocessor(&mut self, _hw: &mut HW, _instr: u32) {
         unimplemented!("Coprocessor not implemented!");
     }
 
     // ARM.17: Undefined Instruction
-    fn undefined_instr_arm(&mut self, hw: &mut HW, _instr: u32) {
+    fn undefined_instr_arm(&mut self, _hw: &mut HW, _instr: u32) {
         unimplemented!("ARM.17: Undefined Instruction not implemented!");
     }
 }

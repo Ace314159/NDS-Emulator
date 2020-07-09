@@ -114,7 +114,7 @@ impl ARM9 {
             0xA => self.sub(dest, src, true), // CMP
             0xB => self.add(dest, src, true), // CMN
             0xC => dest | src, // ORR
-            0xD => { self.inc_mul_clocks(hw, dest, true); dest.wrapping_mul(src) }, // MUL
+            0xD => { self.inc_mul_clocks(dest, true); dest.wrapping_mul(src) }, // MUL
             0xE => dest & !src, // BIC
             0xF => !src, // MVN
             _ => unreachable!(),
@@ -170,7 +170,7 @@ impl ARM9 {
         self.instruction_prefetch::<u16>(hw, AccessType::N);
         let value = self.read::<u32>(hw, AccessType::N, addr & !0x3).rotate_right((addr & 0x3) * 8);
         self.regs.set_reg_i(dest_reg, value);
-        self.internal(hw);
+        self.internal();
     }
 
     // THUMB.7: load/store with register offset
@@ -190,7 +190,7 @@ impl ARM9 {
                 self.read::<u32>(hw, AccessType::S, addr & !0x3).rotate_right((addr & 0x3) * 8) // LDR
             };
             self.regs.set_reg_i(src_dest_reg, value);
-            self.internal(hw);
+            self.internal();
         } else { // Store
             if opcode & 0b01 != 0 { // STRB
                 self.write::<u8>(hw, AccessType::N, addr, self.regs.get_reg_i(src_dest_reg) as u8);
@@ -223,7 +223,7 @@ impl ARM9 {
                 _ => unreachable!()
             };
             self.regs.set_reg_i(src_dest_reg, value);
-            self.internal(hw);
+            self.internal();
         }
     }
 
@@ -247,7 +247,7 @@ impl ARM9 {
                 self.read::<u32>(hw, AccessType::S, addr & !0x3).rotate_right((addr & 0x3) * 8)
             };
             self.regs.set_reg_i(src_dest_reg, value);
-            self.internal(hw);
+            self.internal();
         } else {
             let value = self.regs.get_reg_i(src_dest_reg);
             // Is access width 1? Probably not, could be just bug in prev version
@@ -272,7 +272,7 @@ impl ARM9 {
         if load {
             let value = (self.read::<u16>(hw, AccessType::S, addr & !0x1) as u32).rotate_right((addr & 0x1) * 8);
             self.regs.set_reg_i(src_dest_reg, value);
-            self.internal(hw);
+            self.internal();
         } else {
             self.write::<u16>(hw, AccessType::N, addr & !0x1, self.regs.get_reg_i(src_dest_reg) as u16);
         }
@@ -290,7 +290,7 @@ impl ARM9 {
         if load {
             let value = self.read::<u32>(hw, AccessType::S, addr & !0x3).rotate_right((addr & 0x3) * 8);
             self.regs.set_reg_i(src_dest_reg, value);
-            self.internal(hw);
+            self.internal();
         } else {
             self.write::<u32>(hw, AccessType::N, addr & !0x3, self.regs.get_reg_i(src_dest_reg));
         }
@@ -335,7 +335,7 @@ impl ARM9 {
             let mut stack_pop = |sp, last_access, reg: u32| {
                 let value = self.read::<u32>(hw, AccessType::S, sp);
                 self.regs.set_reg_i(reg, value);
-                if last_access { self.internal(hw) }
+                if last_access { self.internal() }
             };
             let mut reg = 0;
             while r_list != 0 {
@@ -400,7 +400,7 @@ impl ARM9 {
             if load {
                 let value = self.read::<u32>(hw, AccessType::S, addr);
                 self.regs.set_reg_i(reg, value);
-                if last_access { self.internal(hw) }
+                if last_access { self.internal() }
             } else {
                 self.write::<u32>(hw, AccessType::S, addr, self.regs.get_reg_i(reg));
                 if last_access { self.next_access_type = AccessType::N }
@@ -485,7 +485,7 @@ impl ARM9 {
         }
     }
 
-    fn undefined_instr_thumb(&mut self, hw: &mut HW, _instr: u16) {
+    fn undefined_instr_thumb(&mut self, _hw: &mut HW, _instr: u16) {
         panic!("Undefined Thumb Instruction!")
     }
 }

@@ -9,7 +9,7 @@ impl HW {
             MemoryRegion::MainMem => HW::read_mem(&self.main_mem, addr & HW::MAIN_MEM_MASK),
             MemoryRegion::SharedWRAM => todo!(),
             MemoryRegion::IWRAM => HW::read_mem(&self.iwram, addr & HW::IWRAM_MASK),
-            MemoryRegion::IO => todo!(), 
+            MemoryRegion::IO => todo!(),
         }
     }
 
@@ -19,7 +19,7 @@ impl HW {
             MemoryRegion::MainMem => HW::write_mem(&mut self.main_mem, addr & HW::MAIN_MEM_MASK, value),
             MemoryRegion::SharedWRAM => todo!(),
             MemoryRegion::IWRAM => HW::write_mem(&mut self.iwram, addr & HW::IWRAM_MASK, value),
-            MemoryRegion::IO => todo!(), 
+            MemoryRegion::IO => todo!(),
         }
     }
 

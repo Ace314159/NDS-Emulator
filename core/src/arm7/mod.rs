@@ -63,7 +63,7 @@ impl ARM7 {
         self.do_internal = false;
     }
 
-    pub fn internal(&mut self, hw: &mut HW) {
+    pub fn internal(&mut self) {
         self.cycles_spent += 1;
         self.next_access_type = AccessType::N;
     }
@@ -89,7 +89,7 @@ impl ARM7 {
         self.condition_lut[(self.regs.get_flags() | condition) as usize]
     }
 
-    pub(self) fn shift(&mut self, hw: &mut HW, shift_type: u32, operand: u32, shift: u32,
+    pub(self) fn shift(&mut self, shift_type: u32, operand: u32, shift: u32,
         immediate: bool, change_status: bool) -> u32 {
         if immediate && shift == 0 {
             match shift_type {
@@ -116,7 +116,7 @@ impl ARM7 {
             }
         } else if shift > 31 {
             assert_eq!(immediate, false);
-            if !immediate { self.internal(hw) }
+            if !immediate { self.internal() }
             match shift_type {
                 // LSL
                 0 => {
@@ -149,7 +149,7 @@ impl ARM7 {
                 _ => unreachable!(),
             }
         } else {
-            if !immediate { self.internal(hw) }
+            if !immediate { self.internal() }
             let change_status = change_status && shift != 0;
             match shift_type {
                 // LSL
@@ -201,10 +201,10 @@ impl ARM7 {
         self.adc(op1, !op2, change_status)
     }
 
-    pub(self) fn inc_mul_clocks(&mut self, hw: &mut HW, op1: u32, signed: bool) {
+    pub(self) fn inc_mul_clocks(&mut self, op1: u32, signed: bool) {
         let mut mask = 0xFF_FF_FF_00;
         loop {
-            self.internal(hw);
+            self.internal();
             let value = op1 & mask;
             if mask == 0 || value == 0 || signed && value == mask { break }
             mask <<= 8;
