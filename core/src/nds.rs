@@ -21,11 +21,14 @@ impl NDS {
     }
 
     pub fn emulate_frame(&mut self) {
+        let mut arm7_cycles_ran = 0;
         self.arm9.handle_irq(&mut self.hw);
         self.arm7_cycles_ahead += 2 * self.arm9.emulate_instr(&mut self.hw) as i32;
         while self.arm7_cycles_ahead >= 0 {
             self.arm7.handle_irq(&mut self.hw);
             self.arm7_cycles_ahead -= self.arm7.emulate_instr(&mut self.hw) as i32;
+            arm7_cycles_ran += 1;
         }
+        self.hw.clock(arm7_cycles_ran);
     }
 }
