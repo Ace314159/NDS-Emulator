@@ -6,6 +6,9 @@ use crate::num::{self, cast::FromPrimitive, NumCast, PrimInt, Unsigned};
 use super::HW;
 
 impl HW {
+    const MAIN_MEM_MASK: u32 = HW::MAIN_MEM_SIZE as u32 - 1;
+    const IWRAM_MASK: u32 = HW::IWRAM_SIZE as u32 - 1;
+
     fn read_mem<T: MemoryValue>(mem: &Vec<u8>, addr: u32) -> T {
         unsafe {
             *(&mem[addr as usize] as *const u8 as *const T)

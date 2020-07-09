@@ -1,4 +1,4 @@
-#[macro_use] use bitflags::*;
+use bitflags::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Reg {
@@ -104,9 +104,9 @@ impl RegValues {
         reg_values
     }
 
-    pub fn no_bios() -> RegValues {
+    pub fn no_bios(pc: u32) -> RegValues {
         let mut reg_values = RegValues::new();
-        reg_values.pc = 0x08000000;
+        reg_values.pc = pc;
         reg_values.cpsr.bits = 0x1F;
         reg_values
     }

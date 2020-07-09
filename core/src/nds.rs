@@ -14,8 +14,8 @@ impl NDS {
         let mut hw = HW::new(bios7, bios9, rom);
         NDS {
             arm7_cycles_ahead: 0,
-            arm7: ARM7::new(false, &mut hw),
-            arm9: ARM9::new(false, &mut hw),
+            arm7: ARM7::new(&mut hw),
+            arm9: ARM9::new(&mut hw),
             hw,
         }
     }

@@ -21,10 +21,10 @@ pub struct ARM7 {
 }
 
 impl ARM7 {
-    pub fn new(bios: bool, hw: &mut HW) -> ARM7 {
+    pub fn new(hw: &mut HW) -> ARM7 {
         let mut cpu = ARM7 {
             cycles_spent: 0,
-            regs: if bios { RegValues::new() } else { RegValues::no_bios() },
+            regs: RegValues::no_bios(hw.init_arm7()),
             instr_buffer: [0; 2],
             next_access_type: AccessType::N,
             do_internal: false,
