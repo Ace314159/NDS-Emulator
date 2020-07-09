@@ -89,7 +89,7 @@ impl ARM9 {
         self.condition_lut[(self.regs.get_flags() | condition) as usize]
     }
 
-    pub(self) fn shift(&mut self, hw: &mut HW, shift_type: u32, operand: u32, shift: u32,
+    pub(self) fn shift(&mut self, shift_type: u32, operand: u32, shift: u32,
         immediate: bool, change_status: bool) -> u32 {
         if immediate && shift == 0 {
             match shift_type {

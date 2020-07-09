@@ -73,7 +73,7 @@ impl ARM9 {
             let shift = (instr >> 8) & 0xF;
             let operand = instr & 0xFF;
             if (opcode < 0x5 || opcode > 0x7) && shift != 0 {
-                self.shift(hw, 3, operand, shift * 2, true, change_status)
+                self.shift(3, operand, shift * 2, true, change_status)
             } else { operand.rotate_right(shift * 2) }
         } else {
             let shift_by_reg = (instr >> 4) & 0x1 != 0;
@@ -88,7 +88,7 @@ impl ARM9 {
             let shift_type = (instr >> 5) & 0x3;
             let op2 = self.regs.get_reg_i(instr & 0xF);
             // TODO: I Cycle occurs too early
-            self.shift(hw, shift_type, op2, shift, !shift_by_reg,
+            self.shift(shift_type, op2, shift, !shift_by_reg,
                 change_status && (opcode < 0x5 || opcode > 0x7))
         };
         let op1 = self.regs.get_reg_i((instr >> 16) & 0xF);
@@ -241,7 +241,7 @@ impl ARM9 {
             let offset_reg = instr & 0xF;
             assert_ne!(offset_reg, 15);
             let operand = self.regs.get_reg_i(offset_reg);
-            self.shift(hw, shift_type, operand, shift, true, false)
+            self.shift(shift_type, operand, shift, true, false)
         } else {
             instr & 0xFFF
         };

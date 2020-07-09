@@ -43,7 +43,7 @@ impl ARM9 {
         let src = self.regs.get_reg_i((instr >> 3 & 0x7) as u32);
         let dest_reg = (instr & 0x7) as u32;
         assert_ne!(opcode, 0b11);
-        let result = self.shift(hw, opcode, src, offset, true, true);
+        let result = self.shift(opcode, src, offset, true, true);
 
         self.regs.set_n(result & 0x8000_0000 != 0);
         self.regs.set_z(result == 0);
@@ -103,12 +103,12 @@ impl ARM9 {
         let result = match opcode {
             0x0 => dest & src, // AND
             0x1 => dest ^ src, // XOR 
-            0x2 => self.shift(hw, 0, dest, src & 0xFF, false, true), // LSL
-            0x3 => self.shift(hw, 1, dest, src & 0xFF, false, true), // LSR
-            0x4 => self.shift(hw, 2, dest, src & 0xFF, false, true), // ASR
+            0x2 => self.shift(0, dest, src & 0xFF, false, true), // LSL
+            0x3 => self.shift(1, dest, src & 0xFF, false, true), // LSR
+            0x4 => self.shift(2, dest, src & 0xFF, false, true), // ASR
             0x5 => self.adc(dest, src, true), // ADC
             0x6 => self.sbc(dest, src, true), // SBC
-            0x7 => self.shift(hw, 3, dest, src & 0xFF, false, true), // ROR
+            0x7 => self.shift(3, dest, src & 0xFF, false, true), // ROR
             0x8 => dest & src, // TST
             0x9 => self.sub(0, src, true), // NEG
             0xA => self.sub(dest, src, true), // CMP
