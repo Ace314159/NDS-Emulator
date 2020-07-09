@@ -3,7 +3,7 @@ pub mod arm9;
 
 use std::mem::size_of;
 use crate::num::{self, cast::FromPrimitive, NumCast, PrimInt, Unsigned};
-use super::HW;
+use super::{HW, Scheduler};
 
 impl HW {
     const MAIN_MEM_MASK: u32 = HW::MAIN_MEM_SIZE as u32 - 1;
@@ -47,4 +47,9 @@ impl MemoryValue for u32 {}
 pub enum AccessType {
     N,
     S,
+}
+
+pub trait IORegister {
+    fn read(&self, byte: usize) -> u8;
+    fn write(&mut self, scheduler: &mut Scheduler, byte: usize, value: u8);
 }
