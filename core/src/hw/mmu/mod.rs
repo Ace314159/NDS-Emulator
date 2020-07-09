@@ -34,7 +34,7 @@ impl HW {
     }
 }
 
-pub trait MemoryValue: Unsigned + PrimInt + NumCast + FromPrimitive {}
+pub trait MemoryValue: Unsigned + PrimInt + NumCast + FromPrimitive + std::fmt::UpperHex {}
 
 impl MemoryValue for u8 {}
 impl MemoryValue for u16 {}

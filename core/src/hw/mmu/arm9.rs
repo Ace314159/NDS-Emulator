@@ -14,7 +14,7 @@ impl HW {
             MemoryRegion::OAM => todo!(),
             MemoryRegion::GBAROM => todo!(),
             MemoryRegion::GBARAM => todo!(),
-            MemoryRegion::BIOS => todo!(),
+            MemoryRegion::BIOS => HW::read_mem(&self.bios9, addr),
         }
     }
 
@@ -29,7 +29,7 @@ impl HW {
             MemoryRegion::OAM => todo!(),
             MemoryRegion::GBAROM => todo!(),
             MemoryRegion::GBARAM => todo!(),
-            MemoryRegion::BIOS => todo!(),
+            MemoryRegion::BIOS => warn!("Writing to BIOS9 0x{:08x} = 0x{:X}", addr, value),
         }
     }
 

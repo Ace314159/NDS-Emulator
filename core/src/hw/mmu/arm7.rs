@@ -5,7 +5,7 @@ type MemoryRegion = ARM7MemoryRegion;
 impl HW {
     pub fn arm7_read<T: MemoryValue>(&self, addr: u32) -> T {
         match MemoryRegion::from_addr(addr) {
-            MemoryRegion::BIOS => todo!(),
+            MemoryRegion::BIOS => HW::read_mem(&self.bios7, addr),
             MemoryRegion::MainMem => todo!(),
             MemoryRegion::WRAM => todo!(),
             MemoryRegion::IO => todo!(), 
@@ -14,7 +14,7 @@ impl HW {
 
     pub fn arm7_write<T: MemoryValue>(&mut self, addr: u32, value: T) {
         match MemoryRegion::from_addr(addr) {
-            MemoryRegion::BIOS => todo!(),
+            MemoryRegion::BIOS => warn!("Writing to BIOS7 0x{:08x} = 0x{:X}", addr, value),
             MemoryRegion::MainMem => todo!(),
             MemoryRegion::WRAM => todo!(),
             MemoryRegion::IO => todo!(), 
