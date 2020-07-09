@@ -1,10 +1,12 @@
 mod header;
 pub mod mmu;
 mod scheduler;
+mod interrupt_controller;
 
 use header::Header;
 pub use mmu::{AccessType, MemoryValue};
 use scheduler::Scheduler;
+use interrupt_controller::InterruptController;
 
 pub struct HW {
     bios7: Vec<u8>,
@@ -14,6 +16,8 @@ pub struct HW {
     main_mem: Vec<u8>,
     iwram: Vec<u8>,
 
+    interrupts7: InterruptController,
+    interrupts9: InterruptController,
     scheduler: Scheduler,
 }
 
@@ -34,6 +38,8 @@ impl HW {
             main_mem,
             iwram: vec![0; HW::IWRAM_SIZE],
 
+            interrupts7: InterruptController::new(),
+            interrupts9: InterruptController::new(),
             scheduler: Scheduler::new(),
         }
     }
@@ -42,7 +48,11 @@ impl HW {
         self.handle_events();
     }
 
-    pub fn interrupts_requested(&self) -> bool {
-        false
+    pub fn arm7_interrupts_requested(&self) -> bool {
+        self.interrupts7.interrupts_requested()
+    }
+
+    pub fn arm9_interrupts_requested(&self) -> bool {
+        self.interrupts9.interrupts_requested()
     }
 }
