@@ -10,8 +10,8 @@ pub struct NDS {
 }
 
 impl NDS {
-    pub fn new() -> Self {
-        let mut hw = HW::new();
+    pub fn new(bios7: Vec<u8>, bios9: Vec<u8>, rom: Vec<u8>) -> Self {
+        let mut hw = HW::new(bios7, bios9, rom);
         NDS {
             arm7_cycles_ahead: 0,
             arm7: ARM7::new(false, &mut hw),
