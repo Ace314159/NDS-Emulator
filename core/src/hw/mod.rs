@@ -38,10 +38,8 @@ impl HW {
         }
     }
 
-    pub fn clock(&mut self, cycles: usize) {
-        for _ in 0..cycles {
-            self.handle_events();
-        }
+    pub fn clock(&mut self) {
+        self.handle_events();
     }
 
     pub fn interrupts_requested(&self) -> bool {
