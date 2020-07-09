@@ -33,8 +33,9 @@ impl HW {
         }
     }
 
-    pub fn arm9_get_access_time<T: MemoryValue>(&mut self, access_type: AccessType, addr: u32) -> usize {
-        todo!()
+    pub fn arm9_get_access_time<T: MemoryValue>(&mut self, _access_type: AccessType, _addr: u32) -> usize {
+        // TODO: Use accurate timings
+        1
     }
 }
 
