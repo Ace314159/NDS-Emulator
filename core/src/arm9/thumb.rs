@@ -1,4 +1,3 @@
-use log::*;
 use super::{
     ARM9, HW,
     instructions::{InstructionFlag, InstructionHandler, InstrFlagSet, InstrFlagClear},

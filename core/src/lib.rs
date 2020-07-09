@@ -1,3 +1,4 @@
+#[macro_use] extern crate log;
 use num_traits as num;
 pub use simplelog;
 
