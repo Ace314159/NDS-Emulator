@@ -29,11 +29,11 @@ impl HW {
     }
 
     pub fn init_arm7(&mut self) -> u32 {
-        let entry_region = MemoryRegion::from_addr(self.rom_header.arm7_entry_addr);
-        let addr = self.rom_header.arm7_entry_addr as usize;
+        let region = MemoryRegion::from_addr(self.rom_header.arm7_ram_addr);
+        let addr = self.rom_header.arm7_ram_addr as usize;
         let rom_offset = self.rom_header.arm7_rom_offset as usize;
         let size = self.rom_header.arm7_size as usize;
-        match entry_region {
+        match region {
             MemoryRegion::MainMem => {
                 let addr = addr & HW::MAIN_MEM_MASK as usize;
                 self.main_mem[addr..addr + size].copy_from_slice(&self.rom[rom_offset..rom_offset + size])
@@ -42,7 +42,7 @@ impl HW {
                 let addr = addr & HW::IWRAM_MASK as usize;
                 self.iwram[addr..addr + size].copy_from_slice(&self.rom[rom_offset..rom_offset + size])
             },
-            _ => panic!("Invalid ARM7 Entry Address: 0x{:08X}", self.rom_header.arm7_entry_addr),
+            _ => panic!("Invalid ARM7 Entry Address: 0x{:08X}", self.rom_header.arm7_ram_addr),
         };
         self.rom_header.arm7_entry_addr
     }
