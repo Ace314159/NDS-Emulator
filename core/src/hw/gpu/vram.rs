@@ -1,9 +1,10 @@
 use std::collections::HashMap;
+use std::ops::Range;
 
 pub struct VRAM {
     mem: [Vec<u8>; 9],
     mappings: HashMap<u32, Mapping>, // TODO: Switch to using array
-    mapping_ranges: [(u32, u32); 9],
+    mapping_ranges: [Range<u32>; 9],
 }
 
 impl VRAM {
@@ -31,7 +32,7 @@ impl VRAM {
                 vec![0; VRAM::BANKS_LEN[8]],
             ],
             mappings: HashMap::new(),
-            mapping_ranges: [(0, 0); 9],
+            mapping_ranges: [0..0, 0..0, 0..0, 0..0, 0..0, 0..0, 0..0, 0..0, 0..0],
         }
     }
 
@@ -40,9 +41,8 @@ impl VRAM {
         let _offset = value >> 3 & VRAM::OFS_MASKS[index];
         let enable = value >> 7 & 0x1 != 0;
 
-        if self.mapping_ranges[index].0 != 0 {
-            let range = self.mapping_ranges[index].0..self.mapping_ranges[1].1;
-            for addr in range.step_by(VRAM::MAPPING_LEN) {
+        if self.mapping_ranges[index].start != 0 {
+            for addr in self.mapping_ranges[index].clone().step_by(VRAM::MAPPING_LEN) {
                 self.mappings.remove(&addr);
             }
         }
@@ -51,9 +51,8 @@ impl VRAM {
         match mst {
             0 => {
                 let start_addr = VRAM::LCD_ADDRESSES[index];
-                self.mapping_ranges[index] = (start_addr, start_addr + VRAM::BANKS_LEN[index] as u32);
-                let range = self.mapping_ranges[index].0..self.mapping_ranges[index].1;
-                for addr in range.step_by(VRAM::MAPPING_LEN) {
+                self.mapping_ranges[index] = start_addr..start_addr + VRAM::BANKS_LEN[index] as u32;
+                for addr in self.mapping_ranges[index].clone().step_by(VRAM::MAPPING_LEN) {
                     self.mappings.insert(addr, Mapping::new(index, start_addr));
                 }
             },
