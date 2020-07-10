@@ -26,7 +26,7 @@ pub struct Scheduler {
 
 impl Scheduler {
     pub fn new() -> Scheduler {
-        let mut queue = PriorityQueue::new();
+        let queue = PriorityQueue::new();
         Scheduler {
             cycle: 0,
             event_queue: queue,
@@ -34,7 +34,7 @@ impl Scheduler {
     }
 
     pub fn get_next_event(&mut self) -> Option<EventType> {
-        // There should always be at least one event
+        if self.event_queue.len() == 0 { return None }
         let (_event_type, cycle) = self.event_queue.peek().unwrap();
         if Reverse(self.cycle) == *cycle {
             Some(self.event_queue.pop().unwrap().0)
