@@ -13,6 +13,9 @@ pub struct GPU {
 }
 
 impl GPU {
+    pub const WIDTH: usize = 256;
+    pub const HEIGHT: usize = 192;
+
     pub fn new() -> GPU {
         GPU {
             engine_a: Engine2D::new(),

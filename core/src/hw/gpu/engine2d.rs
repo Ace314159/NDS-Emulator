@@ -1,4 +1,5 @@
 use super::registers::*;
+use super::{GPU, VRAM};
 use crate::hw::{
     mmu::IORegister,
     interrupt_controller::InterruptRequest,
@@ -38,23 +39,21 @@ pub struct Engine2D {
     // Palettes
     bg_palettes: [u16; 0x100],
     obj_palettes: [u16; 0x100],
-    // VRAM
+    // VRAM - TODO: Use VRAM banks
     pub vram: Vec<u8>,
     pub oam: Vec<u8>,
 
     // Important Rendering Variables
-    pixels: Vec<u16>,
+    pub pixels: Vec<u16>,
     rendered_frame: bool,
     dot: u16,
-    bg_lines: [[u16; Engine2D::WIDTH]; 4],
-    objs_line: [OBJPixel; Engine2D::WIDTH],
-    windows_lines: [[bool; Engine2D::WIDTH]; 3],
+    bg_lines: [[u16; GPU::WIDTH]; 4],
+    objs_line: [OBJPixel; GPU::WIDTH],
+    windows_lines: [[bool; GPU::WIDTH]; 3],
 }
 
 impl Engine2D {
     const TRANSPARENT_COLOR: u16 = 0x8000;
-    const WIDTH: usize = 256;
-    const HEIGHT: usize = 192;
 
     pub fn new() -> Self {
         Engine2D {
@@ -94,36 +93,36 @@ impl Engine2D {
             oam: vec![0; 0x400],
 
             // Important Rendering Variables
-            pixels: vec![0; Engine2D::WIDTH * Engine2D::HEIGHT],
+            pixels: vec![0; GPU::WIDTH * GPU::HEIGHT],
             rendered_frame: false,
             dot: 0,
-            bg_lines: [[0; Engine2D::WIDTH]; 4],
-            objs_line: [OBJPixel::none(); Engine2D::WIDTH],
-            windows_lines: [[false; Engine2D::WIDTH]; 3],
+            bg_lines: [[0; GPU::WIDTH]; 4],
+            objs_line: [OBJPixel::none(); GPU::WIDTH],
+            windows_lines: [[false; GPU::WIDTH]; 3],
         }
     }
 
-    pub fn emulate_dot(&mut self) -> InterruptRequest {
+    pub fn emulate_dot(&mut self, vram: &VRAM) -> InterruptRequest {
         let mut interrupts = InterruptRequest::empty();
-        if self.dot < 240 { // Visible
+        if self.dot < 256 { // Visible
             self.dispstat.remove(DISPSTATFlags::HBLANK);
         } else { // HBlank
-            if self.dot == 240 {
+            if self.dot == 256 {
                 if self.dispstat.contains(DISPSTATFlags::HBLANK_IRQ_ENABLE) {
                     interrupts.insert(InterruptRequest::HBLANK);
                 }
             }
-            if self.dot == 250 { // TODO: Take into account half
+            if self.dot == 267 { // TODO: Take into account half and differentiate between ARM7 and ARM9
                 self.dispstat.insert(DISPSTATFlags::HBLANK);
                 // TODO: HBlank DMA
-                //if self.vcount < 160 { self.hblank_called = true } // HDMA only occurs on visible scanlines
+                //if self.vcount < 192 { self.hblank_called = true } // HDMA only occurs on visible scanlines
             }
         }
-        if self.vcount < 160 && self.vcount != 227 { // Visible
+        if self.vcount < 192 { // Visible
             self.dispstat.remove(DISPSTATFlags::VBLANK);
-            if self.dot == 241 { self.render_line() }
+            if self.dot == 257 { self.render_line(vram) }
         } else { // VBlank
-            if self.vcount == 160 && self.dot == 0 {
+            if self.vcount == 192 && self.dot == 0 {
                 // TODO: VBlank DMA
                 //self.vblank_called = true;
                 if self.dispstat.contains(DISPSTATFlags::VBLANK_IRQ_ENABLE) {
@@ -133,18 +132,18 @@ impl Engine2D {
             self.dispstat.insert(DISPSTATFlags::VBLANK);
         }
 
-        if self.vcount == 160 && self.dot == 0 {
+        if self.vcount == 192 && self.dot == 0 {
             self.rendered_frame = true;
         }
 
         self.dot += 1;
-        if self.dot == 308 {
+        if self.dot == 355 {
             self.dot = 0;
-            if self.vcount == 227 {
+            if self.vcount == 262 {
                 self.bgxs_latch = self.bgxs.clone();
                 self.bgys_latch = self.bgys.clone();
             }
-            self.vcount = (self.vcount + 1) % 228;
+            self.vcount = (self.vcount + 1) % 263;
             if self.vcount == self.dispstat.vcount_setting {
                 self.dispstat.insert(DISPSTATFlags::VCOUNTER);
                 if self.dispstat.contains(DISPSTATFlags::VCOUNTER_IRQ_ENALBE) {
@@ -170,7 +169,24 @@ impl Engine2D {
         [(64, 64), (64, 32), (32, 64)],
     ];
 
-    fn render_line(&mut self) {
+    fn render_line(&mut self, vram: &VRAM) {
+        match self.dispcnt.display_mode {
+            DisplayMode::Mode0 => for dot_x in 0..GPU::WIDTH {
+                self.pixels[self.vcount as usize * GPU::WIDTH + dot_x] = 0x7FFF;
+            },
+            DisplayMode::Mode1 => self.render_normal_line(),
+            DisplayMode::Mode2 => for dot_x in 0..GPU::WIDTH {
+                let index = self.vcount as usize * GPU::WIDTH + dot_x;
+                let color = if let Some(bank) = vram.get_lcdc_bank(self.dispcnt.vram_block) {
+                    u16::from_le_bytes([bank[index * 2], bank[index * 2 + 1]])
+                } else { 0 };
+                self.pixels[index] = color;
+            },
+            DisplayMode::Mode3 => todo!(),
+        }
+    }
+
+    fn render_normal_line(&mut self) {
         if self.dispcnt.contains(DISPCNTFlags::DISPLAY_WINDOW0) { self.render_window(0) }
         if self.dispcnt.contains(DISPCNTFlags::DISPLAY_WINDOW1) { self.render_window(1) }
         if self.dispcnt.contains(DISPCNTFlags::DISPLAY_OBJ) { self.render_objs_line() }
@@ -205,7 +221,7 @@ impl Engine2D {
     }
     
     fn process_lines(&mut self, start_line: usize, end_line: usize) {
-        let start_index = self.vcount as usize * Engine2D::WIDTH;
+        let start_index = self.vcount as usize * GPU::WIDTH;
 
         let mut bgs : Vec<(usize, u8)> = Vec::new();
         for bg_i in start_line..=end_line {
@@ -220,7 +236,7 @@ impl Engine2D {
             self.dispcnt.contains(DISPCNTFlags::DISPLAY_OBJ),
         ];
         let pixels = &mut self.pixels;
-        for dot_x in 0..Engine2D::WIDTH {
+        for dot_x in 0..GPU::WIDTH {
             let window_control = if self.windows_lines[0][dot_x] {
                 self.win_0_cnt
             } else if self.windows_lines[1][dot_x] {
@@ -326,7 +342,7 @@ impl Engine2D {
             !(y1..y2).contains(&vcount)
         };
         if y_in_window {
-            for dot_x in 0..Engine2D::WIDTH as u8 {
+            for dot_x in 0..GPU::WIDTH as u8 {
                 self.windows_lines[window_i][dot_x as usize] = false;
             }
             return
@@ -335,11 +351,11 @@ impl Engine2D {
         let x1 = self.winhs[window_i].coord1;
         let x2 = self.winhs[window_i].coord2;
         if x1 > x2 {
-            for dot_x in 0..Engine2D::WIDTH as u8 {
+            for dot_x in 0..GPU::WIDTH as u8 {
                 self.windows_lines[window_i][dot_x as usize] = dot_x >= x1 || dot_x < x2;
             }
         } else {
-            for dot_x in 0..Engine2D::WIDTH as u8 {
+            for dot_x in 0..GPU::WIDTH as u8 {
                 self.windows_lines[window_i][dot_x as usize] = (x1..x2).contains(&dot_x);
             }
         }
@@ -372,7 +388,7 @@ impl Engine2D {
         objs.sort_by_key(|a| (*a)[2] >> 10 & 0x3);
         let obj_window_enabled = self.dispcnt.flags.contains(DISPCNTFlags::DISPLAY_OBJ_WINDOW);
 
-        for dot_x in 0..Engine2D::WIDTH {
+        for dot_x in 0..GPU::WIDTH {
             self.objs_line[dot_x] = OBJPixel::none();
             self.windows_lines[2][dot_x] = false;
             let mut set_color = false;
@@ -466,7 +482,7 @@ impl Engine2D {
             (self.mosaic.bg_size.h_size as usize, self.mosaic.bg_size.v_size as usize)
         } else { (1, 1) };
 
-        for dot_x in 0..Engine2D::WIDTH {
+        for dot_x in 0..GPU::WIDTH {
             let (x_raw, y_raw) = (base_x.integer(), base_y.integer());
             base_x += dx;
             base_y += dy;
@@ -504,7 +520,7 @@ impl Engine2D {
         } else { (1, 1) };
 
         let dot_y = self.vcount as usize;
-        for dot_x in 0..Engine2D::WIDTH {
+        for dot_x in 0..GPU::WIDTH {
             let x = (dot_x + x_offset) / mosaic_x * mosaic_x;
             let y = (dot_y + y_offset) / mosaic_y * mosaic_y;
             // Get Screen Entry
