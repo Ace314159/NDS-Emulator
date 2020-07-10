@@ -21,12 +21,21 @@ impl NDS {
     }
 
     pub fn emulate_frame(&mut self) {
-        self.arm7.handle_irq(&mut self.hw);
-        self.arm9_cycles_ahead += 2 * self.arm7.emulate_instr(&mut self.hw) as i32;
-        self.hw.clock();
-        while self.arm9_cycles_ahead >= 0 {
-            self.arm9.handle_irq(&mut self.hw);
-            self.arm9_cycles_ahead -= self.arm9.emulate_instr(&mut self.hw) as i32;
+        while !self.hw.rendered_frame() {
+            self.arm7.handle_irq(&mut self.hw);
+            self.arm9_cycles_ahead += 2 * self.arm7.emulate_instr(&mut self.hw) as i32;
+            self.hw.clock();
+            while self.arm9_cycles_ahead >= 0 {
+                self.arm9.handle_irq(&mut self.hw);
+                self.arm9_cycles_ahead -= self.arm9.emulate_instr(&mut self.hw) as i32;
+            }
         }
     }
+
+    pub fn get_screens(&self) -> [&Vec<u16>; 2] {
+        self.hw.gpu.get_screens()
+    }
 }
+
+pub const WIDTH: usize = crate::hw::GPU::WIDTH;
+pub const HEIGHT: usize = crate::hw::GPU::HEIGHT;

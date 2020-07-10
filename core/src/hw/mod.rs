@@ -7,7 +7,7 @@ mod interrupt_controller;
 use header::Header;
 pub use mmu::{AccessType, MemoryValue};
 use scheduler::Scheduler;
-use gpu::GPU;
+pub use gpu::GPU;
 use interrupt_controller::InterruptController;
 
 pub struct HW {
@@ -19,7 +19,7 @@ pub struct HW {
     main_mem: Vec<u8>,
     iwram: Vec<u8>,
     // Devices
-    gpu: GPU,
+    pub gpu: GPU,
     interrupts7: InterruptController,
     interrupts9: InterruptController,
     // Misc
@@ -63,5 +63,9 @@ impl HW {
 
     pub fn arm9_interrupts_requested(&self) -> bool {
         self.interrupts9.interrupts_requested()
+    }
+
+    pub fn rendered_frame(&mut self) -> bool {
+        self.gpu.rendered_frame()
     }
 }

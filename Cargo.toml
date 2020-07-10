@@ -8,4 +8,8 @@ edition = "2018"
 members = ["core"]
 
 [dependencies]
+imgui = "0.4.0"
+imgui-opengl-renderer = "0.8.0"
+gl = "0.14.0"
+glfw = "0.39.0"
 nds-core = { path = "core" }
