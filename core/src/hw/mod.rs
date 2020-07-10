@@ -54,6 +54,7 @@ impl HW {
 
     pub fn clock(&mut self) {
         self.handle_events();
+        self.gpu.emulate_dot();
     }
 
     pub fn arm7_interrupts_requested(&self) -> bool {

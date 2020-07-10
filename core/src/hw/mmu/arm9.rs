@@ -1,4 +1,5 @@
 use super::{AccessType, HW, MemoryValue};
+use crate::hw::gpu::Engine2D;
 
 type MemoryRegion = ARM9MemoryRegion;
 
@@ -8,10 +9,11 @@ impl HW {
             MemoryRegion::MainMem => HW::read_mem(&self.main_mem, addr & HW::MAIN_MEM_MASK),
             MemoryRegion::WRAM => todo!(),
             MemoryRegion::SharedWRAM => todo!(),
-            MemoryRegion::IO => todo!(),
-            MemoryRegion::Palette => todo!(),
+            MemoryRegion::IO => HW::read_from_bytes(self, &HW::arm9_read_io_register, addr),
+            MemoryRegion::Palette =>
+                HW::read_from_bytes(self.gpu_engine(addr),&Engine2D::read_palette_ram, addr),
             MemoryRegion::VRAM => todo!(),
-            MemoryRegion::OAM => todo!(),
+            MemoryRegion::OAM => HW::read_mem(&self.gpu_engine(addr).oam, addr),
             MemoryRegion::GBAROM => todo!(),
             MemoryRegion::GBARAM => todo!(),
             MemoryRegion::BIOS => HW::read_mem(&self.bios9, addr),
@@ -23,10 +25,11 @@ impl HW {
             MemoryRegion::MainMem => HW::write_mem(&mut self.main_mem, addr & HW::MAIN_MEM_MASK, value),
             MemoryRegion::WRAM => todo!(),
             MemoryRegion::SharedWRAM => todo!(),
-            MemoryRegion::IO => todo!(),
-            MemoryRegion::Palette => todo!(),
+            MemoryRegion::IO => HW::write_from_bytes(self, &HW::arm9_write_io_register, addr, value),
+            MemoryRegion::Palette =>
+                HW::write_from_bytes(self.gpu_engine_mut(addr),&Engine2D::write_palette_ram, addr, value),
             MemoryRegion::VRAM => todo!(),
-            MemoryRegion::OAM => todo!(),
+            MemoryRegion::OAM => HW::write_mem(&mut self.gpu_engine_mut(addr).oam, addr, value),
             MemoryRegion::GBAROM => todo!(),
             MemoryRegion::GBARAM => todo!(),
             MemoryRegion::BIOS => warn!("Writing to BIOS9 0x{:08x} = 0x{:X}", addr, value),
@@ -49,6 +52,30 @@ impl HW {
             _ => panic!("Invalid ARM7 Entry Address: 0x{:08X}", self.rom_header.arm9_entry_addr),
         };
         self.rom_header.arm9_entry_addr
+    }
+
+    fn arm9_read_io_register(&self, addr: u32) -> u8 {
+        match addr {
+            0x0400_0000 ..= 0x0400_006F => self.gpu.engine_a.read_register(addr),
+            0x0400_1000 ..= 0x0400_106F => self.gpu.engine_b.read_register(addr),
+            _ => { warn!("Ignoring ARM9 IO Register Read at 0x{:08X}", addr); 0 }
+        }
+    }
+
+    fn arm9_write_io_register(&mut self, addr: u32, value: u8) {
+        match addr {
+            0x0400_0000 ..= 0x0400_006F => self.gpu.engine_a.write_register(&mut self.scheduler, addr, value),
+            0x0400_1000 ..= 0x0400_106F => self.gpu.engine_b.write_register(&mut self.scheduler, addr, value),
+            _ => warn!("Ignoring ARM9 IO Register Write 0x{:08X} = {:02X}", addr, value),
+        }
+    }
+
+    fn gpu_engine(&self, addr: u32) -> &Engine2D {
+        if addr & 0xFFF < 0x400 { &self.gpu.engine_a } else { &self.gpu.engine_b }
+    }
+
+    fn gpu_engine_mut(&mut self, addr: u32) -> &mut Engine2D {
+        if addr & 0xFFF < 0x400 { &mut self.gpu.engine_a } else { &mut self.gpu.engine_b }
     }
 }
 

@@ -14,29 +14,52 @@ pub enum BGMode {
     Mode3 = 3,
     Mode4 = 4,
     Mode5 = 5,
+    Mode6 = 6,
 }
 
 impl BGMode {
-    pub fn get(mode: u8) -> BGMode {
+    pub fn from_bits(bits: u8) -> Self {
         use BGMode::*;
-        match mode {
+        match bits {
             0 => Mode0,
             1 => Mode1,
             2 => Mode2,
             3 => Mode3,
             4 => Mode4,
             5 => Mode5,
+            6 => Mode6,
             _ => panic!("Invalid BG Mode!"),
         }
     }
 }
 
+#[derive(Clone, Copy, PartialEq)]
+pub enum DisplayMode {
+    Mode0 = 0,
+    Mode1 = 1,
+    Mode2 = 2,
+    Mode3 = 3,
+}
+
+impl DisplayMode {
+    pub fn from_bits(bits: u8) -> Self {
+        use DisplayMode::*;
+        match bits {
+            0 => Mode0,
+            1 => Mode1,
+            2 => Mode2, // TODO: Only Engine A
+            3 => Mode3, // TODO: Only Engine A
+            _ => unreachable!(),
+        }
+    }
+}
+
 bitflags! {
-    pub struct DISPCNTFlags: u16 {
-        const CGB_MODE = 1 << 3;
-        const DISPLAY_FRAME_SELECT = 1 << 4;
-        const HBLANK_INTERVAL_FREE = 1 << 5;
-        const OBJ_TILES1D = 1 << 6;
+    pub struct DISPCNTFlags: u32 {
+        const IS_3D = 1 << 3; // TODO: Only Engine A
+        const TILE_OBJ_1D = 1 << 4;
+        const BITMAP_OBJ_SQUARE = 1 << 5;
+        const BITMAP_OBJ_1D = 1 << 6;
         const FORCED_BLANK = 1 << 7;
         const DISPLAY_BG0 = 1 << 8;
         const DISPLAY_BG1 = 1 << 9;
@@ -46,19 +69,33 @@ bitflags! {
         const DISPLAY_WINDOW0 = 1 << 13;
         const DISPLAY_WINDOW1 = 1 << 14;
         const DISPLAY_OBJ_WINDOW = 1 << 15;
+        const BITMAP_OBJ_1D_BOUND = 1 << 22;
+        const OBJ_PROCESS_HBLANK = 1 << 23;
+        const BG_EXTENDED_PALETTES = 1 << 30;
+        const OBJ_EXTENDED_PALETTES = 1 << 31;
     }
 }
 
 pub struct DISPCNT {
     pub flags: DISPCNTFlags,
-    pub mode: BGMode,
+    pub bg_mode: BGMode,
+    pub display_mode: DisplayMode,
+    pub vram_block: u8, // TODO: Only Engine A
+    pub tile_obj_1d_bound: u8,
+    pub char_base: u8,
+    pub screen_base: u8,
 }
 
 impl DISPCNT {
     pub fn new() -> DISPCNT {
         DISPCNT {
             flags: DISPCNTFlags::empty(),
-            mode: BGMode::Mode0,
+            bg_mode: BGMode::Mode0,
+            display_mode: DisplayMode::Mode0,
+            vram_block: 0, // TODO: Only Engine A
+            tile_obj_1d_bound: 0,
+            char_base: 0,
+            screen_base: 0,
         }
     }
     
@@ -84,8 +121,10 @@ impl DerefMut for DISPCNT {
 impl IORegister for DISPCNT {
     fn read(&self, byte: usize) -> u8 {
         match byte {
-            0 => (self.flags.bits as u8) | (self.mode as u8),
+            0 => (self.flags.bits >> 0) as u8 | self.bg_mode as u8,
             1 => (self.flags.bits >> 8) as u8,
+            2 => (self.flags.bits >> 16) as u8 | self.tile_obj_1d_bound << 4 | self.vram_block << 2 | self.display_mode as u8,
+            3 => (self.flags.bits >> 24) as u8 | self.screen_base << 3 | self.char_base,
             _ => unreachable!(),
         }
     }
@@ -93,10 +132,21 @@ impl IORegister for DISPCNT {
     fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8) {
         match byte {
             0 => {
-                self.mode = BGMode::get(value & 0x7);
-                self.flags.bits = self.flags.bits & !0x00FF | (value as u16) & DISPCNTFlags::all().bits; 
+                self.bg_mode = BGMode::from_bits(value & 0x7);
+                self.flags.bits = self.flags.bits & !0x0000_00FF | (value as u32) & DISPCNTFlags::all().bits; 
             },
-            1 => self.flags.bits = self.flags.bits & !0xFF00 | (value as u16) << 8 & DISPCNTFlags::all().bits,
+            1 => self.flags.bits = self.flags.bits & !0x0000_FF00 | (value as u32) << 8 & DISPCNTFlags::all().bits,
+            2 => {
+                self.display_mode = DisplayMode::from_bits(value & 0x3);
+                self.vram_block = value >> 2 & 0x3;
+                self.tile_obj_1d_bound = value >> 4 & 0x3;
+                self.flags.bits = self.flags.bits & !0x00FF_0000 | (value as u32) << 16 & DISPCNTFlags::all().bits;
+            },
+            3 => {
+                self.flags.bits = self.flags.bits & !0xFF00_0000 | (value as u32) << 24 & DISPCNTFlags::all().bits;
+                self.screen_base = value >> 3 & 0x7;
+                self.char_base = value & 0x7;
+            },
             _ => unreachable!(),
         }
     }
@@ -115,7 +165,7 @@ bitflags! {
 
 pub struct DISPSTAT {
     pub flags: DISPSTATFlags,
-    pub vcount_setting: u8,
+    pub vcount_setting: u16,
 }
 
 impl DISPSTAT {
@@ -144,7 +194,7 @@ impl DerefMut for DISPSTAT {
 impl IORegister for DISPSTAT {
     fn read(&self, byte: usize) -> u8 {
         match byte {
-            0 => self.flags.bits as u8,
+            0 => (self.vcount_setting >> 1) as u8 & 0x80 | self.flags.bits as u8,
             1 => self.vcount_setting as u8,
             _ => unreachable!(),
         }
@@ -156,8 +206,9 @@ impl IORegister for DISPSTAT {
                 let old_bits = self.flags.bits;
                 self.flags.bits = self.flags.bits & 0x7 | ((value as u16) & !0x7 & DISPSTATFlags::all().bits);
                 assert_eq!(old_bits & 0x7, self.flags.bits & 0x7);
+                self.vcount_setting = self.vcount_setting & !0x100 | (value as u16) << 8;
             },
-            1 => self.vcount_setting = value as u8,
+            1 => self.vcount_setting = self.vcount_setting & !0xFF | value as u16,
             _ => unreachable!(),
         }
     }
@@ -408,8 +459,8 @@ impl IORegister for WindowControl {
 }
 
 pub struct MosaicSize {
-    pub h_size: u8,
-    pub v_size: u8,
+    pub h_size: u16,
+    pub v_size: u16,
 }
 
 impl MosaicSize {
@@ -421,12 +472,12 @@ impl MosaicSize {
     }
 
     pub fn read(&self) -> u8 {
-        (self.v_size - 1) << 4 | (self.h_size - 1)
+        (self.v_size as u8 - 1) << 4 | (self.h_size as u8 - 1)
     }
 
     pub fn write(&mut self, value: u8) {
-        self.h_size = (value & 0xF) + 1;
-        self.v_size = (value >> 4) + 1;
+        self.h_size = (value as u16 & 0xF) + 1;
+        self.v_size = (value as u16 >> 4) + 1;
     }
 }
 
