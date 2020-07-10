@@ -1,12 +1,15 @@
 mod registers;
 mod engine2d;
+mod vram;
 
-pub use engine2d::Engine2D;
 use crate::hw::interrupt_controller::InterruptRequest;
+pub use engine2d::Engine2D;
+use vram::VRAM;
 
 pub struct GPU {
     pub engine_a: Engine2D,
     pub engine_b: Engine2D,
+    pub vram: VRAM,
 }
 
 impl GPU {
@@ -14,6 +17,7 @@ impl GPU {
         GPU {
             engine_a: Engine2D::new(),
             engine_b: Engine2D::new(),
+            vram: VRAM::new(),
         }
     }
 

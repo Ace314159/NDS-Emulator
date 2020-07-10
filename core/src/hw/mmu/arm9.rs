@@ -1,3 +1,4 @@
+use crate::num;
 use super::{AccessType, HW, MemoryValue};
 use crate::hw::gpu::Engine2D;
 
@@ -12,7 +13,7 @@ impl HW {
             MemoryRegion::IO => HW::read_from_bytes(self, &HW::arm9_read_io_register, addr),
             MemoryRegion::Palette =>
                 HW::read_from_bytes(self.gpu_engine(addr),&Engine2D::read_palette_ram, addr),
-            MemoryRegion::VRAM => todo!(),
+            MemoryRegion::VRAM => self.read_vram(addr),
             MemoryRegion::OAM => HW::read_mem(&self.gpu_engine(addr).oam, addr),
             MemoryRegion::GBAROM => todo!(),
             MemoryRegion::GBARAM => todo!(),
@@ -28,7 +29,7 @@ impl HW {
             MemoryRegion::IO => HW::write_from_bytes(self, &HW::arm9_write_io_register, addr, value),
             MemoryRegion::Palette =>
                 HW::write_from_bytes(self.gpu_engine_mut(addr),&Engine2D::write_palette_ram, addr, value),
-            MemoryRegion::VRAM => todo!(),
+            MemoryRegion::VRAM => self.write_vram(addr, value),
             MemoryRegion::OAM => HW::write_mem(&mut self.gpu_engine_mut(addr).oam, addr, value),
             MemoryRegion::GBAROM => todo!(),
             MemoryRegion::GBARAM => todo!(),
@@ -58,6 +59,8 @@ impl HW {
         match addr {
             0x0400_0000 ..= 0x0400_006F => self.gpu.engine_a.read_register(addr),
             0x0400_1000 ..= 0x0400_106F => self.gpu.engine_b.read_register(addr),
+            0x0400_0240 ..= 0x0400_0246 => 0,
+            0x0400_0248 ..= 0x0400_0249 => 0,
             _ => { warn!("Ignoring ARM9 IO Register Read at 0x{:08X}", addr); 0 }
         }
     }
@@ -66,6 +69,8 @@ impl HW {
         match addr {
             0x0400_0000 ..= 0x0400_006F => self.gpu.engine_a.write_register(&mut self.scheduler, addr, value),
             0x0400_1000 ..= 0x0400_106F => self.gpu.engine_b.write_register(&mut self.scheduler, addr, value),
+            0x0400_0240 ..= 0x0400_0246 => self.gpu.vram.write_vram_cnt(addr as usize & 0xF, value),
+            0x0400_0248 ..= 0x0400_0249 => self.gpu.vram.write_vram_cnt(addr as usize & 0xF - 1, value),
             _ => warn!("Ignoring ARM9 IO Register Write 0x{:08X} = {:02X}", addr, value),
         }
     }
@@ -76,6 +81,18 @@ impl HW {
 
     fn gpu_engine_mut(&mut self, addr: u32) -> &mut Engine2D {
         if addr & 0xFFF < 0x400 { &mut self.gpu.engine_a } else { &mut self.gpu.engine_b }
+    }
+
+    fn read_vram<T: MemoryValue>(&self, addr: u32) -> T {
+        if let Some((mem, addr)) = self.gpu.vram.get_mem(addr) {
+            HW::read_mem(mem, addr)
+        } else { num::zero() }
+    }
+
+    fn write_vram<T: MemoryValue>(&mut self, addr: u32, value: T) {
+        if let Some((mem, addr)) = self.gpu.vram.get_mem_mut(addr) {
+            HW::write_mem(mem, addr, value)
+        }
     }
 }
 
