@@ -16,6 +16,8 @@ pub struct HW {
     bios9: Vec<u8>,
     rom_header: Header,
     rom: Vec<u8>,
+    itcm: Vec<u8>,
+    dtcm: Vec<u8>,
     main_mem: Vec<u8>,
     iwram: Vec<u8>,
     // Devices
@@ -27,6 +29,7 @@ pub struct HW {
 }
 
 impl HW {
+    const ITCM_SIZE: usize = 0x8000;
     const MAIN_MEM_SIZE: usize = 0x20_0000;
     const IWRAM_SIZE: usize = 0x1_0000;
 
@@ -41,6 +44,8 @@ impl HW {
             bios9,
             rom_header,
             rom,
+            itcm: vec![0; HW::ITCM_SIZE],
+            dtcm: vec![0; 0x4000],
             main_mem,
             iwram: vec![0; HW::IWRAM_SIZE],
             // Devices

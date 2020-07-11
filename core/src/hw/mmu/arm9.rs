@@ -7,6 +7,8 @@ type MemoryRegion = ARM9MemoryRegion;
 impl HW {
     pub fn arm9_read<T: MemoryValue>(&self, addr: u32) -> T {
         match MemoryRegion::from_addr(addr) {
+            MemoryRegion::ITCM => HW::read_mem(&self.itcm, addr),
+            MemoryRegion::DTCM => HW::read_mem(&self.dtcm, addr - 0x000803000), // TODO: Use CP15
             MemoryRegion::MainMem => HW::read_mem(&self.main_mem, addr & HW::MAIN_MEM_MASK),
             MemoryRegion::WRAM => todo!(),
             MemoryRegion::SharedWRAM => todo!(),
@@ -23,6 +25,8 @@ impl HW {
 
     pub fn arm9_write<T: MemoryValue>(&mut self, addr: u32, value: T) {
         match MemoryRegion::from_addr(addr) {
+            MemoryRegion::ITCM => HW::write_mem(&mut self.itcm, addr, value),
+            MemoryRegion::DTCM => HW::write_mem(&mut self.dtcm, addr - 0x000803000, value), // TODO: Use CP15
             MemoryRegion::MainMem => HW::write_mem(&mut self.main_mem, addr & HW::MAIN_MEM_MASK, value),
             MemoryRegion::WRAM => todo!(),
             MemoryRegion::SharedWRAM => todo!(),
@@ -109,6 +113,8 @@ impl HW {
 }
 
 pub enum ARM9MemoryRegion {
+    ITCM,
+    DTCM,
     MainMem,
     WRAM,
     SharedWRAM,
@@ -124,17 +130,22 @@ pub enum ARM9MemoryRegion {
 impl ARM9MemoryRegion {
     pub fn from_addr(addr: u32) -> Self {
         use ARM9MemoryRegion::*;
-        match addr >> 24 {
-            0x2 => MainMem,
-            0x3 => WRAM,
-            0x4 => IO,
-            0x5 => Palette,
-            0x6 => VRAM,
-            0x7 => OAM,
-            0x8 | 0x9 => GBAROM,
-            0xA => GBARAM,
-            0xF if addr >> 16 == 0xFFFF => BIOS,
-            _ => todo!(),
+        if addr >> 12 == 0x00803 { // TODO: Use CP15 to set base
+            DTCM
+        } else {
+            match addr >> 24 {
+                0x0 if addr < HW::ITCM_SIZE as u32 => ITCM,
+                0x2 => MainMem,
+                0x3 => WRAM,
+                0x4 => IO,
+                0x5 => Palette,
+                0x6 => VRAM,
+                0x7 => OAM,
+                0x8 | 0x9 => GBAROM,
+                0xA => GBARAM,
+                0xF if addr >> 16 == 0xFFFF => BIOS,
+                _ => todo!(),
+            }
         }
     }
 }
