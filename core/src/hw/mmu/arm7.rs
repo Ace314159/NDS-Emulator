@@ -1,4 +1,4 @@
-use super::{AccessType, HW, MemoryValue};
+use super::{AccessType, HW, MemoryValue, IORegister};
 
 type MemoryRegion = ARM7MemoryRegion;
 
@@ -9,7 +9,7 @@ impl HW {
             MemoryRegion::MainMem => HW::read_mem(&self.main_mem, addr & HW::MAIN_MEM_MASK),
             MemoryRegion::SharedWRAM => todo!(),
             MemoryRegion::IWRAM => HW::read_mem(&self.iwram, addr & HW::IWRAM_MASK),
-            MemoryRegion::IO => todo!(),
+            MemoryRegion::IO => HW::read_from_bytes(self, &HW::arm7_read_io_register, addr),
         }
     }
 
@@ -19,7 +19,31 @@ impl HW {
             MemoryRegion::MainMem => HW::write_mem(&mut self.main_mem, addr & HW::MAIN_MEM_MASK, value),
             MemoryRegion::SharedWRAM => todo!(),
             MemoryRegion::IWRAM => HW::write_mem(&mut self.iwram, addr & HW::IWRAM_MASK, value),
-            MemoryRegion::IO => todo!(),
+            MemoryRegion::IO => HW::write_from_bytes(self, &HW::arm7_write_io_register, addr, value),
+        }
+    }
+
+    fn arm7_read_io_register(&self, addr: u32) -> u8 {
+        match addr {
+            0x04000200 => self.interrupts7.enable.read(0),
+            0x04000201 => self.interrupts7.enable.read(1),
+            0x04000202 => self.interrupts7.request.read(0),
+            0x04000203 => self.interrupts7.request.read(1),
+            0x04000208 => self.interrupts7.master_enable.read(0),
+            0x04000209 => self.interrupts7.master_enable.read(1),
+            _ => { warn!("Ignoring ARM7 IO Register Read at 0x{:08X}", addr); 0 }
+        }
+    }
+
+    fn arm7_write_io_register(&mut self, addr: u32, value: u8) {
+        match addr {
+            0x04000200 => self.interrupts7.enable.write(&mut self.scheduler, 0, value),
+            0x04000201 => self.interrupts7.enable.write(&mut self.scheduler, 1, value),
+            0x04000202 => self.interrupts7.request.write(&mut self.scheduler, 0, value),
+            0x04000203 => self.interrupts7.request.write(&mut self.scheduler, 1, value),
+            0x04000208 => self.interrupts7.master_enable.write(&mut self.scheduler, 0, value),
+            0x04000209 => self.interrupts7.master_enable.write(&mut self.scheduler, 1, value),
+            _ => warn!("Ignoring ARM7 IO Register Write 0x{:08X} = {:02X}", addr, value),
         }
     }
 
