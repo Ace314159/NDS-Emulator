@@ -39,6 +39,6 @@ impl GPU {
     }
 
     pub fn get_screens(&self) -> [&Vec<u16>; 2] {
-        [&self.engine_b.pixels, &self.engine_a.pixels]
+        [&self.engine_a.pixels, &self.engine_b.pixels]
     }
 }
