@@ -214,12 +214,10 @@ impl ARM9 {
         if opcode == 0 { // STRH
             self.write::<u16>(hw, AccessType::N, addr & !0x1, self.regs.get_reg_i(src_dest_reg) as u16);
         } else { // Load
-            // TODO: Is access width 1
             let value = match opcode {
                 1 => self.read::<u8>(hw, AccessType::S, addr) as i8 as u32,
-                2 => (self.read::<u16>(hw, AccessType::S, addr & !0x1) as u32).rotate_right((addr & 0x1) * 8),
-                3 if addr & 0x1 == 1 => self.read::<u8>(hw, AccessType::S, addr) as i8 as u32,
-                3 => self.read::<u16>(hw, AccessType::S, addr) as i16 as u32,
+                2 => self.read::<u16>(hw, AccessType::S, addr & !0x1) as u32,
+                3 => self.read::<u16>(hw, AccessType::S, addr & !0x1) as i16 as u32,
                 _ => unreachable!()
             };
             self.regs.set_reg_i(src_dest_reg, value);
@@ -270,7 +268,7 @@ impl ARM9 {
 
         self.instruction_prefetch::<u16>(hw, AccessType::N);
         if load {
-            let value = (self.read::<u16>(hw, AccessType::S, addr & !0x1) as u32).rotate_right((addr & 0x1) * 8);
+            let value = self.read::<u16>(hw, AccessType::S, addr & !0x1) as u32;
             self.regs.set_reg_i(src_dest_reg, value);
             self.internal();
         } else {

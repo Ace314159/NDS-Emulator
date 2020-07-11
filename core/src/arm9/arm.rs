@@ -310,12 +310,10 @@ impl ARM9 {
         let mut exec = |addr| if load {
             if src_dest_reg == base_reg { write_back = false }
             let access_type = if src_dest_reg == 15 { AccessType::N } else { AccessType::S };
-            // TODO: Make all access 16 bit
             let value = match opcode {
-                1 => (self.read::<u16>(hw, access_type, addr & !0x1) as u32).rotate_right((addr & 0x1) * 8),
+                1 => self.read::<u16>(hw, access_type, addr & !0x1) as u32,
                 2 => self.read::<u8>(hw, access_type, addr) as i8 as u32,
-                3 if addr & 0x1 == 1 => self.read::<u8>(hw, access_type, addr) as i8 as u32,
-                3 => self.read::<u16>(hw, access_type, addr) as i16 as u32,
+                3 => self.read::<u16>(hw, access_type, addr & !0x1) as i16 as u32,
                 _ => unreachable!(),
             };
             self.internal();
