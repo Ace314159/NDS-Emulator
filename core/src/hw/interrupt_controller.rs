@@ -1,5 +1,5 @@
 use bitflags::*;
-use crate::hw::{mmu::IORegister, Scheduler};
+use super::{mmu::IORegister, Scheduler};
 
 pub struct InterruptController {
     pub enable: InterruptEnable,
@@ -8,7 +8,7 @@ pub struct InterruptController {
 }
 
 impl InterruptController {
-    pub fn new() -> InterruptController {
+    pub fn new() -> Self {
         InterruptController {
             enable: InterruptEnable::empty(),
             master_enable: InterruptMasterEnable::empty(),
