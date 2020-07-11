@@ -405,13 +405,11 @@ impl ARM9 {
                 if first { self.regs.set_reg_i(base_reg, final_base); first = false }
             }
         };
+        let mut write_back = true;
         if r_list == 0 {
-            exec(15, true);
-            if load {
-                self.fill_thumb_instr_buffer(hw);
-            }
             base = base.wrapping_add(0x3C + base_offset);
         } else {
+            let original_r_list = r_list;
             while r_list != 0x1 {
                 if r_list & 0x1 != 0 {
                     exec(reg, false);
@@ -419,11 +417,15 @@ impl ARM9 {
                 reg += 1;
                 r_list >>= 1;
             }
+            write_back = if original_r_list & (1 << base_reg) != 0 && load {
+                // reg is the last register loaded
+                original_r_list.count_ones() == 1 || base_reg != reg
+            } else { write_back };
             exec(reg, true);
         }
         //if load { io.inc_clock(Cycle::S, self.regs.pc.wrapping_add(2), 1) }
         if !load { self.regs.pc = self.regs.pc.wrapping_sub(2) }
-        self.regs.set_reg_i(base_reg, base + base_offset);
+        if write_back { self.regs.set_reg_i(base_reg, base + base_offset) }
     }
 
     // THUMB.16: conditional branch

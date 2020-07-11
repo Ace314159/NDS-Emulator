@@ -352,7 +352,6 @@ impl ARM9 {
         let base_offset = base & 0x3;
         let base = base - base_offset;
         let mut r_list = (instr & 0xFFFF) as u16;
-        let write_back = write_back && !(load && r_list & (1 << base_reg) != 0);
         let actual_mode = self.regs.get_mode();
         if psr_force_usr && !(load && r_list & 0x80 != 0) { self.regs.set_mode(Mode::USR) }
 
@@ -362,32 +361,38 @@ impl ARM9 {
         let start_addr = if add_offset { base } else { base.wrapping_sub(num_regs * 4) };
         let mut addr = start_addr;
         let final_addr = if add_offset { addr + 4 * num_regs } else { start_addr } + base_offset;
-        let (final_addr, inc_amount) = if num_regs == 0 {
-            (final_addr + 0x40, 0x40)
-        } else { (final_addr, 4) };
-        let mut calc_addr = || if pre_offset { addr += inc_amount; addr }
-        else { let old_addr = addr; addr += inc_amount; old_addr };
+        let mut calc_addr = || if pre_offset { addr += 4; addr }
+        else { let old_addr = addr; addr += 4; old_addr };
         let mut exec = |addr, reg, last_access| if load {
             let value = self.read::<u32>(hw, AccessType::S, addr);
             self.regs.set_reg_i(reg, value);
-            if write_back { self.regs.set_reg_i(base_reg, final_addr) }
             if last_access { self.internal() }
             if reg == 15 {
                 if psr_force_usr { self.regs.restore_cpsr() }
                 loaded_pc = true;
                 self.next_access_type = AccessType::N;
-                self.fill_arm_instr_buffer(hw);
+                if self.regs.pc & 0x1 != 0 {
+                    self.regs.pc -= 1;
+                    self.regs.set_t(true);
+                    self.fill_thumb_instr_buffer(hw);
+                } else {
+                    self.fill_arm_instr_buffer(hw);
+                }
             }
         } else {
             let value = self.regs.get_reg_i(reg);
             let access_type = if last_access { AccessType::N } else { AccessType::S };
             self.write::<u32>(hw, access_type, addr, if reg == 15 { value.wrapping_add(4) } else { value });
-            if write_back { self.regs.set_reg_i(base_reg, final_addr) }
+            
         };
         if num_regs == 0 {
-            exec(start_addr, 15, true);
+            if write_back {
+                let value = if add_offset { final_addr + 0x40 } else { final_addr - 0x40 };
+                self.regs.set_reg_i(base_reg, value);
+            }
         } else {
             let mut reg = 0;
+            let original_r_list = r_list;
             while r_list != 0x1 {
                 if r_list & 0x1 != 0 {
                     exec(calc_addr(), reg, false);
@@ -396,6 +401,11 @@ impl ARM9 {
                 r_list >>= 1;
             }
             exec(calc_addr(), reg, true);
+            let write_back = if original_r_list & (1 << base_reg) != 0 && load {
+                // reg is the last register loaded
+                original_r_list.count_ones() == 1 || base_reg != reg
+            } else { write_back };
+            if write_back { self.regs.set_reg_i(base_reg, final_addr) }
         }
 
         self.regs.set_mode(actual_mode);
