@@ -25,6 +25,12 @@ impl HW {
 
     fn arm7_read_io_register(&self, addr: u32) -> u8 {
         match addr {
+            0x04000130 => self.keypad.keyinput.read(0),
+            0x04000131 => self.keypad.keyinput.read(1),
+            0x04000132 => self.keypad.keycnt.read(0),
+            0x04000133 => self.keypad.keycnt.read(1),
+            0x04000136 => self.keypad.extkeyin.read(0),
+            0x04000137 => self.keypad.extkeyin.read(1),
             0x04000200 => self.interrupts7.enable.read(0),
             0x04000201 => self.interrupts7.enable.read(1),
             0x04000202 => self.interrupts7.request.read(0),
@@ -37,6 +43,8 @@ impl HW {
 
     fn arm7_write_io_register(&mut self, addr: u32, value: u8) {
         match addr {
+            0x04000136 => self.keypad.extkeyin.write(&mut self.scheduler, 0, value),
+            0x04000137 => self.keypad.extkeyin.write(&mut self.scheduler, 1, value),
             0x04000200 => self.interrupts7.enable.write(&mut self.scheduler, 0, value),
             0x04000201 => self.interrupts7.enable.write(&mut self.scheduler, 1, value),
             0x04000202 => self.interrupts7.request.write(&mut self.scheduler, 0, value),

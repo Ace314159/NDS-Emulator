@@ -2,6 +2,8 @@ use crate::arm7::ARM7;
 use crate::arm9::ARM9;
 use crate::hw::HW;
 
+pub use crate::hw::Key;
+
 pub struct NDS {
     arm9_cycles_ahead: i32, // Measured in 66 MHz ARM9 cycles
     arm7: ARM7,
@@ -34,6 +36,14 @@ impl NDS {
 
     pub fn get_screens(&self) -> [&Vec<u16>; 2] {
         self.hw.gpu.get_screens()
+    }
+
+    pub fn press_key(&mut self, key: Key) {
+        self.hw.press_key(key);
+    }
+
+    pub fn release_key(&mut self, key: Key) {
+        self.hw.release_key(key);
     }
 }
 

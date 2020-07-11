@@ -1,12 +1,12 @@
 extern crate glfw;
 extern crate imgui_opengl_renderer;
 
-use glfw::{Action, Context, Glfw, /*Key,*/ Window};
+use glfw::{Action, Context, Glfw, Window};
 
 use std::time::Instant;
 use std::collections::HashSet;
 
-use nds_core::nds;
+use nds_core::nds::{self, NDS};
 
 pub struct Display {
     window: Window,
@@ -153,9 +153,9 @@ impl Display {
         }
     }
 
-    pub fn render<F>(&mut self, screens: [&Vec<u16>; 2], imgui: &mut imgui::Context, imgui_draw: F)
+    pub fn render<F>(&mut self, nds: &mut NDS, imgui: &mut imgui::Context, imgui_draw: F)
         where F: FnOnce(&imgui::Ui, HashSet<glfw::Key>, HashSet<glfw::Modifiers>) {
-        //let pixels = Display.get_pixels();
+        let screens = nds.get_screens();
         let (width, height) = self.window.get_size();
 
         let (tex_x, tex_y) = if width * Display::HEIGHT as i32 > height * Display::WIDTH as i32 {
@@ -189,24 +189,26 @@ impl Display {
             match event {
                 glfw::WindowEvent::Key(key, _, action, new_modifiers) => {
                     if action != Action::Release { keys_pressed.insert(key); modifiers.insert(new_modifiers); }
-                    /*let keypad_key = match key {
-                        Key::A => KEYINPUT::A,
-                        Key::B => KEYINPUT::B,
-                        Key::E => KEYINPUT::SELECT,
-                        Key::T => KEYINPUT::START,
-                        Key::Right => KEYINPUT::RIGHT,
-                        Key::Left => KEYINPUT::LEFT,
-                        Key::Up => KEYINPUT::UP,
-                        Key::Down => KEYINPUT::DOWN,
-                        Key::R => KEYINPUT::R,
-                        Key::L => KEYINPUT::L,
+                    let nds_key = match key {
+                        glfw::Key::A => nds::Key::A,
+                        glfw::Key::B => nds::Key::B,
+                        glfw::Key::X => nds::Key::X,
+                        glfw::Key::Y => nds::Key::Y,
+                        glfw::Key::E => nds::Key::Select,
+                        glfw::Key::T => nds::Key::Start,
+                        glfw::Key::Right => nds::Key::Right,
+                        glfw::Key::Left => nds::Key::Left,
+                        glfw::Key::Up => nds::Key::Up,
+                        glfw::Key::Down => nds::Key::Down,
+                        glfw::Key::R => nds::Key::R,
+                        glfw::Key::L => nds::Key::L,
                         _ => continue,
                     };
                     match action {
-                        Action::Press => keypad_tx.send((keypad_key, true)).unwrap(),
-                        Action::Release => keypad_tx.send((keypad_key, false)).unwrap(),
+                        Action::Press => nds.press_key(nds_key),
+                        Action::Release => nds.release_key(nds_key),
                         _ => continue,
-                    };*/
+                    };
                 },
                 _ => (),
             }

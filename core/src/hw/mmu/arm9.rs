@@ -63,6 +63,12 @@ impl HW {
         match addr {
             0x0400_0000 ..= 0x0400_006F => self.gpu.engine_a.read_register(addr),
             0x0400_1000 ..= 0x0400_106F => self.gpu.engine_b.read_register(addr),
+            0x04000130 => self.keypad.keyinput.read(0),
+            0x04000131 => self.keypad.keyinput.read(1),
+            0x04000132 => self.keypad.keycnt.read(0),
+            0x04000133 => self.keypad.keycnt.read(1),
+            0x04000136 => self.keypad.extkeyin.read(0),
+            0x04000137 => self.keypad.extkeyin.read(1),
             0x04000200 => self.interrupts9.enable.read(0),
             0x04000201 => self.interrupts9.enable.read(1),
             0x04000202 => self.interrupts9.request.read(0),
@@ -78,6 +84,12 @@ impl HW {
     fn arm9_write_io_register(&mut self, addr: u32, value: u8) {
         match addr {
             0x0400_0000 ..= 0x0400_006F => self.gpu.engine_a.write_register(&mut self.scheduler, addr, value),
+            0x04000130 => self.keypad.keyinput.write(&mut self.scheduler, 0, value),
+            0x04000131 => self.keypad.keyinput.write(&mut self.scheduler, 1, value),
+            0x04000132 => self.keypad.keycnt.write(&mut self.scheduler, 0, value),
+            0x04000133 => self.keypad.keycnt.write(&mut self.scheduler, 1, value),
+            0x04000136 => self.keypad.extkeyin.write(&mut self.scheduler, 0, value),
+            0x04000137 => self.keypad.extkeyin.write(&mut self.scheduler, 1, value),
             0x04000200 => self.interrupts9.enable.write(&mut self.scheduler, 0, value),
             0x04000201 => self.interrupts9.enable.write(&mut self.scheduler, 1, value),
             0x04000202 => self.interrupts9.request.write(&mut self.scheduler, 0, value),

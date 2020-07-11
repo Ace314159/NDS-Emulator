@@ -2,13 +2,16 @@ mod header;
 pub mod mmu;
 mod scheduler;
 mod gpu;
+mod keypad;
 mod interrupt_controller;
 
 use header::Header;
 pub use mmu::{AccessType, MemoryValue};
 use scheduler::Scheduler;
 pub use gpu::GPU;
-use interrupt_controller::InterruptController;
+use keypad::Keypad;
+pub use keypad::Key;
+use interrupt_controller::{InterruptController, InterruptRequest};
 
 pub struct HW {
     // Memory
@@ -22,6 +25,7 @@ pub struct HW {
     iwram: Vec<u8>,
     // Devices
     pub gpu: GPU,
+    keypad: Keypad,
     interrupts7: InterruptController,
     interrupts9: InterruptController,
     // Misc
@@ -50,6 +54,7 @@ impl HW {
             iwram: vec![0; HW::IWRAM_SIZE],
             // Devices
             gpu: GPU::new(),
+            keypad: Keypad::new(),
             interrupts7: InterruptController::new(),
             interrupts9: InterruptController::new(),
             // Misc
@@ -62,15 +67,25 @@ impl HW {
         self.gpu.emulate_dot();
     }
 
-    pub fn arm7_interrupts_requested(&self) -> bool {
+    pub fn arm7_interrupts_requested(&mut self) -> bool {
+        if self.keypad.interrupt_requested() { self.interrupts7.request |= InterruptRequest::KEYPAD }
         self.interrupts7.interrupts_requested()
     }
 
-    pub fn arm9_interrupts_requested(&self) -> bool {
+    pub fn arm9_interrupts_requested(&mut self) -> bool {
+        if self.keypad.interrupt_requested() { self.interrupts9.request |= InterruptRequest::KEYPAD }
         self.interrupts9.interrupts_requested()
     }
 
     pub fn rendered_frame(&mut self) -> bool {
         self.gpu.rendered_frame()
+    }
+
+    pub fn press_key(&mut self, key: Key) {
+        self.keypad.press_key(key);
+    }
+
+    pub fn release_key(&mut self, key: Key) {
+        self.keypad.release_key(key);
     }
 }

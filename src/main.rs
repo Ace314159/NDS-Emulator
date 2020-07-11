@@ -46,7 +46,7 @@ fn main() {
 
     while !display.should_close() {
         nds.emulate_frame();
-        display.render(nds.get_screens(), &mut imgui,
+        display.render(&mut nds, &mut imgui,
             |_ui, _keys_pressed, _modifiers| {
 
         });
