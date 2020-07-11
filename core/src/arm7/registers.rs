@@ -87,7 +87,7 @@ pub struct RegValues {
 
 impl RegValues {
     pub fn new() -> RegValues {
-        let mut reg_values = RegValues {
+        RegValues {
             usr: [0; 15],
             fiq: [0; 7],
             abt: [0; 2],
@@ -97,17 +97,19 @@ impl RegValues {
             pc: 0,
             cpsr: StatusReg::reset(),
             spsr: [StatusReg::reset(); 5],
-        };
-        reg_values.usr[13] = 0x03007F00;
-        reg_values.irq[0] = 0x03007FA0;
-        reg_values.svc[0] = 0x03007FE0;
-        reg_values
+        }
     }
 
     pub fn no_bios(pc: u32) -> RegValues {
         let mut reg_values = RegValues::new();
+        reg_values.usr[12] = pc;
+        reg_values.usr[13] = 0x0380FD80;
+        reg_values.irq[0] = 0x0380FF80; // R13
+        reg_values.svc[0] = 0x0380FD80; // R13
+        reg_values.svc[1] = pc; // R14
+        reg_values.usr[14] = pc;
         reg_values.pc = pc;
-        reg_values.cpsr.bits = 0x1F;
+        reg_values.cpsr.bits = 0xD3;
         reg_values
     }
 
