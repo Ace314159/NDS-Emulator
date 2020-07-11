@@ -229,7 +229,7 @@ impl Display {
         let time_passed = self.prev_fps_update_time.elapsed().as_secs_f64();
         if time_passed >= 1.0 {
             let fps = self.frames_passed as f64 / time_passed;
-            self.window.set_title(&format!("GBA Emulator - {:.2} FPS", fps));
+            self.window.set_title(&format!("NDS Emulator - {:.2} FPS", fps));
             self.frames_passed = 0;
             self.prev_fps_update_time = Instant::now();
         }
