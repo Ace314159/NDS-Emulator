@@ -44,7 +44,7 @@ impl ARM9 {
         if L::bool() { // BLX
             assert_eq!(instr >> 4 & 0xF, 0b0011);
             self.regs.set_reg(Reg::R14, self.regs.pc.wrapping_sub(4));
-        } else { assert_eq!(instr >> 4 & 0xF, 0b0011); } // BX
+        } else { assert_eq!(instr >> 4 & 0xF, 0b0001) } // BX
         self.regs.pc = self.regs.get_reg_i(instr & 0xF);
         if self.regs.pc & 0x1 != 0 {
             self.regs.pc -= 1;
