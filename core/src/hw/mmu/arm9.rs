@@ -21,7 +21,7 @@ impl HW {
             MemoryRegion::OAM => HW::read_mem(&self.gpu_engine(addr).oam, addr),
             MemoryRegion::GBAROM => todo!(),
             MemoryRegion::GBARAM => todo!(),
-            MemoryRegion::BIOS => HW::read_mem(&self.bios9, addr),
+            MemoryRegion::BIOS => HW::read_mem(&self.bios9, addr & 0xFFFF),
         }
     }
 
@@ -170,7 +170,7 @@ impl ARM9MemoryRegion {
                 0x7 => OAM,
                 0x8 | 0x9 => GBAROM,
                 0xA => GBARAM,
-                0xF if addr >> 16 == 0xFFFF => BIOS,
+                0xFF if addr >> 16 == 0xFFFF => BIOS,
                 _ => todo!(),
             }
         }
