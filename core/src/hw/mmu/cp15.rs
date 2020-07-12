@@ -20,6 +20,9 @@ impl CP15 {
         info!("Writing 0b{:b} to C{}, C{}, {}", value, n, m, p);
         match n {
             1 => self.write_control_reg(m, p, value),
+            6 => self.write_pu_regions(m, p, value),
+            7 => self.write_cache_command(m, p, value),
+            9 => self.write_cache_lockdown(m, p, value),
             _ => todo!(),
         }
     }
@@ -28,6 +31,31 @@ impl CP15 {
         if m != 0 || p != 0 { warn!("m and p are not 0 for CP15 Control Register Write: {} {}", m, p); return }
         self.control.bits = value & Control::MASK | Control::ALWAYS_SET;
         assert!(self.control.contains(Control::EXCEPTION_VECTORS)); // TODO: Implement Exception vectors at 0
+    }
+
+    fn write_pu_regions(&mut self, m: u32, p: u32, value: u32) {
+        match p {
+            0 => warn!("PU Data/Unified Region {}: 0x{:X}", m, value),
+            1 => warn!("PU Instruction Region {}: 0x{:X}", m, value),
+            _ => warn!("p is invalid for PU Region: {} 0x{:X}", p, value),
+        }
+    }
+
+    fn write_cache_command(&mut self, m: u32, p: u32, value: u32) {
+        match (m, p) {
+            (5, 0) if value == 0 => warn!("Invalidate Entire Instruction Cache"), // TODO: Invalidate Entire Instruction Cache
+            (6, 0) if value == 0 => warn!("Invalidate Entire Data Cache"), // TODO: Invalidate Entire Data Cache
+            (10, 4) if value == 0 => warn!("Drain Write Buffer"), // TODO: Drain Write Buffer
+            _ => todo!(),
+        }
+    }
+
+    fn write_cache_lockdown(&mut self, m: u32, p: u32, value: u32) {
+        match (m, p) {
+            (0, 0) => warn!("Data Cache Lockdown: 0x{:X}", value), // TODO: Data Cache Lockdown
+            (0, 1) => warn!("Instruction Cache Lockdown: 0x{:X}", value), // TODO: Instruction Cache Lockdown
+            _ => warn!("m and p are invalid for Cache Lockdown: {} {} {}", m, p, value),
+        }
     }
 }
 
