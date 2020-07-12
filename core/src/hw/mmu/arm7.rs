@@ -7,7 +7,10 @@ impl HW {
         match MemoryRegion::from_addr(addr) {
             MemoryRegion::BIOS => HW::read_mem(&self.bios7, addr),
             MemoryRegion::MainMem => HW::read_mem(&self.main_mem, addr & HW::MAIN_MEM_MASK),
-            MemoryRegion::SharedWRAM => todo!(),
+            MemoryRegion::SharedWRAM if self.wramcnt.arm7_mask == 0 =>
+                HW::read_mem(&self.iwram, addr & HW::IWRAM_MASK),
+            MemoryRegion::SharedWRAM => HW::read_mem(&self.shared_wram,
+                self.wramcnt.arm7_offset + addr & self.wramcnt.arm7_mask),
             MemoryRegion::IWRAM => HW::read_mem(&self.iwram, addr & HW::IWRAM_MASK),
             MemoryRegion::IO => HW::read_from_bytes(self, &HW::arm7_read_io_register, addr),
         }
@@ -17,7 +20,10 @@ impl HW {
         match MemoryRegion::from_addr(addr) {
             MemoryRegion::BIOS => warn!("Writing to BIOS7 0x{:08x} = 0x{:X}", addr, value),
             MemoryRegion::MainMem => HW::write_mem(&mut self.main_mem, addr & HW::MAIN_MEM_MASK, value),
-            MemoryRegion::SharedWRAM => todo!(),
+            MemoryRegion::SharedWRAM if self.wramcnt.arm7_mask == 0 =>
+                HW::write_mem(&mut self.iwram, addr & HW::IWRAM_MASK, value),
+            MemoryRegion::SharedWRAM => HW::write_mem(&mut self.shared_wram,
+                self.wramcnt.arm7_offset + addr & self.wramcnt.arm7_mask, value),
             MemoryRegion::IWRAM => HW::write_mem(&mut self.iwram, addr & HW::IWRAM_MASK, value),
             MemoryRegion::IO => HW::write_from_bytes(self, &HW::arm7_write_io_register, addr, value),
         }

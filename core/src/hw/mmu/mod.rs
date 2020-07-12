@@ -53,3 +53,69 @@ pub trait IORegister {
     fn read(&self, byte: usize) -> u8;
     fn write(&mut self, scheduler: &mut Scheduler, byte: usize, value: u8);
 }
+
+pub struct WRAMCNT {
+    value: u8,
+
+    arm7_offset: u32,
+    arm7_mask: u32,
+    arm9_offset: u32,
+    arm9_mask: u32,
+}
+
+impl WRAMCNT {
+    pub fn new(value: u8) -> Self {
+        let mut wramcnt = WRAMCNT {
+            value,
+
+            arm7_offset: 0,
+            arm7_mask: 0,
+            arm9_offset: 0,
+            arm9_mask: 0,
+        };
+        wramcnt.changed();
+        wramcnt
+    }
+
+    fn changed(&mut self) {
+        match self.value {
+            0 => {
+                self.arm7_offset = 0;
+                self.arm9_mask = 0;
+                self.arm9_mask = HW::SHARED_WRAM_SIZE as u32 - 1;
+            },
+            1 => {
+                self.arm7_offset = 0;
+                self.arm7_mask = HW::SHARED_WRAM_SIZE as u32 / 2 - 1;
+                self.arm9_offset = HW::SHARED_WRAM_SIZE as u32 / 2;
+                self.arm9_mask = HW::SHARED_WRAM_SIZE as u32 / 2 - 1;
+            }
+            2 => {
+                self.arm7_offset = HW::SHARED_WRAM_SIZE as u32 / 2;
+                self.arm7_mask = HW::SHARED_WRAM_SIZE as u32 / 2 - 1;
+                self.arm9_offset = 0;
+                self.arm9_mask = HW::SHARED_WRAM_SIZE as u32 / 2 - 1;
+            },
+            3 => {
+                self.arm7_mask = 0;
+                self.arm9_offset = 0;
+                self.arm9_mask = HW::SHARED_WRAM_SIZE as u32 - 1;
+            },
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl IORegister for WRAMCNT {
+    fn read(&self, byte: usize) -> u8 {
+        assert_eq!(byte, 0);
+        self.value
+    }
+
+    fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8) {
+        assert_eq!(byte, 0);
+        self.value = value & 0x3;
+        self.changed();
+    }
+
+}

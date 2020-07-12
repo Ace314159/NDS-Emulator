@@ -7,6 +7,7 @@ mod interrupt_controller;
 
 use header::Header;
 pub use mmu::{AccessType, MemoryValue};
+use mmu::WRAMCNT;
 use scheduler::Scheduler;
 pub use gpu::GPU;
 use keypad::Keypad;
@@ -23,11 +24,14 @@ pub struct HW {
     dtcm: Vec<u8>,
     main_mem: Vec<u8>,
     iwram: Vec<u8>,
+    shared_wram: Vec<u8>,
     // Devices
     pub gpu: GPU,
     keypad: Keypad,
     interrupts7: InterruptController,
     interrupts9: InterruptController,
+    // Registers
+    wramcnt: WRAMCNT,
     // Misc
     scheduler: Scheduler,
 }
@@ -36,6 +40,7 @@ impl HW {
     const ITCM_SIZE: usize = 0x8000;
     const MAIN_MEM_SIZE: usize = 0x20_0000;
     const IWRAM_SIZE: usize = 0x1_0000;
+    const SHARED_WRAM_SIZE: usize = 0x8000;
 
     pub fn new(bios7: Vec<u8>, bios9: Vec<u8>, rom: Vec<u8>) -> Self {
         let mut main_mem = vec![0; HW::MAIN_MEM_SIZE];
@@ -52,11 +57,14 @@ impl HW {
             dtcm: vec![0; 0x4000],
             main_mem,
             iwram: vec![0; HW::IWRAM_SIZE],
+            shared_wram: vec![0; HW::SHARED_WRAM_SIZE],
             // Devices
             gpu: GPU::new(),
             keypad: Keypad::new(),
             interrupts7: InterruptController::new(),
             interrupts9: InterruptController::new(),
+            // Registesr
+            wramcnt: WRAMCNT::new(3),
             // Misc
             scheduler: Scheduler::new(),
         }

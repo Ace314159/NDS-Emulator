@@ -11,7 +11,9 @@ impl HW {
             MemoryRegion::DTCM => HW::read_mem(&self.dtcm, addr - 0x000803000), // TODO: Use CP15
             MemoryRegion::MainMem => HW::read_mem(&self.main_mem, addr & HW::MAIN_MEM_MASK),
             MemoryRegion::WRAM => todo!(),
-            MemoryRegion::SharedWRAM => todo!(),
+            MemoryRegion::SharedWRAM if self.wramcnt.arm9_mask == 0 => num::zero(),
+            MemoryRegion::SharedWRAM => HW::read_mem(&self.shared_wram,
+                self.wramcnt.arm9_offset + addr & self.wramcnt.arm9_mask),
             MemoryRegion::IO => HW::read_from_bytes(self, &HW::arm9_read_io_register, addr),
             MemoryRegion::Palette =>
                 HW::read_from_bytes(self.gpu_engine(addr),&Engine2D::read_palette_ram, addr),
@@ -29,7 +31,8 @@ impl HW {
             MemoryRegion::DTCM => HW::write_mem(&mut self.dtcm, addr - 0x000803000, value), // TODO: Use CP15
             MemoryRegion::MainMem => HW::write_mem(&mut self.main_mem, addr & HW::MAIN_MEM_MASK, value),
             MemoryRegion::WRAM => todo!(),
-            MemoryRegion::SharedWRAM => todo!(),
+            MemoryRegion::SharedWRAM => HW::write_mem(&mut self.shared_wram,
+                self.wramcnt.arm9_offset + addr & self.wramcnt.arm9_mask, value),
             MemoryRegion::IO => HW::write_from_bytes(self, &HW::arm9_write_io_register, addr, value),
             MemoryRegion::Palette =>
                 HW::write_from_bytes(self.gpu_engine_mut(addr),&Engine2D::write_palette_ram, addr, value),
