@@ -81,6 +81,8 @@ impl HW {
             0x0400_0203 => self.interrupts9.request.read(1),
             0x0400_0208 => self.interrupts9.master_enable.read(0),
             0x0400_0209 => self.interrupts9.master_enable.read(1),
+            0x0400_020A => self.interrupts7.master_enable.read(2),
+            0x0400_020B => self.interrupts7.master_enable.read(3),
             0x0400_0240 ..= 0x0400_0246 => 0,
             0x0400_0248 ..= 0x0400_0249 => 0,
             _ => { warn!("Ignoring ARM9 IO Register Read at 0x{:08X}", addr); 0 }
@@ -89,11 +91,12 @@ impl HW {
 
     fn arm9_write_io_register(&mut self, addr: u32, value: u8) {
         match addr {
+            0x0400_0000 ..= 0x0400_0003 => self.gpu.engine_a.write_register(&mut self.scheduler, addr, value),
             0x0400_0004 => self.gpu.dispstat.write(&mut self.scheduler, 0, value),
             0x0400_0005 => self.gpu.dispstat.write(&mut self.scheduler, 1, value),
             0x0400_0006 => (), // VCOUNT is read only
             0x0400_0007 => (), // VCOUNT is read only
-            0x0400_0000 ..= 0x0400_006F => self.gpu.engine_a.write_register(&mut self.scheduler, addr, value),
+            0x0400_0008 ..= 0x0400_006F => self.gpu.engine_a.write_register(&mut self.scheduler, addr, value),
             0x0400_0130 => self.keypad.keyinput.write(&mut self.scheduler, 0, value),
             0x0400_0131 => self.keypad.keyinput.write(&mut self.scheduler, 1, value),
             0x0400_0132 => self.keypad.keycnt.write(&mut self.scheduler, 0, value),
@@ -106,6 +109,8 @@ impl HW {
             0x0400_0203 => self.interrupts9.request.write(&mut self.scheduler, 1, value),
             0x0400_0208 => self.interrupts9.master_enable.write(&mut self.scheduler, 0, value),
             0x0400_0209 => self.interrupts9.master_enable.write(&mut self.scheduler, 1, value),
+            0x0400_020A => self.interrupts9.master_enable.write(&mut self.scheduler, 2, value),
+            0x0400_020B => self.interrupts9.master_enable.write(&mut self.scheduler, 3, value),
             0x0400_1000 ..= 0x0400_106F => self.gpu.engine_b.write_register(&mut self.scheduler, addr, value),
             0x0400_0240 ..= 0x0400_0246 => self.gpu.vram.write_vram_cnt(addr as usize & 0xF, value),
             0x0400_0248 ..= 0x0400_0249 => self.gpu.vram.write_vram_cnt(addr as usize & 0xF - 1, value),

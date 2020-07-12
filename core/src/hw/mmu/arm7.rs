@@ -47,6 +47,8 @@ impl HW {
             0x0400_0203 => self.interrupts7.request.read(1),
             0x0400_0208 => self.interrupts7.master_enable.read(0),
             0x0400_0209 => self.interrupts7.master_enable.read(1),
+            0x0400_020A => self.interrupts7.master_enable.read(2),
+            0x0400_020B => self.interrupts7.master_enable.read(3),
             _ => { warn!("Ignoring ARM7 IO Register Read at 0x{:08X}", addr); 0 }
         }
     }
@@ -65,6 +67,8 @@ impl HW {
             0x0400_0203 => self.interrupts7.request.write(&mut self.scheduler, 1, value),
             0x0400_0208 => self.interrupts7.master_enable.write(&mut self.scheduler, 0, value),
             0x0400_0209 => self.interrupts7.master_enable.write(&mut self.scheduler, 1, value),
+            0x0400_020A => self.interrupts7.master_enable.write(&mut self.scheduler, 2, value),
+            0x0400_020B => self.interrupts7.master_enable.write(&mut self.scheduler, 3, value),
             _ => warn!("Ignoring ARM7 IO Register Write 0x{:08X} = {:02X}", addr, value),
         }
     }
