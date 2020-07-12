@@ -2,12 +2,14 @@ use bitflags::*;
 
 pub struct CP15 {
     control: Control,
+    interrupt_base: u32,
 }
 
 impl CP15 {
     pub fn new() -> Self {
         CP15 {
             control: Control::new(),
+            interrupt_base: 0xFFF_0000,
         }
     }
 
@@ -30,7 +32,7 @@ impl CP15 {
     fn write_control_reg(&mut self, m: u32, p: u32, value: u32) {
         if m != 0 || p != 0 { warn!("m and p are not 0 for CP15 Control Register Write: {} {}", m, p); return }
         self.control.bits = value & Control::MASK | Control::ALWAYS_SET;
-        assert!(self.control.contains(Control::EXCEPTION_VECTORS)); // TODO: Implement Exception vectors at 0
+        self.interrupt_base = if self.control.contains(Control::INTERRUPT_BASE) { 0xFFFF_0000 } else { 0x0000_0000 };
     }
 
     fn write_pu_regions(&mut self, m: u32, p: u32, value: u32) {
@@ -67,7 +69,7 @@ bitflags! {
         const DTCM_ENABLE = 1 << 16;
         const PRE_ARMV5 = 1 << 15;
         const CACHE_REPLACEMENT = 1 << 14;
-        const EXCEPTION_VECTORS = 1 << 13;
+        const INTERRUPT_BASE = 1 << 13;
         const INSTR_CACHE_ENABLE = 1 << 12;
         const BRANCH_PREDICTION = 1 << 11;
         const BIG_ENDIAN = 1 << 7;
@@ -89,4 +91,8 @@ impl Control {
     pub fn new() -> Self {
         Control::from_bits(Control::ALWAYS_SET).unwrap()
     }
+}
+
+impl CP15 {
+    pub fn interrupt_base(&self) -> u32 { self.interrupt_base }
 }

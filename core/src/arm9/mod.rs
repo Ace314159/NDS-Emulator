@@ -81,7 +81,7 @@ impl ARM9 {
         self.regs.set_reg(Reg::R14, lr);
         self.regs.set_t(false);
         self.regs.set_i(true);
-        self.regs.pc = 0x18;
+        self.regs.pc = hw.cp15.interrupt_base() | 0x18;
         self.fill_arm_instr_buffer(hw);
     }
 
