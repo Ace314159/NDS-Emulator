@@ -70,11 +70,8 @@ impl HW {
                 let addr = addr & HW::MAIN_MEM_MASK as usize;
                 self.main_mem[addr..addr + size].copy_from_slice(&self.rom[rom_offset..rom_offset + size])
             },
-            MemoryRegion::IWRAM => {
-                let addr = addr & HW::IWRAM_MASK as usize;
-                self.iwram[addr..addr + size].copy_from_slice(&self.rom[rom_offset..rom_offset + size])
-            },
-            _ => panic!("Invalid ARM7 Entry Address: 0x{:08X}", self.rom_header.arm7_ram_addr),
+            MemoryRegion::SharedWRAM => todo!(),
+            _ => panic!("Invalid ARM7 RAM Address: 0x{:08X}", self.rom_header.arm7_ram_addr),
         };
         self.rom_header.arm7_entry_addr
     }

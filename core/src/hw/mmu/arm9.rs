@@ -54,7 +54,7 @@ impl HW {
         match region {
             MemoryRegion::MainMem =>
                 self.main_mem[addr..addr + size].copy_from_slice(&self.rom[rom_offset..rom_offset + size]),
-            _ => panic!("Invalid ARM9 Entry Address: 0x{:08X}", self.rom_header.arm9_ram_addr),
+            _ => panic!("Invalid ARM9 RAM Address: 0x{:08X}", self.rom_header.arm9_ram_addr),
         };
         self.rom_header.arm9_entry_addr
     }
