@@ -2,14 +2,17 @@
 mod instructions;
 mod arm;
 mod thumb;
+mod cp15;
 mod registers;
 
 use crate::num;
 use crate::hw::{AccessType, HW, MemoryValue};
+use cp15::CP15;
 use registers::{Mode, Reg, RegValues};
 
 pub struct ARM9 {
     cycles_spent: usize,
+    cp15: CP15,
     regs: RegValues,
     instr_buffer: [u32; 2],
     next_access_type: AccessType,
@@ -24,6 +27,7 @@ impl ARM9 {
     pub fn new(hw: &mut HW) -> ARM9 {
         let mut cpu = ARM9 {
             cycles_spent: 0,
+            cp15: CP15::new(),
             regs: RegValues::no_bios(hw.init_arm9()),
             instr_buffer: [0; 2],
             next_access_type: AccessType::N,

@@ -1,8 +1,9 @@
 use super::{
-    ARM9, HW,
+    ARM9, CP15, HW,
     instructions::{InstructionFlag, InstructionHandler, InstrFlagSet, InstrFlagClear},
     registers::{Reg, Mode}
 };
+
 
 use crate::hw::AccessType;
 
@@ -460,9 +461,30 @@ impl ARM9 {
 
     // ARM.14: Coprocessor Data Operations (CDP)
     // ARM.15: Coprocessor Data Transfers (LDC,STC)
-    // ARM.16: Coprocessor Register Transfers (MRC, MCR)
     fn coprocessor(&mut self, _hw: &mut HW, _instr: u32) {
         unimplemented!("Coprocessor not implemented!");
+    }
+
+    // ARM.16: Coprocessor Register Transfers (MRC, MCR)
+    fn coprocessor_register_transfers<COp2: InstructionFlag, COp1: InstructionFlag, COp0: InstructionFlag,
+        Op: InstructionFlag, CP2: InstructionFlag, CP1: InstructionFlag, CP0: InstructionFlag>
+        (&mut self, _hw: &mut HW, instr: u32) {
+        // TODO: Do Timing
+        // TODO: Figure out difference beween MRC2 and MCR2
+        assert_eq!(instr >> 24 & 0xF, 0b1110);
+        let cp_op = COp2::num() << 2 | COp1::num() << 1 | COp0::num();
+        let cp_n = instr >> 8 & 0xF;
+        if cp_op != 0 || cp_n != 15 { return }
+        let cp_src_dest_reg = instr >> 16 & 0xF;
+        let arm_src_dest_reg = instr >> 12 & 0xF;
+        let cp_info = CP2::num() << 2 | CP1::num() << 1 | CP0::num();
+        assert_eq!(instr >> & 4 & 0x1, 1);
+        let cp_operand_reg = instr & 0xF;
+        if Op::bool() { // MRC
+            self.regs.set_reg_i(arm_src_dest_reg, self.cp15.read(cp_src_dest_reg, cp_operand_reg, cp_info));
+        } else { // MCR
+            self.cp15.write(cp_src_dest_reg, cp_operand_reg, cp_info, self.regs.get_reg_i(arm_src_dest_reg));
+        }
     }
 
     // ARM.17: Undefined Instruction
@@ -502,8 +524,10 @@ pub(super) fn gen_lut() -> [InstructionHandler<u32>; 4096] {
             ARM9::arm_software_interrupt
         } else if skeleton & 0b1110_0000_0000_0000_0000_0000_0000 == 0b1100_0000_0000_0000_0000_0000_0000 {
             ARM9::coprocessor
-        } else if skeleton & 0b1111_0000_0000_0000_0000_0000_0000 == 0b1110_0000_0000_0000_0000_0000_0000 {
+        } else if skeleton & 0b1111_0000_0000_0000_0000_0001_0000 == 0b1110_0000_0000_0000_0000_0000_0000 {
             ARM9::coprocessor
+        } else if skeleton & 0b1111_0000_0000_0000_0000_0001_0000 == 0b1110_0000_0000_0000_0000_0001_0000 {
+            compose_instr_handler!(coprocessor_register_transfers, skeleton, 23, 22, 21, 20, 7, 6, 5)
         } else {
             assert_eq!(skeleton & 0b1110_0000_0000_0000_0000_0001_0000, 0b0110_0000_0000_0000_0000_0001_0000);
             ARM9::undefined_instr_arm
