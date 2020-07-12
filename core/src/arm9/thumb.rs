@@ -346,11 +346,16 @@ impl ARM9 {
             }
             if pc_lr {
                 stack_pop(sp, true, 15);
-                self.regs.pc &= !0x1;
                 sp += 4;
-                // TODO: Verify
                 self.next_access_type = AccessType::N;
-                self.fill_thumb_instr_buffer(hw);
+                if self.regs.pc & 0x1 != 0 {
+                    self.regs.pc &= !0x1;
+                    self.fill_thumb_instr_buffer(hw);
+                } else {
+                    self.regs.set_t(false);
+                    self.regs.pc &= !0x3;
+                    self.fill_arm_instr_buffer(hw);
+                }
             }
             self.regs.set_reg(Reg::R13, sp);
         } else {
