@@ -1,5 +1,5 @@
 use super::{
-    ARM9, CP15, HW,
+    ARM9, HW,
     instructions::{InstructionFlag, InstructionHandler, InstrFlagSet, InstrFlagClear},
     registers::{Reg, Mode}
 };
@@ -468,7 +468,7 @@ impl ARM9 {
     // ARM.16: Coprocessor Register Transfers (MRC, MCR)
     fn coprocessor_register_transfers<COp2: InstructionFlag, COp1: InstructionFlag, COp0: InstructionFlag,
         Op: InstructionFlag, CP2: InstructionFlag, CP1: InstructionFlag, CP0: InstructionFlag>
-        (&mut self, _hw: &mut HW, instr: u32) {
+        (&mut self, hw: &mut HW, instr: u32) {
         // TODO: Do Timing
         // TODO: Figure out difference beween MRC2 and MCR2
         assert_eq!(instr >> 24 & 0xF, 0b1110);
@@ -481,9 +481,9 @@ impl ARM9 {
         assert_eq!(instr >> & 4 & 0x1, 1);
         let cp_operand_reg = instr & 0xF;
         if Op::bool() { // MRC
-            self.regs.set_reg_i(arm_src_dest_reg, self.cp15.read(cp_src_dest_reg, cp_operand_reg, cp_info));
+            self.regs.set_reg_i(arm_src_dest_reg, hw.cp15.read(cp_src_dest_reg, cp_operand_reg, cp_info));
         } else { // MCR
-            self.cp15.write(cp_src_dest_reg, cp_operand_reg, cp_info, self.regs.get_reg_i(arm_src_dest_reg));
+            hw.cp15.write(cp_src_dest_reg, cp_operand_reg, cp_info, self.regs.get_reg_i(arm_src_dest_reg));
         }
     }
 

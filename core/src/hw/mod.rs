@@ -7,7 +7,7 @@ mod interrupt_controller;
 
 use header::Header;
 pub use mmu::{AccessType, MemoryValue};
-use mmu::WRAMCNT;
+use mmu::{WRAMCNT, CP15};
 use scheduler::Scheduler;
 pub use gpu::GPU;
 use keypad::Keypad;
@@ -16,6 +16,7 @@ use interrupt_controller::{InterruptController, InterruptRequest};
 
 pub struct HW {
     // Memory
+    pub cp15: CP15,
     bios7: Vec<u8>,
     bios9: Vec<u8>,
     rom_header: Header,
@@ -49,6 +50,7 @@ impl HW {
         main_mem[addr..addr + 0x160].copy_from_slice(&rom[..0x160]);
         HW {
             // Memory
+            cp15: CP15::new(),
             bios7,
             bios9,
             rom_header,
