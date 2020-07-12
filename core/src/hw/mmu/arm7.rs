@@ -31,6 +31,10 @@ impl HW {
 
     fn arm7_read_io_register(&self, addr: u32) -> u8 {
         match addr {
+            0x0400_0004 => self.gpu.dispstat.read(0),
+            0x0400_0005 => self.gpu.dispstat.read(1),
+            0x0400_0006 => (self.gpu.vcount >> 0) as u8,
+            0x0400_0007 => (self.gpu.vcount >> 8) as u8,
             0x0400_0130 => self.keypad.keyinput.read(0),
             0x0400_0131 => self.keypad.keyinput.read(1),
             0x0400_0132 => self.keypad.keycnt.read(0),
@@ -49,6 +53,10 @@ impl HW {
 
     fn arm7_write_io_register(&mut self, addr: u32, value: u8) {
         match addr {
+            0x0400_0004 => self.gpu.dispstat.write(&mut self.scheduler, 0, value),
+            0x0400_0005 => self.gpu.dispstat.write(&mut self.scheduler, 1, value),
+            0x0400_0006 => (), // VCOUNT is read only
+            0x0400_0007 => (), // VCOUNT is read only
             0x0400_0136 => self.keypad.extkeyin.write(&mut self.scheduler, 0, value),
             0x0400_0137 => self.keypad.extkeyin.write(&mut self.scheduler, 1, value),
             0x0400_0200 => self.interrupts7.enable.write(&mut self.scheduler, 0, value),
