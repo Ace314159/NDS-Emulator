@@ -54,7 +54,7 @@ pub(super) fn gen_condition_table() -> [bool; 256] {
                 0xC => !z && n == v,
                 0xD => z || n != v,
                 0xE => true,
-                0xF => false, // TODO: Change
+                0xF => true, // True so that some ARMv5 instructions can execute
                 _ => unreachable!(),
             };
         }

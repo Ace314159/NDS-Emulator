@@ -37,9 +37,13 @@ impl ARM9 {
         }
     }
 
-    // ARM.3: Branch and Exchange (BX)
-    fn branch_and_exchange(&mut self, hw: &mut HW, instr: u32) {
+    // ARM.3: Branch and Exchange (BX, BLX)
+    fn branch_and_exchange<L: InstructionFlag>(&mut self, hw: &mut HW, instr: u32) {
         self.instruction_prefetch::<u32>(hw, AccessType::N);
+        if L::bool() { // BLX
+            assert_eq!(instr >> 4 & 0xF, 0b0011);
+            self.regs.set_reg(Reg::R14, self.regs.pc.wrapping_sub(4));
+        } else { assert_eq!(instr >> 4 & 0xF, 0b0011); } // BX
         self.regs.pc = self.regs.get_reg_i(instr & 0xF);
         if self.regs.pc & 0x1 != 0 {
             self.regs.pc -= 1;
@@ -48,15 +52,22 @@ impl ARM9 {
         } else { self.fill_arm_instr_buffer(hw) }
     }
 
-    // ARM.4: Branch and Branch with Link (B, BL)
+    // ARM.4: Branch and Branch with Link (B, BL, BLX)
     fn branch_branch_with_link<L: InstructionFlag>(&mut self, hw: &mut HW, instr: u32) {
         let offset = instr & 0xFF_FFFF;
         let offset = if (offset >> 23) == 1 { 0xFF00_0000 | offset } else { offset };
-
         self.instruction_prefetch::<u32>(hw, AccessType::N);
-        if L::num() == 1 { self.regs.set_reg(Reg::R14, self.regs.pc.wrapping_sub(4)) } // Branch with Link
-        self.regs.pc = self.regs.pc.wrapping_add(offset << 2);
-        self.fill_arm_instr_buffer(hw);
+
+        if instr >> 28 == 0xF { // BLX
+            self.regs.set_reg(Reg::R14, self.regs.pc.wrapping_sub(4));
+            self.regs.pc = self.regs.pc.wrapping_add(offset << 2).wrapping_add(L::num() * 2); // L acts as H
+            self.regs.set_t(true);
+            self.fill_thumb_instr_buffer(hw);
+        } else {
+            if L::bool() { self.regs.set_reg(Reg::R14, self.regs.pc.wrapping_sub(4)) } // Branch with Link
+            self.regs.pc = self.regs.pc.wrapping_add(offset << 2);
+            self.fill_arm_instr_buffer(hw);
+        }
     }
 
     // ARM.5: Data Processing
@@ -467,8 +478,8 @@ pub(super) fn gen_lut() -> [InstructionHandler<u32>; 4096] {
 
     for opcode in 0..4096 {
         let skeleton = ((opcode & 0xFF0) << 16) | ((opcode & 0xF) << 4);
-        lut[opcode] = if skeleton & 0b1111_1111_0000_0000_0000_1111_0000 == 0b0001_0010_0000_0000_0000_0001_0000 {
-            ARM9::branch_and_exchange
+        lut[opcode] = if skeleton & 0b1111_1111_0000_0000_0000_1101_0000 == 0b0001_0010_0000_0000_0000_0001_0000 {
+            compose_instr_handler!(branch_and_exchange, skeleton, 5)
         } else if skeleton & 0b1111_1100_0000_0000_0000_1111_0000 == 0b0000_0000_0000_0000_0000_1001_0000 {
             compose_instr_handler!(mul_mula, skeleton, 21, 20)
         } else if skeleton & 0b1111_1000_0000_0000_0000_1111_0000 == 0b0000_1000_0000_0000_0000_1001_0000 {
