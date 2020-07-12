@@ -22,9 +22,14 @@ impl CP15 {
         info!("Writing 0b{:b} to C{}, C{}, {}", value, n, m, p);
         match n {
             1 => self.write_control_reg(m, p, value),
+            2 => warn!("Ignoring MMU Translation Table Base Write: C{}, C{}, {}: 0x{:X}", n, m, p, value),
+            3 => warn!("Ignoring MMU Domain Access Control Write: C{}, C{}, {}: 0x{:X}", n, m, p, value),
+            5 => warn!("Ignoring MMU Domain Fault Status Write: C{}, C{}, {}: 0x{:X}", n, m, p, value),
             6 => self.write_pu_regions(m, p, value),
             7 => self.write_cache_command(m, p, value),
+            8 => warn!("Ignoring MMU TLB Control Write: C{}, C{}, {}: 0x{:X}", n, m, p, value),
             9 => self.write_cache_lockdown(m, p, value),
+            10 => warn!("Ignoring MMU TLB Lockdown Write: C{}, C{}, {}: 0x{:X}", n, m, p, value),
             _ => todo!(),
         }
     }
@@ -39,7 +44,7 @@ impl CP15 {
         match p {
             0 => warn!("PU Data/Unified Region {}: 0x{:X}", m, value),
             1 => warn!("PU Instruction Region {}: 0x{:X}", m, value),
-            _ => warn!("p is invalid for PU Region: {} 0x{:X}", p, value),
+            _ => warn!("Ignoring MMU Fault Address Write : C{}, C{}, {}: 0x{:X}", 6, m, p, value),
         }
     }
 
