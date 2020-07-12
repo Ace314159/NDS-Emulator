@@ -15,7 +15,10 @@ impl CP15 {
 
     pub fn read(&self, n: u32, m: u32, p: u32) -> u32 {
         info!("Reading from C{}, C{}, {}", n, m, p);
-        todo!()
+        match n {
+            1 => self.read_control_reg(m, p),
+            _ => todo!(),
+        }
     }
 
     pub fn write(&mut self, n: u32, m: u32, p: u32, value: u32) {
@@ -32,6 +35,11 @@ impl CP15 {
             10 => warn!("Ignoring MMU TLB Lockdown Write: C{}, C{}, {}: 0x{:X}", n, m, p, value),
             _ => todo!(),
         }
+    }
+
+    fn read_control_reg(&self, m: u32, p: u32) -> u32 {
+        if m != 0 || p != 0 { warn!("m and p are not 0 for CP15 Control Register Read: {} {}", m, p); return 0 }
+        self.control.bits
     }
 
     fn write_control_reg(&mut self, m: u32, p: u32, value: u32) {
