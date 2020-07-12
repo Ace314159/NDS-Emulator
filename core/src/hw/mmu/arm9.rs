@@ -50,15 +50,12 @@ impl HW {
     }
 
     pub fn init_arm9(&mut self) -> u32 {
-        let region = MemoryRegion::from_addr(self.rom_header.arm9_ram_addr);
-        let addr = self.rom_header.arm9_ram_addr as usize & 0xFF_FFFF;
+        let start_addr = self.rom_header.arm9_ram_addr;
         let rom_offset = self.rom_header.arm9_rom_offset as usize;
-        let size = self.rom_header.arm9_size as usize;
-        match region {
-            MemoryRegion::MainMem =>
-                self.main_mem[addr..addr + size].copy_from_slice(&self.rom[rom_offset..rom_offset + size]),
-            _ => panic!("Invalid ARM9 RAM Address: 0x{:08X}", self.rom_header.arm9_ram_addr),
-        };
+        let size = self.rom_header.arm9_size;
+        for (i, addr) in (start_addr..start_addr + size).enumerate() {
+            self.arm9_write(addr, self.rom[rom_offset + i]);
+        }
         self.rom_header.arm9_entry_addr
     }
 
