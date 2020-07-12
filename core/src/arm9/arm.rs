@@ -505,7 +505,7 @@ pub(super) fn gen_lut() -> [InstructionHandler<u32>; 4096] {
         } else if skeleton & 0b1111_0000_0000_0000_0000_0000_0000 == 0b1110_0000_0000_0000_0000_0000_0000 {
             ARM9::coprocessor
         } else {
-            assert_eq!(skeleton & 0b1110_0000_0000_0000_0000_0001_0000, 0b1110_0000_0000_0000_0000_0001_0000);
+            assert_eq!(skeleton & 0b1110_0000_0000_0000_0000_0001_0000, 0b0110_0000_0000_0000_0000_0001_0000);
             ARM9::undefined_instr_arm
         };
     }
