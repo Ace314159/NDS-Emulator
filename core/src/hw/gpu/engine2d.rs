@@ -1,16 +1,10 @@
 use super::registers::*;
 use super::{GPU, VRAM};
-use crate::hw::{
-    mmu::IORegister,
-    interrupt_controller::InterruptRequest,
-    Scheduler
-};
+use crate::hw::{mmu::IORegister, Scheduler};
 
 pub struct Engine2D {
     // Registers
     dispcnt: DISPCNT,
-    dispstat: DISPSTAT,
-    vcount: u16,
     // Backgrounds
     bgcnts: [BGCNT; 4],
     hofs: [OFS; 4],
@@ -45,8 +39,6 @@ pub struct Engine2D {
 
     // Important Rendering Variables
     pub pixels: Vec<u16>,
-    rendered_frame: bool,
-    dot: u16,
     bg_lines: [[u16; GPU::WIDTH]; 4],
     objs_line: [OBJPixel; GPU::WIDTH],
     windows_lines: [[bool; GPU::WIDTH]; 3],
@@ -59,8 +51,6 @@ impl Engine2D {
         Engine2D {
             // Registers
             dispcnt: DISPCNT::new(),
-            dispstat: DISPSTAT::new(),
-            vcount: 0,
             // Backgrounds
             bgcnts: [BGCNT::new(); 4],
             hofs: [OFS::new(); 4],
@@ -94,72 +84,10 @@ impl Engine2D {
 
             // Important Rendering Variables
             pixels: vec![0; GPU::WIDTH * GPU::HEIGHT],
-            rendered_frame: false,
-            dot: 0,
             bg_lines: [[0; GPU::WIDTH]; 4],
             objs_line: [OBJPixel::none(); GPU::WIDTH],
             windows_lines: [[false; GPU::WIDTH]; 3],
         }
-    }
-
-    pub fn emulate_dot(&mut self, vram: &VRAM) -> InterruptRequest {
-        let mut interrupts = InterruptRequest::empty();
-        if self.dot < 256 { // Visible
-            self.dispstat.remove(DISPSTATFlags::HBLANK);
-        } else { // HBlank
-            if self.dot == 256 {
-                if self.dispstat.contains(DISPSTATFlags::HBLANK_IRQ_ENABLE) {
-                    interrupts.insert(InterruptRequest::HBLANK);
-                }
-            }
-            if self.dot == 267 { // TODO: Take into account half and differentiate between ARM7 and ARM9
-                self.dispstat.insert(DISPSTATFlags::HBLANK);
-                // TODO: HBlank DMA
-                //if self.vcount < 192 { self.hblank_called = true } // HDMA only occurs on visible scanlines
-            }
-        }
-        if self.vcount < 192 { // Visible
-            self.dispstat.remove(DISPSTATFlags::VBLANK);
-            if self.dot == 257 { self.render_line(vram) }
-        } else { // VBlank
-            if self.vcount == 192 && self.dot == 0 {
-                // TODO: VBlank DMA
-                //self.vblank_called = true;
-                if self.dispstat.contains(DISPSTATFlags::VBLANK_IRQ_ENABLE) {
-                    interrupts.insert(InterruptRequest::VBLANK)
-                }
-            }
-            self.dispstat.insert(DISPSTATFlags::VBLANK);
-        }
-
-        if self.vcount == 192 && self.dot == 0 {
-            self.rendered_frame = true;
-        }
-
-        self.dot += 1;
-        if self.dot == 355 {
-            self.dot = 0;
-            if self.vcount == 262 {
-                self.bgxs_latch = self.bgxs.clone();
-                self.bgys_latch = self.bgys.clone();
-            }
-            self.vcount = (self.vcount + 1) % 263;
-            if self.vcount == self.dispstat.vcount_setting {
-                self.dispstat.insert(DISPSTATFlags::VCOUNTER);
-                if self.dispstat.contains(DISPSTATFlags::VCOUNTER_IRQ_ENALBE) {
-                    interrupts.insert(InterruptRequest::VCOUNTER_MATCH);
-                }
-            } else {
-                self.dispstat.remove(DISPSTATFlags::VCOUNTER);
-            }
-        }
-        interrupts
-    }
-
-    pub fn rendered_frame(&mut self) -> bool {
-        let rendered_frame = self.rendered_frame;
-        self.rendered_frame = false;
-        rendered_frame
     }
 
     const OBJ_SIZES: [[(i16, u16); 3]; 4] = [
@@ -169,14 +97,14 @@ impl Engine2D {
         [(64, 64), (64, 32), (32, 64)],
     ];
 
-    fn render_line(&mut self, vram: &VRAM) {
+    pub fn render_line(&mut self, vram: &VRAM, vcount: u16) {
         match self.dispcnt.display_mode {
             DisplayMode::Mode0 => for dot_x in 0..GPU::WIDTH {
-                self.pixels[self.vcount as usize * GPU::WIDTH + dot_x] = 0x7FFF;
+                self.pixels[vcount as usize * GPU::WIDTH + dot_x] = 0x7FFF;
             },
-            DisplayMode::Mode1 => self.render_normal_line(),
+            DisplayMode::Mode1 => self.render_normal_line(vcount),
             DisplayMode::Mode2 => for dot_x in 0..GPU::WIDTH {
-                let index = self.vcount as usize * GPU::WIDTH + dot_x;
+                let index = vcount as usize * GPU::WIDTH + dot_x;
                 let color = if let Some(bank) = vram.get_lcdc_bank(self.dispcnt.vram_block) {
                     u16::from_le_bytes([bank[index * 2], bank[index * 2 + 1]])
                 } else { 0 };
@@ -186,32 +114,32 @@ impl Engine2D {
         }
     }
 
-    fn render_normal_line(&mut self) {
-        if self.dispcnt.contains(DISPCNTFlags::DISPLAY_WINDOW0) { self.render_window(0) }
-        if self.dispcnt.contains(DISPCNTFlags::DISPLAY_WINDOW1) { self.render_window(1) }
-        if self.dispcnt.contains(DISPCNTFlags::DISPLAY_OBJ) { self.render_objs_line() }
+    fn render_normal_line(&mut self, vcount: u16) {
+        if self.dispcnt.contains(DISPCNTFlags::DISPLAY_WINDOW0) { self.render_window(vcount, 0) }
+        if self.dispcnt.contains(DISPCNTFlags::DISPLAY_WINDOW1) { self.render_window(vcount, 1) }
+        if self.dispcnt.contains(DISPCNTFlags::DISPLAY_OBJ) { self.render_objs_line(vcount, ) }
 
         match self.dispcnt.bg_mode {
             BGMode::Mode0 => {
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { self.render_text_line(0) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { self.render_text_line(1) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { self.render_text_line(2) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { self.render_text_line(3) }
-                self.process_lines(0, 3);
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { self.render_text_line(vcount, 0) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { self.render_text_line(vcount, 1) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { self.render_text_line(vcount, 2) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { self.render_text_line(vcount, 3) }
+                self.process_lines(vcount, 0, 3);
             },
             BGMode::Mode1 => {
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { self.render_text_line(0) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { self.render_text_line(1) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { self.render_text_line(2) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { self.render_text_line(vcount, 0) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { self.render_text_line(vcount, 1) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { self.render_text_line(vcount, 2) }
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { self.render_affine_line(2) }
-                self.process_lines(0, 3);
+                self.process_lines(vcount, 0, 3);
             },
             BGMode::Mode2 => {
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { self.render_affine_line(3) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { self.render_text_line(3) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { self.render_text_line(vcount, 3) }
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { self.render_affine_line(2) }
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { self.render_affine_line(3) }
-                self.process_lines(0, 3);
+                self.process_lines(vcount, 0, 3);
             },
             BGMode::Mode3 => todo!(),
             BGMode::Mode4 => todo!(),
@@ -220,8 +148,8 @@ impl Engine2D {
         }
     }
     
-    fn process_lines(&mut self, start_line: usize, end_line: usize) {
-        let start_index = self.vcount as usize * GPU::WIDTH;
+    fn process_lines(&mut self, vcount: u16, start_line: usize, end_line: usize) {
+        let start_index = vcount as usize * GPU::WIDTH;
 
         let mut bgs : Vec<(usize, u8)> = Vec::new();
         for bg_i in start_line..=end_line {
@@ -332,10 +260,10 @@ impl Engine2D {
         }
     }
 
-    fn render_window(&mut self, window_i: usize) {
+    fn render_window(&mut self, vcount: u16, window_i: usize) {
         let y1 = self.winvs[window_i].coord1;
         let y2 = self.winvs[window_i].coord2;
-        let vcount = self.vcount as u8; // Only lower 8 bits compared
+        let vcount = vcount as u8; // Only lower 8 bits compared
         let y_in_window = if y1 > y2 {
             vcount < y1 && vcount >= y2
         } else {
@@ -361,7 +289,7 @@ impl Engine2D {
         }
     }
 
-    fn render_objs_line(&mut self) {
+    fn render_objs_line(&mut self, vcount: u16) {
         let mut oam_parsed = [[0u16; 3]; 0x80];
         let mut affine_params = [[0u16; 4]; 0x20];
         self.oam.chunks(8).enumerate() // 1 OAM Entry, 1 Affine Parameter
@@ -382,7 +310,7 @@ impl Engine2D {
             
             let obj_y = (obj[0] as u16) & 0xFF;
             let y_end = obj_y + obj_y_bounds;
-            let y = self.vcount as u16 + if y_end > 256 { 256 } else { 0 };
+            let y = vcount + if y_end > 256 { 256 } else { 0 };
             (obj_y..y_end).contains(&y)
         }).collect::<Vec<_>>();
         objs.sort_by_key(|a| (*a)[2] >> 10 & 0x3);
@@ -407,7 +335,7 @@ impl Engine2D {
 
                 //let base_tile_num = (obj[2] & 0x3FF) as usize;
                 let x_diff = dot_x_signed - obj_x;
-                let y = self.vcount / self.mosaic.obj_size.v_size * self.mosaic.obj_size.v_size;
+                let y = vcount / self.mosaic.obj_size.v_size * self.mosaic.obj_size.v_size;
                 let y_diff = (y as u16).wrapping_sub(obj_y) & 0xFF;
                 let (x_diff, y_diff) = if affine {
                     let (x_diff, y_diff) = if double_size {
@@ -508,7 +436,7 @@ impl Engine2D {
         }
     }
 
-    fn render_text_line(&mut self, bg_i: usize) {
+    fn render_text_line(&mut self, vcount: u16, bg_i: usize) {
         let x_offset = self.hofs[bg_i].offset as usize;
         let y_offset = self.vofs[bg_i].offset as usize;
         let bgcnt = self.bgcnts[bg_i];
@@ -519,7 +447,7 @@ impl Engine2D {
             (self.mosaic.bg_size.h_size as usize, self.mosaic.bg_size.v_size as usize)
         } else { (1, 1) };
 
-        let dot_y = self.vcount as usize;
+        let dot_y = vcount as usize;
         for dot_x in 0..GPU::WIDTH {
             let x = (dot_x + x_offset) / mosaic_x * mosaic_x;
             let y = (dot_y + y_offset) / mosaic_y * mosaic_y;
@@ -569,6 +497,11 @@ impl Engine2D {
         } else {
             (palette_num, ((tile >> 4 * (tile_x % 2)) & 0xF))
         }
+    }
+
+    pub fn latch_affine(&mut self) {
+        self.bgxs_latch = self.bgxs.clone();
+        self.bgys_latch = self.bgys.clone();
     }
 }
 
@@ -622,10 +555,7 @@ impl Engine2D {
             0x001 => self.dispcnt.read(1),
             0x002 => self.dispcnt.read(2),
             0x003 => self.dispcnt.read(3),
-            0x004 => self.dispstat.read(0),
-            0x005 => self.dispstat.read(1),
-            0x006 => self.vcount as u8,
-            0x007 => (self.vcount >> 8) as u8,
+            // DISPSTAT and VCOUNT are read in GPU
             0x008 => self.bgcnts[0].read(0),
             0x009 => self.bgcnts[0].read(1),
             0x00A => self.bgcnts[1].read(0),
@@ -713,10 +643,7 @@ impl Engine2D {
             0x001 => self.dispcnt.write(scheduler, 1, value),
             0x002 => self.dispcnt.write(scheduler, 2, value),
             0x003 => self.dispcnt.write(scheduler, 3, value),
-            0x004 => self.dispstat.write(scheduler, 0, value),
-            0x005 => self.dispstat.write(scheduler, 1, value),
-            0x006 => (),
-            0x007 => (),
+            // DISPSTAT and VCOUNT are written in GPU
             0x008 => self.bgcnts[0].write(scheduler, 0, value),
             0x009 => self.bgcnts[0].write(scheduler, 1, value),
             0x00A => self.bgcnts[1].write(scheduler, 0, value),
