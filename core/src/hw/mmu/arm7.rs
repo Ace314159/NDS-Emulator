@@ -31,32 +31,32 @@ impl HW {
 
     fn arm7_read_io_register(&self, addr: u32) -> u8 {
         match addr {
-            0x04000130 => self.keypad.keyinput.read(0),
-            0x04000131 => self.keypad.keyinput.read(1),
-            0x04000132 => self.keypad.keycnt.read(0),
-            0x04000133 => self.keypad.keycnt.read(1),
-            0x04000136 => self.keypad.extkeyin.read(0),
-            0x04000137 => self.keypad.extkeyin.read(1),
-            0x04000200 => self.interrupts7.enable.read(0),
-            0x04000201 => self.interrupts7.enable.read(1),
-            0x04000202 => self.interrupts7.request.read(0),
-            0x04000203 => self.interrupts7.request.read(1),
-            0x04000208 => self.interrupts7.master_enable.read(0),
-            0x04000209 => self.interrupts7.master_enable.read(1),
+            0x0400_0130 => self.keypad.keyinput.read(0),
+            0x0400_0131 => self.keypad.keyinput.read(1),
+            0x0400_0132 => self.keypad.keycnt.read(0),
+            0x0400_0133 => self.keypad.keycnt.read(1),
+            0x0400_0136 => self.keypad.extkeyin.read(0),
+            0x0400_0137 => self.keypad.extkeyin.read(1),
+            0x0400_0200 => self.interrupts7.enable.read(0),
+            0x0400_0201 => self.interrupts7.enable.read(1),
+            0x0400_0202 => self.interrupts7.request.read(0),
+            0x0400_0203 => self.interrupts7.request.read(1),
+            0x0400_0208 => self.interrupts7.master_enable.read(0),
+            0x0400_0209 => self.interrupts7.master_enable.read(1),
             _ => { warn!("Ignoring ARM7 IO Register Read at 0x{:08X}", addr); 0 }
         }
     }
 
     fn arm7_write_io_register(&mut self, addr: u32, value: u8) {
         match addr {
-            0x04000136 => self.keypad.extkeyin.write(&mut self.scheduler, 0, value),
-            0x04000137 => self.keypad.extkeyin.write(&mut self.scheduler, 1, value),
-            0x04000200 => self.interrupts7.enable.write(&mut self.scheduler, 0, value),
-            0x04000201 => self.interrupts7.enable.write(&mut self.scheduler, 1, value),
-            0x04000202 => self.interrupts7.request.write(&mut self.scheduler, 0, value),
-            0x04000203 => self.interrupts7.request.write(&mut self.scheduler, 1, value),
-            0x04000208 => self.interrupts7.master_enable.write(&mut self.scheduler, 0, value),
-            0x04000209 => self.interrupts7.master_enable.write(&mut self.scheduler, 1, value),
+            0x0400_0136 => self.keypad.extkeyin.write(&mut self.scheduler, 0, value),
+            0x0400_0137 => self.keypad.extkeyin.write(&mut self.scheduler, 1, value),
+            0x0400_0200 => self.interrupts7.enable.write(&mut self.scheduler, 0, value),
+            0x0400_0201 => self.interrupts7.enable.write(&mut self.scheduler, 1, value),
+            0x0400_0202 => self.interrupts7.request.write(&mut self.scheduler, 0, value),
+            0x0400_0203 => self.interrupts7.request.write(&mut self.scheduler, 1, value),
+            0x0400_0208 => self.interrupts7.master_enable.write(&mut self.scheduler, 0, value),
+            0x0400_0209 => self.interrupts7.master_enable.write(&mut self.scheduler, 1, value),
             _ => warn!("Ignoring ARM7 IO Register Write 0x{:08X} = {:02X}", addr, value),
         }
     }
