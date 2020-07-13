@@ -201,6 +201,52 @@ impl ARM9 {
         self.regs.set_reg_i(dest_reg, result);
     }
 
+    fn signed_half_mul<OpH: InstructionFlag, OpL: InstructionFlag, Y: InstructionFlag, X: InstructionFlag>
+    (&mut self, hw: &mut HW, instr: u32) {
+        assert_eq!(instr >> 23 & 0x1F, 0b00010);
+        assert_eq!(instr >> 7 & 0x1, 1);
+        assert_eq!(instr >> 4 & 0x1, 0);
+        // TODO: Take into account interlock
+        self.instruction_prefetch::<u32>(hw, AccessType::S);
+        let opcode = OpH::num() << 1 | OpL::num();
+        let dest_reg = instr >> 16 & 0xF;
+        let accumulate_reg = instr >> 12 & 0xF;
+        let accumulate = self.regs.get_reg_i(accumulate_reg);
+        let operand1 = self.regs.get_reg_i(instr >> 8 & 0xF);
+        let operand2 = self.regs.get_reg_i(instr & 0xF);
+        let get_half = |value: u32, top| if top { (value >> 16) as u16 as i16 } else { value as u16 as i16 };
+        let result = match opcode {
+            0b00 => { // SMLA
+                let product = (get_half(operand2, X::bool()) as i32 * get_half(operand1, Y::bool()) as i32) as i32;
+                let (result, overflowed) = product.overflowing_add(accumulate as i32);
+                if overflowed { self.regs.set_q(true) }
+                result as u32
+            },
+            0b01 => { // SMLAW/SMULW
+                assert!(X::bool(), accumulate != 0);
+                let product = ((operand2 as i32 as u64 * get_half(operand1, Y::bool()) as i32 as u64) >> 16) as i32;
+                let (result, overflowed) = product.overflowing_add(accumulate as i32);
+                if overflowed { self.regs.set_q(true) }
+                result as u32
+            },
+            0b10 => { // SMLAL
+                self.internal();
+                let product = (get_half(operand2, X::bool()) as i32 * get_half(operand1, Y::bool()) as i32) as u64;
+                let hi_reg = dest_reg;
+                let lo_reg = accumulate_reg;
+                let hi_lo = (self.regs.get_reg_i(hi_reg) as u64) << 32 | self.regs.get_reg_i(lo_reg) as u64;
+                let result = product.wrapping_add(hi_lo);
+                self.regs.set_reg_i(lo_reg, result as u32);
+                (result >> 32) as u32 // setes dest_reg which is hi_reg
+            },
+            0b11 => { // SMUL
+                (get_half(operand2, X::bool()) as i32 * get_half(operand1, Y::bool()) as i32) as u32
+            },
+            _ => unreachable!(),
+        };
+        self.regs.set_reg_i(dest_reg, result);
+    }
+
     // ARM.8: Multiply Long and Multiply-Accumulate Long (MULL, MLAL)
     fn mul_long<U: InstructionFlag, A: InstructionFlag, S: InstructionFlag>(&mut self, hw: &mut HW, instr: u32) {
         assert_eq!(instr >> 23 & 0x1F, 0b00001);
@@ -558,6 +604,8 @@ pub(super) fn gen_lut() -> [InstructionHandler<u32>; 4096] {
             ARM9::count_leading_zeros
         } else if skeleton & 0b1111_1001_0000_0000_0000_1111_0000 == 0b0001_0000_0000_0000_0000_0101_0000 {
             compose_instr_handler!(qalu, skeleton, 22, 21)
+        } else if skeleton & 0b1111_1001_0000_0000_0000_1001_0000 == 0b0001_0000_0000_0000_0000_1000_0000 {
+            compose_instr_handler!(signed_half_mul, skeleton, 22, 21, 6, 5)
         } else if skeleton & 0b1101_1001_0000_0000_0000_0000_0000 == 0b0001_0000_0000_0000_0000_0000_0000 {
             compose_instr_handler!(psr_transfer, skeleton, 25, 22, 21)
         } else if skeleton & 0b1100_0000_0000_0000_0000_0000_0000 == 0b0000_0000_0000_0000_0000_0000_0000 {
