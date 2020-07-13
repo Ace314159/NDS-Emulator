@@ -1,14 +1,17 @@
 use crate::num;
-use super::{AccessType, HW, MemoryValue, IORegister};
+use super::{AccessType, CP15, HW, MemoryValue, IORegister};
 use crate::hw::gpu::Engine2D;
 
 type MemoryRegion = ARM9MemoryRegion;
 
 impl HW {
+    const ITCM_MASK: u32 = HW::ITCM_SIZE as u32 - 1;
+    const DTCM_MASK: u32 = HW::DTCM_SIZE as u32 - 1;
+
     pub fn arm9_read<T: MemoryValue>(&self, addr: u32) -> T {
-        match MemoryRegion::from_addr(addr) {
-            MemoryRegion::ITCM => HW::read_mem(&self.itcm, addr),
-            MemoryRegion::DTCM => HW::read_mem(&self.dtcm, addr - 0x000803000), // TODO: Use CP15
+        match MemoryRegion::from_addr(addr, &self.cp15) {
+            MemoryRegion::ITCM => HW::read_mem(&self.itcm, addr & HW::ITCM_MASK),
+            MemoryRegion::DTCM => HW::read_mem(&self.dtcm, addr & HW::DTCM_MASK),
             MemoryRegion::MainMem => HW::read_mem(&self.main_mem, addr & HW::MAIN_MEM_MASK),
             MemoryRegion::WRAM => todo!(),
             MemoryRegion::SharedWRAM if self.wramcnt.arm9_mask == 0 => num::zero(),
@@ -26,9 +29,9 @@ impl HW {
     }
 
     pub fn arm9_write<T: MemoryValue>(&mut self, addr: u32, value: T) {
-        match MemoryRegion::from_addr(addr) {
-            MemoryRegion::ITCM => HW::write_mem(&mut self.itcm, addr, value),
-            MemoryRegion::DTCM => HW::write_mem(&mut self.dtcm, addr - 0x000803000, value), // TODO: Use CP15
+        match MemoryRegion::from_addr(addr, &self.cp15) {
+            MemoryRegion::ITCM => HW::write_mem(&mut self.itcm, addr & HW::ITCM_MASK, value),
+            MemoryRegion::DTCM => HW::write_mem(&mut self.dtcm, addr & HW::DTCM_MASK, value),
             MemoryRegion::MainMem => HW::write_mem(&mut self.main_mem, addr & HW::MAIN_MEM_MASK, value),
             MemoryRegion::WRAM => todo!(),
             MemoryRegion::SharedWRAM => HW::write_mem(&mut self.shared_wram,
@@ -155,24 +158,21 @@ pub enum ARM9MemoryRegion {
 }
 
 impl ARM9MemoryRegion {
-    pub fn from_addr(addr: u32) -> Self {
+    pub fn from_addr(addr: u32, cp15: &CP15) -> Self {
         use ARM9MemoryRegion::*;
-        if addr >> 12 == 0x00803 { // TODO: Use CP15 to set base
-            DTCM
-        } else {
-            match addr >> 24 {
-                0x0 if addr < HW::ITCM_SIZE as u32 => ITCM,
-                0x2 => MainMem,
-                0x3 => WRAM,
-                0x4 => IO,
-                0x5 => Palette,
-                0x6 => VRAM,
-                0x7 => OAM,
-                0x8 | 0x9 => GBAROM,
-                0xA => GBARAM,
-                0xFF if addr >> 16 == 0xFFFF => BIOS,
-                _ => todo!(),
-            }
+        if cp15.addr_in_itcm(addr) { return ITCM }
+        if cp15.addr_in_dtcm(addr) { return DTCM }
+        match addr >> 24 {
+            0x2 => MainMem,
+            0x3 => WRAM,
+            0x4 => IO,
+            0x5 => Palette,
+            0x6 => VRAM,
+            0x7 => OAM,
+            0x8 | 0x9 => GBAROM,
+            0xA => GBARAM,
+            0xFF if addr >> 16 == 0xFFFF => BIOS,
+            _ => todo!(),
         }
     }
 }

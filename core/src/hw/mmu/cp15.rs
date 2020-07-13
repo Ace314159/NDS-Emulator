@@ -1,8 +1,12 @@
 use bitflags::*;
 
+use super::HW;
+
 pub struct CP15 {
     control: Control,
     interrupt_base: u32,
+    itcm_control: TCMControl,
+    dtcm_control: TCMControl,
 }
 
 impl CP15 {
@@ -10,6 +14,8 @@ impl CP15 {
         CP15 {
             control: Control::new(),
             interrupt_base: 0xFFF_0000,
+            itcm_control: TCMControl::new(0, HW::ITCM_SIZE as u32),
+            dtcm_control: TCMControl::new(0x0080_3000, HW::DTCM_SIZE as u32),
         }
     }
 
@@ -31,10 +37,18 @@ impl CP15 {
             6 => self.write_pu_regions(m, p, value),
             7 => self.write_cache_command(m, p, value),
             8 => warn!("Ignoring MMU TLB Control Write: C{}, C{}, {}: 0x{:X}", n, m, p, value),
-            9 => self.write_cache_lockdown(m, p, value),
+            9 => self.write_cache(m, p, value),
             10 => warn!("Ignoring MMU TLB Lockdown Write: C{}, C{}, {}: 0x{:X}", n, m, p, value),
             _ => todo!(),
         }
+    }
+
+    pub fn addr_in_itcm(&self, addr: u32) -> bool {
+        addr < self.itcm_control.virtual_size
+    }
+
+    pub fn addr_in_dtcm(&self, addr: u32) -> bool {
+        (self.dtcm_control.base..self.dtcm_control.base + self.dtcm_control.virtual_size).contains(&addr)
     }
 
     fn read_control_reg(&self, m: u32, p: u32) -> u32 {
@@ -65,12 +79,39 @@ impl CP15 {
         }
     }
 
-    fn write_cache_lockdown(&mut self, m: u32, p: u32, value: u32) {
+    fn write_cache(&mut self, m: u32, p: u32, value: u32) {
         match (m, p) {
             (0, 0) => warn!("Data Cache Lockdown: 0x{:X}", value), // TODO: Data Cache Lockdown
             (0, 1) => warn!("Instruction Cache Lockdown: 0x{:X}", value), // TODO: Instruction Cache Lockdown
-            _ => warn!("m and p are invalid for Cache Lockdown: {} {} {}", m, p, value),
+            (1, 0) => self.dtcm_control.write(value),
+            (1, 1) => { self.itcm_control.write(value); assert_eq!(self.itcm_control.base, 0) },
+            _ => todo!(),
         }
+    }
+}
+
+struct TCMControl {
+    pub base: u32,
+    pub virtual_size: u32,
+}
+
+impl TCMControl {
+    pub fn new(base: u32, virtual_size: u32) -> Self {
+        TCMControl {
+            base,
+            virtual_size,
+        }
+    }
+
+    /*pub fn read(&self) -> u32 {
+        self.base << 12 | self.virtual_size << 1
+    }*/
+
+    pub fn write(&mut self, value: u32) {
+        self.base = value & !0xFFF;
+        let size_shift = value >> 1 & 0x1F;
+        assert!((3..=23).contains(&size_shift));
+        self.virtual_size = 0x200 << size_shift;
     }
 }
 

@@ -39,6 +39,7 @@ pub struct HW {
 
 impl HW {
     const ITCM_SIZE: usize = 0x8000;
+    const DTCM_SIZE: usize = 0x4000;
     const MAIN_MEM_SIZE: usize = 0x20_0000;
     const IWRAM_SIZE: usize = 0x1_0000;
     const SHARED_WRAM_SIZE: usize = 0x8000;
@@ -56,7 +57,7 @@ impl HW {
             rom_header,
             rom,
             itcm: vec![0; HW::ITCM_SIZE],
-            dtcm: vec![0; 0x4000],
+            dtcm: vec![0; HW::DTCM_SIZE],
             main_mem,
             iwram: vec![0; HW::IWRAM_SIZE],
             shared_wram: vec![0; HW::SHARED_WRAM_SIZE],
