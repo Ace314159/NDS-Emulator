@@ -492,6 +492,16 @@ impl ARM9 {
     fn undefined_instr_arm(&mut self, _hw: &mut HW, _instr: u32) {
         unimplemented!("ARM.17: Undefined Instruction not implemented!");
     }
+
+    // ARM.X: Count Leading Zeros
+    fn count_leading_zeros(&mut self, hw: &mut HW, instr: u32) {
+        assert_eq!(instr >> 16 & 0xFFF, 0b0001_0110_1111);
+        assert_eq!(instr >> 4 & 0xFF, 0b1111_0001);
+        self.instruction_prefetch::<u32>(hw, AccessType::S);
+        let dest_reg = instr >> 12 & 0xF;
+        let src = self.regs.get_reg_i(instr & 0xF);
+        self.regs.set_reg_i(dest_reg, src.leading_zeros());
+    }
 }
 
 pub(super) fn gen_lut() -> [InstructionHandler<u32>; 4096] {
@@ -511,6 +521,8 @@ pub(super) fn gen_lut() -> [InstructionHandler<u32>; 4096] {
             compose_instr_handler!(single_data_swap, skeleton, 22)
         } else if skeleton & 0b1110_0000_0000_0000_0000_1001_0000 == 0b0000_0000_0000_0000_0000_1001_0000 {
             compose_instr_handler!(halfword_and_signed_data_transfer, skeleton, 24, 23, 22, 21, 20, 6, 5)
+        } else if skeleton & 0b1111_1111_0000_0000_0000_1111_0000 == 0b0001_0110_0000_0000_0000_0001_0000 {
+            ARM9::count_leading_zeros
         } else if skeleton & 0b1101_1001_0000_0000_0000_0000_0000 == 0b0001_0000_0000_0000_0000_0000_0000 {
             compose_instr_handler!(psr_transfer, skeleton, 25, 22, 21)
         } else if skeleton & 0b1100_0000_0000_0000_0000_0000_0000 == 0b0000_0000_0000_0000_0000_0000_0000 {
