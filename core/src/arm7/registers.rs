@@ -103,11 +103,10 @@ impl RegValues {
     pub fn no_bios(pc: u32) -> RegValues {
         let mut reg_values = RegValues::new();
         reg_values.usr[12] = pc;
-        reg_values.usr[13] = 0x0380FD80;
+        reg_values.usr[13] = 0x0380FFC0;
         reg_values.irq[0] = 0x0380FF80; // R13
         reg_values.svc[0] = 0x0380FD80; // R13
         reg_values.svc[1] = pc; // R14
-        reg_values.usr[14] = pc;
         reg_values.pc = pc;
         reg_values.cpsr.bits = 0xD3;
         reg_values
