@@ -38,6 +38,7 @@ bitflags! {
         const Z =  0x40000000;
         const C =  0x20000000;
         const V =  0x10000000;
+        const Q =  0x08000000;
         const F =  0x00000040;
         const I =  0x00000080;
         const T =  0x00000020;
@@ -217,6 +218,7 @@ impl RegValues {
     pub fn _get_z(&self) -> bool { self.cpsr.contains(StatusReg::Z) }
     pub fn get_c(&self) -> bool { self.cpsr.contains(StatusReg::C) }
     pub fn _get_v(&self) -> bool { self.cpsr.contains(StatusReg::V) }
+    pub fn _get_q(&self) -> bool { self.cpsr.contains(StatusReg::Q) }
     pub fn get_i(&self) -> bool { self.cpsr.contains(StatusReg::I) }
     pub fn _get_f(&self) -> bool { self.cpsr.contains(StatusReg::F) }
     pub fn get_flags(&self) -> u32 { self.cpsr.bits >> 24 }
@@ -226,6 +228,7 @@ impl RegValues {
     pub fn set_z(&mut self, value: bool) { self.cpsr.set(StatusReg::Z, value) }
     pub fn set_c(&mut self, value: bool) { self.cpsr.set(StatusReg::C, value) }
     pub fn set_v(&mut self, value: bool) { self.cpsr.set(StatusReg::V, value) }
+    pub fn set_q(&mut self, value: bool) { self.cpsr.set(StatusReg::Q, value) }
     pub fn set_i(&mut self, value: bool) { self.cpsr.set(StatusReg::I, value) }
     pub fn _set_f(&mut self, value: bool) { self.cpsr.set(StatusReg::F, value) }
     pub fn set_t(&mut self, value: bool) { self.cpsr.set(StatusReg::T, value) }

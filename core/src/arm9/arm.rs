@@ -520,6 +520,21 @@ impl ARM9 {
         let src = self.regs.get_reg_i(instr & 0xF);
         self.regs.set_reg_i(dest_reg, src.leading_zeros());
     }
+
+    // ARM.X: QADD/QSUB
+    fn qalu<D: InstructionFlag, Op: InstructionFlag>(&mut self, hw: &mut HW, instr: u32) {
+        assert_eq!(instr >> 24 & 0xF, 0b0001);
+        assert_eq!(instr >> 4 & 0xFF, 0b0000_0101);
+        self.instruction_prefetch::<u32>(hw, AccessType::S);
+        let src2 = self.regs.get_reg_i(instr >> 16 & 0xF);
+        let dest_reg = instr >> 12 & 0xF;
+        let src1 = self.regs.get_reg_i(instr & 0xF);
+        let (src2, q) = if D::bool() {
+            (src2.saturating_mul(2), src2.checked_mul(2).is_none())
+        } else { (src2, false) };
+        self.regs.set_reg_i(dest_reg, if Op::bool() { src1.saturating_add(src2) } else { src1.saturating_sub(src2) });
+        self.regs.set_q(q || src1.checked_add(src2).is_none());
+    }
 }
 
 pub(super) fn gen_lut() -> [InstructionHandler<u32>; 4096] {
@@ -541,6 +556,8 @@ pub(super) fn gen_lut() -> [InstructionHandler<u32>; 4096] {
             compose_instr_handler!(halfword_and_signed_data_transfer, skeleton, 24, 23, 22, 21, 20, 6, 5)
         } else if skeleton & 0b1111_1111_0000_0000_0000_1111_0000 == 0b0001_0110_0000_0000_0000_0001_0000 {
             ARM9::count_leading_zeros
+        } else if skeleton & 0b1111_1001_0000_0000_0000_1111_0000 == 0b0001_0000_0000_0000_0000_0101_0000 {
+            compose_instr_handler!(qalu, skeleton, 22, 21)
         } else if skeleton & 0b1101_1001_0000_0000_0000_0000_0000 == 0b0001_0000_0000_0000_0000_0000_0000 {
             compose_instr_handler!(psr_transfer, skeleton, 25, 22, 21)
         } else if skeleton & 0b1100_0000_0000_0000_0000_0000_0000 == 0b0000_0000_0000_0000_0000_0000_0000 {
