@@ -23,6 +23,7 @@ impl CP15 {
         info!("Reading from C{}, C{}, {}", n, m, p);
         match n {
             1 => self.read_control_reg(m, p),
+            0 if (m, p) == (0, 1) => 0x0F0D2112, // Cache Type Register
             _ => todo!(),
         }
     }
