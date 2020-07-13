@@ -392,7 +392,7 @@ impl ARM9 {
                     let value1 = self.read::<u32>(hw, AccessType::N, addr);
                     let value2 = self.read::<u32>(hw, AccessType::S, addr + 4);
                     self.regs.set_reg_i(src_dest_reg, value1);
-                    self.regs.set_reg_i(src_dest_reg, value2);
+                    self.regs.set_reg_i(src_dest_reg + 1, value2);
                 },
                 3 => { // STRD
                     self.write::<u32>(hw, AccessType::N, addr, self.regs.get_reg_i(src_dest_reg));
