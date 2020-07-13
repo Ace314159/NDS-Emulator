@@ -3,7 +3,7 @@ mod engine2d;
 mod vram;
 
 use crate::hw::interrupt_controller::InterruptRequest;
-use registers::{DISPSTAT, DISPSTATFlags};
+use registers::{DISPSTAT, DISPSTATFlags, POWCNT1};
 pub use engine2d::Engine2D;
 use vram::VRAM;
 
@@ -17,6 +17,8 @@ pub struct GPU {
     pub engine_a: Engine2D,
     pub engine_b: Engine2D,
     pub vram: VRAM,
+
+    pub powcnt1: POWCNT1,
 }
 
 impl GPU {
@@ -34,6 +36,8 @@ impl GPU {
             engine_a: Engine2D::new(),
             engine_b: Engine2D::new(),
             vram: VRAM::new(),
+
+            powcnt1: POWCNT1::ENABLE_LCDS,
         }
     }
 
@@ -57,6 +61,7 @@ impl GPU {
         if self.vcount < GPU::HEIGHT as u16 { // Visible
             self.dispstat.remove(DISPSTATFlags::VBLANK);
             if self.dot == 257 {
+                // TOOD: Use POWCNT to selectively render engines
                 self.engine_a.render_line(&self.vram, self.vcount);
                 self.engine_b.render_line(&self.vram, self.vcount);
             }
@@ -102,6 +107,10 @@ impl GPU {
     }
 
     pub fn get_screens(&self) -> [&Vec<u16>; 2] {
-        [&self.engine_a.pixels, &self.engine_b.pixels]
+        if self.powcnt1.contains(POWCNT1::SWAP_DISPLAY) {
+            [&self.engine_b.pixels, &self.engine_a.pixels]
+        } else {
+            [&self.engine_a.pixels, &self.engine_b.pixels]
+        }
     }
 }

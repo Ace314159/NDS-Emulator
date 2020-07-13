@@ -666,3 +666,29 @@ impl IORegister for BLDY {
         }
     }
 }
+
+bitflags! {
+    pub struct POWCNT1: u32 {
+        const ENABLE_LCDS = 1 << 0;
+        const ENABLE_ENGINE_A = 1 << 1;
+        const ENABLE_3D_RENDERING = 1 << 2;
+        const ENABLE_3D_GEOMETRY = 1 << 3;
+        const ENABLE_ENGINE_B = 1 << 9;
+        const SWAP_DISPLAY = 1 << 15;
+    }
+}
+
+impl IORegister for POWCNT1 {
+    fn read(&self, byte: usize) -> u8 {
+        assert!(byte < 4);
+        (self.bits >> (byte * 4)) as u8
+    }
+
+    fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8) {
+        assert!(byte < 4);
+        let mask = 0xFF << byte * 4;
+        self.bits = (self.bits & !mask) | (value as u32) << byte * 4;
+        assert!(self.contains(POWCNT1::ENABLE_LCDS)) // TODO: Figure out what this does
+    }
+    
+}

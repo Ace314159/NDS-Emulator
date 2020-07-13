@@ -88,6 +88,10 @@ impl HW {
             0x0400_020B => self.interrupts7.master_enable.read(3),
             0x0400_0240 ..= 0x0400_0246 => 0,
             0x0400_0248 ..= 0x0400_0249 => 0,
+            0x0400_0304 => self.gpu.powcnt1.read(0),
+            0x0400_0305 => self.gpu.powcnt1.read(1),
+            0x0400_0306 => self.gpu.powcnt1.read(2),
+            0x0400_0307 => self.gpu.powcnt1.read(3),
             _ => { warn!("Ignoring ARM9 IO Register Read at 0x{:08X}", addr); 0 }
         }
     }
@@ -117,6 +121,10 @@ impl HW {
             0x0400_1000 ..= 0x0400_106F => self.gpu.engine_b.write_register(&mut self.scheduler, addr, value),
             0x0400_0240 ..= 0x0400_0246 => self.gpu.vram.write_vram_cnt(addr as usize & 0xF, value),
             0x0400_0248 ..= 0x0400_0249 => self.gpu.vram.write_vram_cnt(addr as usize & 0xF - 1, value),
+            0x0400_0304 => self.gpu.powcnt1.write(&mut self.scheduler, 0, value),
+            0x0400_0305 => self.gpu.powcnt1.write(&mut self.scheduler, 1, value),
+            0x0400_0306 => self.gpu.powcnt1.write(&mut self.scheduler, 2, value),
+            0x0400_0307 => self.gpu.powcnt1.write(&mut self.scheduler, 3, value),
             _ => warn!("Ignoring ARM9 IO Register Write 0x{:08X} = {:02X}", addr, value),
         }
     }
