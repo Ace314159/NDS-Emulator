@@ -10,9 +10,11 @@ use imgui::*;
 
 fn main() {
     std::env::set_current_dir("ROMs").unwrap();
+    let instructions7_filter = LevelFilter::Off;
+    let instructions9_filter = LevelFilter::Off;
     CombinedLogger::init(vec![
         TermLogger::new(LevelFilter::Warn, Config::default(), TerminalMode::Mixed),
-        WriteLogger::new(LevelFilter::Off,
+        WriteLogger::new(instructions7_filter,
             ConfigBuilder::new()
             .set_time_level(LevelFilter::Off)
             .set_thread_level(LevelFilter::Off)
@@ -23,7 +25,7 @@ fn main() {
             .add_filter_allow_str("nds_core::arm7")
             .build(),
         fs::File::create("arm7.log").unwrap()),
-        WriteLogger::new(LevelFilter::Off,
+        WriteLogger::new(instructions9_filter,
             ConfigBuilder::new()
             .set_time_level(LevelFilter::Off)
             .set_thread_level(LevelFilter::Off)
