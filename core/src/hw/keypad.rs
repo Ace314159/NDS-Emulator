@@ -1,7 +1,7 @@
 use bitflags::*;
 use super::{mmu::IORegister, Scheduler};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum Key {
     A = 0,
     B = 1,
