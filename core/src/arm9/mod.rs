@@ -86,7 +86,7 @@ impl ARM9 {
     }
 
     pub(self) fn should_exec(&self, condition: u32) -> bool {
-        self.condition_lut[(self.regs.get_flags() | condition) as usize]
+        self.condition_lut[((self.regs.get_flags() & 0xF0) | condition) as usize]
     }
 
     pub(self) fn shift(&mut self, shift_type: u32, operand: u32, shift: u32,
