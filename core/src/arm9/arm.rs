@@ -571,15 +571,20 @@ impl ARM9 {
     fn qalu<D: InstructionFlag, Op: InstructionFlag>(&mut self, hw: &mut HW, instr: u32) {
         assert_eq!(instr >> 24 & 0xF, 0b0001);
         assert_eq!(instr >> 4 & 0xFF, 0b0000_0101);
+        // TODO: Take into account interlock
         self.instruction_prefetch::<u32>(hw, AccessType::S);
-        let src2 = self.regs.get_reg_i(instr >> 16 & 0xF);
+        let src2 = self.regs.get_reg_i(instr >> 16 & 0xF) as i32;
         let dest_reg = instr >> 12 & 0xF;
-        let src1 = self.regs.get_reg_i(instr & 0xF);
+        let src1 = self.regs.get_reg_i(instr & 0xF) as i32;
         let (src2, q) = if D::bool() {
             (src2.saturating_mul(2), src2.checked_mul(2).is_none())
         } else { (src2, false) };
-        self.regs.set_reg_i(dest_reg, if Op::bool() { src1.saturating_add(src2) } else { src1.saturating_sub(src2) });
-        self.regs.set_q(q || src1.checked_add(src2).is_none());
+        self.regs.set_reg_i(dest_reg, if Op::bool() {
+            src1.saturating_sub(src2)
+        } else {
+            src1.saturating_add(src2)
+        } as u32);
+        if q || src1.checked_add(src2).is_none() { self.regs.set_q(true) }
     }
 }
 
