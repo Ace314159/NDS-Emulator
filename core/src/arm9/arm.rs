@@ -332,10 +332,28 @@ impl ARM9 {
             self.regs.set_reg_i(src_dest_reg, value);
             if src_dest_reg == 15 { self.fill_arm_instr_buffer(hw) }
         } else {
-            assert_eq!(opcode, 1);
             let addr = addr & !0x1;
-            let value = self.regs.get_reg_i(src_dest_reg);
-            self.write::<u16>(hw, AccessType::N, addr, value as u16);
+            if opcode == 2 || opcode == 3 {
+                assert!(base_reg != src_dest_reg && base_reg != src_dest_reg + 1); // Rn != Rd and Rn != Rd + 1
+                assert!(src_dest_reg % 2 == 0 && src_dest_reg != 14); // Rd is a multiple of 2 and cannot be 14
+                assert!(addr & 0x7 == 0); // Addr must be double-word aligned
+                // For STRD, Rm != Rd and Rm != Rd + 1
+                if opcode == 3 && !immediate_offset { assert!(offset_low != src_dest_reg && offset_low != src_dest_reg + 1) }
+            }
+            match opcode {
+                1 => self.write::<u16>(hw, AccessType::N, addr, self.regs.get_reg_i(src_dest_reg) as u16),
+                2 => { // LDRD
+                    let value1 = self.read::<u32>(hw, AccessType::N, addr);
+                    let value2 = self.read::<u32>(hw, AccessType::S, addr + 4);
+                    self.regs.set_reg_i(src_dest_reg, value1);
+                    self.regs.set_reg_i(src_dest_reg, value2);
+                },
+                3 => { // STRD
+                    self.write::<u32>(hw, AccessType::N, addr, self.regs.get_reg_i(src_dest_reg));
+                    self.write::<u32>(hw, AccessType::N, addr + 4, self.regs.get_reg_i(src_dest_reg + 1));
+                },
+                _ => unreachable!(),
+            }
         };
         let offset_applied = if add_offset { base.wrapping_add(offset) } else { base.wrapping_sub(offset) };
         if pre_offset {
