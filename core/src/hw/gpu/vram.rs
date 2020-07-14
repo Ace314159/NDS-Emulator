@@ -61,12 +61,10 @@ impl VRAM {
                     assert!(self.lcdc_enabled[index]);
                     self.lcdc_enabled[index] = false
                 },
-                1 => for addr in self.mapping_ranges[index].clone().step_by(VRAM::MAPPING_LEN) {
-                    self.engine_a_bg[(addr & VRAM::ENGINE_A_BG_VRAM_MASK) as usize / VRAM::MAPPING_LEN] = None;
-                },
-                2 => for addr in self.mapping_ranges[index].clone().step_by(VRAM::MAPPING_LEN) {
-                    self.engine_a_obj[(addr & VRAM::ENGINE_A_OBJ_VRAM_MASK) as usize / VRAM::MAPPING_LEN] = None;
-                },
+                1 => VRAM::remove_mapping(&self.mapping_ranges, index,
+                    VRAM::ENGINE_A_BG_VRAM_MASK, &mut self.engine_a_bg),
+                2 => VRAM::remove_mapping(&self.mapping_ranges, index,
+                    VRAM::ENGINE_A_OBJ_VRAM_MASK, &mut self.engine_a_obj),
                 3 ..= 5 => todo!(),
                 _ => unreachable!(),
             }
@@ -84,31 +82,12 @@ impl VRAM {
                 assert!(!self.lcdc_enabled[index]);
                 self.lcdc_enabled[index] = true;
             },
-            1 => {
-                assert!(bank != Bank::H && bank != Bank::I);
-                let start_addr = VRAM::ENGINE_A_BG_START_ADDRESS + bank.get_engine_a_offset(new_cnt.offset);
-                self.mapping_ranges[index] = start_addr..start_addr + VRAM::BANKS_LEN[index] as u32;
-                for (i, addr) in self.mapping_ranges[index].clone().step_by(VRAM::MAPPING_LEN).enumerate() {
-                    // TODO: Support overlapping banks
-                    assert!(!self.mappings.contains_key(&addr));
-                    self.mappings.insert(addr, Mapping::new(bank, start_addr));
-                    self.engine_a_bg[(addr & VRAM::ENGINE_A_BG_VRAM_MASK) as usize / VRAM::MAPPING_LEN] = 
-                        Some(Mapping::new(bank, (VRAM::MAPPING_LEN * i) as u32));
-                }
-            },
-            2 => {
-                assert!(bank != Bank::C && bank != Bank::D && bank != Bank::H && bank != Bank::I);
-                if bank == Bank::A || bank == Bank::B { assert_eq!(new_cnt.offset >> 1 & 0x1, 0) }
-                let start_addr = VRAM::ENGINE_A_OBJ_START_ADDRESS + bank.get_engine_a_offset(new_cnt.offset);
-                self.mapping_ranges[index] = start_addr..start_addr + VRAM::BANKS_LEN[index] as u32;
-                for (i, addr) in self.mapping_ranges[index].clone().step_by(VRAM::MAPPING_LEN).enumerate() {
-                    // TODO: Support overlapping banks
-                    assert!(!self.mappings.contains_key(&addr));
-                    self.mappings.insert(addr, Mapping::new(bank, start_addr));
-                    self.engine_a_obj[(addr & VRAM::ENGINE_A_OBJ_VRAM_MASK) as usize / VRAM::MAPPING_LEN] = 
-                        Some(Mapping::new(bank, (VRAM::MAPPING_LEN * i) as u32));
-                }
-            },
+            1 => VRAM::add_mapping(&mut self.mapping_ranges, &mut self.mappings,
+                VRAM::ENGINE_A_BG_START_ADDRESS + bank.get_engine_a_offset(new_cnt.offset),
+                bank, VRAM::ENGINE_A_BG_VRAM_MASK, &mut self.engine_a_bg),
+            2 => VRAM::add_mapping(&mut self.mapping_ranges, &mut self.mappings,
+                VRAM::ENGINE_A_OBJ_START_ADDRESS + bank.get_engine_a_offset(new_cnt.offset),
+                bank, VRAM::ENGINE_A_OBJ_VRAM_MASK, &mut self.engine_a_obj),
             3 ..= 5 => todo!(),
             _ => unreachable!(),
         }
@@ -140,6 +119,24 @@ impl VRAM {
         if let Some(mapping) = self.mappings.get(&(addr & !(VRAM::MAPPING_LEN as u32 - 1))) {
             Some((&mut self.banks[mapping.bank as usize], addr - mapping.offset))
         } else { None }
+    }
+
+    fn add_mapping(mapping_ranges: &mut [Range<u32>; 9], mappings: &mut HashMap<u32, Mapping>,
+        start_addr: u32, bank: Bank, mask: u32, arr: &mut [Option<Mapping>]) {
+        mapping_ranges[bank as usize] = start_addr..start_addr + VRAM::BANKS_LEN[bank as usize] as u32;
+        for (i, addr) in mapping_ranges[bank as usize].clone().step_by(VRAM::MAPPING_LEN).enumerate() {
+            // TODO: Support overlapping banks
+            assert!(!mappings.contains_key(&addr));
+            mappings.insert(addr, Mapping::new(bank, start_addr));
+            arr[(addr & mask) as usize / VRAM::MAPPING_LEN] = 
+                Some(Mapping::new(bank, (VRAM::MAPPING_LEN * i) as u32));
+        }
+    }
+
+    fn remove_mapping(mapping_ranges: &[Range<u32>; 9], index: usize, mask: u32, arr: &mut [Option<Mapping>]) {
+        for addr in mapping_ranges[index].clone().step_by(VRAM::MAPPING_LEN) {
+            arr[(addr & mask) as usize / VRAM::MAPPING_LEN] = None;
+        }
     }
 }
 // Corresponds to a bank and address offset into that bank
