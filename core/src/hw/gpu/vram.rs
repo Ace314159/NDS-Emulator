@@ -8,6 +8,7 @@ pub struct VRAM {
     mapping_ranges: [Range<u32>; 9], // Specifies Range that each bank encompasses
     // Functions
     lcdc_enabled: [bool; 9],
+    engine_a_bg: [Option<Mapping>; 32],
 }
 
 impl VRAM {
@@ -17,6 +18,9 @@ impl VRAM {
 
     const LCDC_ADDRESSES: [u32; 9] = [0x0680_0000, 0x0682_0000, 0x0684_0000, 0x0686_0000,
         0x0688_0000, 0x0689_0000, 0x0689_4000, 0x0689_8000, 0x068A_0000];
+    const ENGINE_A_BG_START_ADDRESS: u32 = 0x0600_0000;
+    
+    const ENGINE_A_BG_VRAM_MASK: u32 = 4 * 128 * 0x400 - 1;
 
     pub fn new() -> Self {
         VRAM {
@@ -36,6 +40,7 @@ impl VRAM {
             mapping_ranges: [0..0, 0..0, 0..0, 0..0, 0..0, 0..0, 0..0, 0..0, 0..0],
             // Functions
             lcdc_enabled: [false; 9],
+            engine_a_bg: [None; 32],
         }
     }
 
@@ -52,7 +57,10 @@ impl VRAM {
                     assert!(self.lcdc_enabled[index]);
                     self.lcdc_enabled[index] = false
                 },
-                1 ..= 5 => todo!(),
+                1 => for addr in self.mapping_ranges[index].clone().step_by(VRAM::MAPPING_LEN) {
+                    self.engine_a_bg[(addr & VRAM::ENGINE_A_BG_VRAM_MASK) as usize / VRAM::MAPPING_LEN] = None;
+                },
+                2 ..= 5 => todo!(),
                 _ => unreachable!(),
             }
         }
@@ -69,13 +77,31 @@ impl VRAM {
                 assert!(!self.lcdc_enabled[index]);
                 self.lcdc_enabled[index] = true;
             },
-            1 ..= 5 => todo!(),
+            1 => {
+                assert!(bank != Bank::H && bank != Bank::I);
+                let start_addr = VRAM::ENGINE_A_BG_START_ADDRESS + bank.get_engine_a_offset(new_cnt.offset);
+                self.mapping_ranges[index] = start_addr..start_addr + VRAM::BANKS_LEN[index] as u32;
+                for (i, addr) in self.mapping_ranges[index].clone().step_by(VRAM::MAPPING_LEN).enumerate() {
+                    // TODO: Support overlapping banks
+                    assert!(!self.mappings.contains_key(&addr));
+                    self.mappings.insert(addr, Mapping::new(bank, start_addr));
+                    self.engine_a_bg[(addr & VRAM::ENGINE_A_BG_VRAM_MASK) as usize / VRAM::MAPPING_LEN] = 
+                        Some(Mapping::new(bank, (VRAM::MAPPING_LEN * i) as u32));
+                }
+            },
+            2 ..= 5 => todo!(),
             _ => unreachable!(),
         }
     }
 
     pub fn get_lcdc_bank(&self, bank: u8) -> Option<&Vec<u8>> {
         if self.lcdc_enabled[bank as usize] { Some(&self.banks[bank as usize]) } else { None }
+    }
+
+    pub fn _get_engine_a_bg(&self, addr: u32) -> u8 {
+        if let Some(mapping) = self.engine_a_bg[addr as usize / VRAM::MAPPING_LEN] {
+            self.banks[mapping.bank as usize][(mapping.offset + (addr % VRAM::MAPPING_LEN as u32)) as usize]
+        } else { 0 }
     }
 
     pub fn get_mem(&self, addr: u32) -> Option<(&Vec<u8>, u32)> {
@@ -91,7 +117,7 @@ impl VRAM {
     }
 }
 // Corresponds to a bank and address offset into that bank
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 struct Mapping {
     bank: Bank,
     offset: u32,
@@ -126,7 +152,7 @@ impl VRAMCNT {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 enum Bank {
     A = 0,
     B = 1,
@@ -152,6 +178,16 @@ impl Bank {
             7 => Bank::H,
             8 => Bank::I,
             _ => unreachable!(),
+        }
+    }
+
+    pub fn get_engine_a_offset(&self, offset: u8) -> u32 {
+        let offset = offset as u32;
+        match self {
+            Bank::A | Bank::B | Bank::C | Bank::D => 0x2_0000 * offset,
+            Bank::E => { assert_eq!(offset, 0); 0 },
+            Bank::F | Bank::G => 0x4000 * (offset & 0x1) + 0x1_0000 * (offset >> 1 & 0x1),
+            Bank::H | Bank::I => unreachable!(),
         }
     }
 }
