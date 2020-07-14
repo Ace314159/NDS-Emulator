@@ -10,6 +10,7 @@ pub struct VRAM {
     lcdc_enabled: [bool; 9],
     engine_a_bg: [Option<Mapping>; 32],
     engine_a_obj: [Option<Mapping>; 16],
+    engine_b_bg: [Option<Mapping>; 8],
 }
 
 impl VRAM {
@@ -21,15 +22,20 @@ impl VRAM {
         0x0688_0000, 0x0689_0000, 0x0689_4000, 0x0689_8000, 0x068A_0000];
     const ENGINE_A_BG_START_ADDRESS: u32 = 0x0600_0000;
     const ENGINE_A_OBJ_START_ADDRESS: u32 = 0x0640_0000;
+    const ENGINE_B_BG_START_ADDRESS: u32 = 0x0620_0000;
     
     const ENGINE_A_BG_VRAM_MASK: u32 = 4 * 128 * 0x400 - 1;
     const ENGINE_A_OBJ_VRAM_MASK: u32 = 2 * 128 * 0x400 - 1;
+    const ENGINE_B_BG_VRAM_MASK: u32 = 1 * 128 * 0x400 - 1;
 
     // Can't cast in match :(
     const BANK_A: usize = Bank::A as usize;
     const BANK_B: usize = Bank::B as usize;
+    const BANK_C: usize = Bank::C as usize;
     const BANK_E: usize = Bank::E as usize;
     const BANK_G: usize = Bank::G as usize;
+    const BANK_H: usize = Bank::H as usize;
+    const BANK_I: usize = Bank::I as usize;
 
     pub fn new() -> Self {
         VRAM {
@@ -51,6 +57,7 @@ impl VRAM {
             lcdc_enabled: [false; 9],
             engine_a_bg: [None; 32],
             engine_a_obj: [None; 16],
+            engine_b_bg: [None; 8],
         }
     }
 
@@ -67,12 +74,15 @@ impl VRAM {
                     assert!(self.lcdc_enabled[index]);
                     self.lcdc_enabled[index] = false
                 },
-                (VRAM::BANK_A..=VRAM::BANK_G, 1) => VRAM::remove_mapping(&self.mapping_ranges, index,
+                (VRAM::BANK_A ..= VRAM::BANK_G, 1) => VRAM::remove_mapping(&self.mapping_ranges, index,
                     VRAM::ENGINE_A_BG_VRAM_MASK, &mut self.engine_a_bg),
                 // TODO: Replace with match or syntax
                 (VRAM::BANK_A ..= VRAM::BANK_B, 2) | (VRAM::BANK_E ..= VRAM::BANK_G, 2) =>
                     VRAM::remove_mapping(&self.mapping_ranges, index,
                     VRAM::ENGINE_A_OBJ_VRAM_MASK, &mut self.engine_a_obj),
+                (VRAM::BANK_C, 4) | (VRAM::BANK_H ..= VRAM::BANK_I, 1) =>
+                    VRAM::remove_mapping(&mut self.mapping_ranges, index,
+                    VRAM::ENGINE_B_BG_VRAM_MASK, &mut self.engine_b_bg),
                 (_index, 3 ..= 5) => todo!(),
                 _ => unreachable!(),
             }
@@ -91,7 +101,7 @@ impl VRAM {
                 assert!(!self.lcdc_enabled[index]);
                 self.lcdc_enabled[index] = true;
             },
-            (VRAM::BANK_A..=VRAM::BANK_G, 1) => VRAM::add_mapping(&mut self.mapping_ranges, &mut self.mappings,
+            (VRAM::BANK_A ..= VRAM::BANK_G, 1) => VRAM::add_mapping(&mut self.mapping_ranges, &mut self.mappings,
                 VRAM::ENGINE_A_BG_START_ADDRESS + bank.get_engine_a_offset(new_cnt.offset),
                 bank, VRAM::ENGINE_A_BG_VRAM_MASK, &mut self.engine_a_bg),
             // TODO: Replace with match or syntax
@@ -99,6 +109,12 @@ impl VRAM {
                 VRAM::add_mapping(&mut self.mapping_ranges, &mut self.mappings,
                 VRAM::ENGINE_A_OBJ_START_ADDRESS + bank.get_engine_a_offset(new_cnt.offset),
                 bank, VRAM::ENGINE_A_OBJ_VRAM_MASK, &mut self.engine_a_obj),
+            (VRAM::BANK_C, 4) | (VRAM::BANK_H, 1) =>
+                VRAM::add_mapping(&mut self.mapping_ranges, &mut self.mappings, VRAM::ENGINE_B_BG_START_ADDRESS,
+                bank, VRAM::ENGINE_B_BG_VRAM_MASK, &mut self.engine_b_bg),
+            (VRAM::BANK_I, 1) =>
+                VRAM::add_mapping(&mut self.mapping_ranges, &mut self.mappings,VRAM::ENGINE_B_BG_START_ADDRESS +
+                0x8000, bank, VRAM::ENGINE_B_BG_VRAM_MASK, &mut self.engine_b_bg),
             (_index, 3 ..= 5) => todo!(),
             _ => unreachable!(),
         }
@@ -116,6 +132,12 @@ impl VRAM {
 
     pub fn _get_engine_a_obj(&self, addr: u32) -> u8 {
         if let Some(mapping) = self.engine_a_obj[addr as usize / VRAM::MAPPING_LEN] {
+            self.banks[mapping.bank as usize][(mapping.offset + (addr % VRAM::MAPPING_LEN as u32)) as usize]
+        } else { 0 }
+    }
+
+    pub fn _get_engine_b_bg(&self, addr: u32) -> u8 {
+        if let Some(mapping) = self.engine_b_bg[addr as usize / VRAM::MAPPING_LEN] {
             self.banks[mapping.bank as usize][(mapping.offset + (addr % VRAM::MAPPING_LEN as u32)) as usize]
         } else { 0 }
     }
