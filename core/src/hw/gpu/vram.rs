@@ -46,7 +46,7 @@ impl VRAM {
             for addr in self.mapping_ranges[index].clone().step_by(VRAM::MAPPING_LEN) {
                 self.mappings.remove(&addr);
             }
-            match new_cnt.mst {
+            match self.cnts[index].mst {
                 0 => {
                     assert!(self.lcdc_enabled[index]);
                     self.lcdc_enabled[index] = false
