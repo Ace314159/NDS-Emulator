@@ -4,8 +4,8 @@ use std::ops::Range;
 pub struct VRAM {
     cnts: [VRAMCNT; 9],
     banks: [Vec<u8>; 9],
-    mappings: HashMap<u32, Mapping>, // TODO: Switch to using array
-    mapping_ranges: [Range<u32>; 9],
+    mappings: HashMap<u32, Mapping>, // Maps from beginning of 16KB chunk to Mapping - TODO: Switch to using array
+    mapping_ranges: [Range<u32>; 9], // Specifies Range that each bank encompasses
     // Functions
     lcdc_enabled: [bool; 9],
 }
@@ -40,6 +40,7 @@ impl VRAM {
     }
 
     pub fn write_vram_cnt(&mut self, index: usize, value: u8) {
+        let bank = Bank::from_index(index);
         let new_cnt = VRAMCNT::new(index, value);
 
         if self.cnts[index].enabled {
@@ -63,7 +64,7 @@ impl VRAM {
                 let start_addr = VRAM::LCDC_ADDRESSES[index];
                 self.mapping_ranges[index] = start_addr..start_addr + VRAM::BANKS_LEN[index] as u32;
                 for addr in self.mapping_ranges[index].clone().step_by(VRAM::MAPPING_LEN) {
-                    self.mappings.insert(addr, Mapping::new(index, start_addr));
+                    self.mappings.insert(addr, Mapping::new(bank, start_addr));
                 }
                 assert!(!self.lcdc_enabled[index]);
                 self.lcdc_enabled[index] = true;
@@ -79,41 +80,27 @@ impl VRAM {
 
     pub fn get_mem(&self, addr: u32) -> Option<(&Vec<u8>, u32)> {
         if let Some(mapping) = self.mappings.get(&(addr & !(VRAM::MAPPING_LEN as u32 - 1))) {
-            Some((&self.banks[mapping.index], addr - mapping.offset))
+            Some((&self.banks[mapping.bank as usize], addr - mapping.offset))
         } else { None }
     }
 
     pub fn get_mem_mut(&mut self, addr: u32) -> Option<(&mut Vec<u8>, u32)> {
         if let Some(mapping) = self.mappings.get(&(addr & !(VRAM::MAPPING_LEN as u32 - 1))) {
-            Some((&mut self.banks[mapping.index], addr - mapping.offset))
+            Some((&mut self.banks[mapping.bank as usize], addr - mapping.offset))
         } else { None }
     }
 }
-
-#[derive(Clone, Copy)]
-enum VRAMFunction {
-    None = 0,
-    LCDC = 1,
-    BGA = 2,
-    OBJA = 3,
-    BGExtPalA = 4,
-    OBJExtPalA = 5,
-    BGB = 6,
-    OBJB = 7,
-    BGExtPalB = 8,
-    OBJExtPalB = 9,
-}
-
+// Corresponds to a bank and address offset into that bank
 #[derive(Clone, Copy)]
 struct Mapping {
-    index: usize,
+    bank: Bank,
     offset: u32,
 }
 
 impl Mapping {
-    pub fn new(index: usize, offset: u32) -> Mapping {
+    pub fn new(bank: Bank, offset: u32) -> Mapping {
         Mapping {
-            index,
+            bank,
             offset,
         }
     }
@@ -135,6 +122,36 @@ impl VRAMCNT {
             mst: byte & VRAMCNT::MST_MASKS[index],
             offset: byte >> 3 & VRAMCNT::OFS_MASKS[index],
             enabled: byte >> 7 & 0x1 != 0,
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+enum Bank {
+    A = 0,
+    B = 1,
+    C = 2,
+    D = 3,
+    E = 4,
+    F = 5,
+    G = 6,
+    H = 7,
+    I = 8,
+}
+
+impl Bank {
+    pub fn from_index(index: usize) -> Self {
+        match index {
+            0 => Bank::A,
+            1 => Bank::B,
+            2 => Bank::C,
+            3 => Bank::D,
+            4 => Bank::E,
+            5 => Bank::F,
+            6 => Bank::G,
+            7 => Bank::H,
+            8 => Bank::I,
+            _ => unreachable!(),
         }
     }
 }
