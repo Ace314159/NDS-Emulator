@@ -22,8 +22,9 @@ impl CP15 {
     pub fn read(&self, n: u32, m: u32, p: u32) -> u32 {
         info!("Reading from C{}, C{}, {}", n, m, p);
         match n {
-            1 => self.read_control_reg(m, p),
             0 if (m, p) == (0, 1) => 0x0F0D2112, // Cache Type Register
+            1 => self.read_control_reg(m, p),
+            9 => self.read_cache_control(m, p),
             _ => todo!(),
         }
     }
@@ -38,7 +39,7 @@ impl CP15 {
             6 => self.write_pu_regions(m, p, value),
             7 => self.write_cache_command(m, p, value),
             8 => warn!("Ignoring MMU TLB Control Write: C{}, C{}, {}: 0x{:X}", n, m, p, value),
-            9 => self.write_cache(m, p, value),
+            9 => self.write_cache_control(m, p, value),
             10 => warn!("Ignoring MMU TLB Lockdown Write: C{}, C{}, {}: 0x{:X}", n, m, p, value),
             _ => todo!(),
         }
@@ -81,7 +82,15 @@ impl CP15 {
         }
     }
 
-    fn write_cache(&mut self, m: u32, p: u32, value: u32) {
+    fn read_cache_control(&self, m: u32, p: u32) -> u32 {
+        match (m, p) {
+            (1, 0) => self.dtcm_control.read(),
+            (1, 1) => self.itcm_control.read(),
+            _ => todo!(),
+        }
+    }
+
+    fn write_cache_control(&mut self, m: u32, p: u32, value: u32) {
         match (m, p) {
             (0, 0) => warn!("Data Cache Lockdown: 0x{:X}", value), // TODO: Data Cache Lockdown
             (0, 1) => warn!("Instruction Cache Lockdown: 0x{:X}", value), // TODO: Instruction Cache Lockdown
@@ -105,9 +114,9 @@ impl TCMControl {
         }
     }
 
-    /*pub fn read(&self) -> u32 {
+    pub fn read(&self) -> u32 {
         self.base << 12 | self.virtual_size << 1
-    }*/
+    }
 
     pub fn write(&mut self, value: u32) {
         self.base = value & !0xFFF;
