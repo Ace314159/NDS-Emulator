@@ -25,6 +25,12 @@ impl VRAM {
     const ENGINE_A_BG_VRAM_MASK: u32 = 4 * 128 * 0x400 - 1;
     const ENGINE_A_OBJ_VRAM_MASK: u32 = 2 * 128 * 0x400 - 1;
 
+    // Can't cast in match :(
+    const BANK_A: usize = Bank::A as usize;
+    const BANK_B: usize = Bank::B as usize;
+    const BANK_E: usize = Bank::E as usize;
+    const BANK_G: usize = Bank::G as usize;
+
     pub fn new() -> Self {
         VRAM {
             cnts: [VRAMCNT::new(0, 0); 9],
@@ -56,24 +62,27 @@ impl VRAM {
             for addr in self.mapping_ranges[index].clone().step_by(VRAM::MAPPING_LEN) {
                 self.mappings.remove(&addr);
             }
-            match self.cnts[index].mst {
-                0 => {
+            match (index, self.cnts[index].mst) {
+                (index, 0) => {
                     assert!(self.lcdc_enabled[index]);
                     self.lcdc_enabled[index] = false
                 },
-                1 => VRAM::remove_mapping(&self.mapping_ranges, index,
+                (VRAM::BANK_A..=VRAM::BANK_G, 1) => VRAM::remove_mapping(&self.mapping_ranges, index,
                     VRAM::ENGINE_A_BG_VRAM_MASK, &mut self.engine_a_bg),
-                2 => VRAM::remove_mapping(&self.mapping_ranges, index,
+                // TODO: Replace with match or syntax
+                (VRAM::BANK_A ..= VRAM::BANK_B, 2) | (VRAM::BANK_E ..= VRAM::BANK_G, 2) =>
+                    VRAM::remove_mapping(&self.mapping_ranges, index,
                     VRAM::ENGINE_A_OBJ_VRAM_MASK, &mut self.engine_a_obj),
-                3 ..= 5 => todo!(),
+                (_index, 3 ..= 5) => todo!(),
                 _ => unreachable!(),
             }
         }
 
         self.cnts[index] = new_cnt;
         if !new_cnt.enabled { return }
-        match new_cnt.mst {
-            0 => {
+
+        match (index, new_cnt.mst) {
+            (index, 0) => {
                 let start_addr = VRAM::LCDC_START_ADDRESSES[index];
                 self.mapping_ranges[index] = start_addr..start_addr + VRAM::BANKS_LEN[index] as u32;
                 for addr in self.mapping_ranges[index].clone().step_by(VRAM::MAPPING_LEN) {
@@ -82,13 +91,15 @@ impl VRAM {
                 assert!(!self.lcdc_enabled[index]);
                 self.lcdc_enabled[index] = true;
             },
-            1 => VRAM::add_mapping(&mut self.mapping_ranges, &mut self.mappings,
+            (VRAM::BANK_A..=VRAM::BANK_G, 1) => VRAM::add_mapping(&mut self.mapping_ranges, &mut self.mappings,
                 VRAM::ENGINE_A_BG_START_ADDRESS + bank.get_engine_a_offset(new_cnt.offset),
                 bank, VRAM::ENGINE_A_BG_VRAM_MASK, &mut self.engine_a_bg),
-            2 => VRAM::add_mapping(&mut self.mapping_ranges, &mut self.mappings,
+            // TODO: Replace with match or syntax
+            (VRAM::BANK_A ..= VRAM::BANK_B, 2) | (VRAM::BANK_E ..= VRAM::BANK_G, 2) =>
+                VRAM::add_mapping(&mut self.mapping_ranges, &mut self.mappings,
                 VRAM::ENGINE_A_OBJ_START_ADDRESS + bank.get_engine_a_offset(new_cnt.offset),
                 bank, VRAM::ENGINE_A_OBJ_VRAM_MASK, &mut self.engine_a_obj),
-            3 ..= 5 => todo!(),
+            (_index, 3 ..= 5) => todo!(),
             _ => unreachable!(),
         }
     }
