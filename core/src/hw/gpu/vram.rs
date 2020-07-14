@@ -9,6 +9,7 @@ pub struct VRAM {
     // Functions
     lcdc_enabled: [bool; 9],
     engine_a_bg: [Option<Mapping>; 32],
+    engine_a_obj: [Option<Mapping>; 16],
 }
 
 impl VRAM {
@@ -16,11 +17,13 @@ impl VRAM {
         64 * 0x400, 16 * 0x400, 16 * 0x400, 32 * 0x400, 16 * 0x400];
     const MAPPING_LEN: usize = 16 * 0x400;
 
-    const LCDC_ADDRESSES: [u32; 9] = [0x0680_0000, 0x0682_0000, 0x0684_0000, 0x0686_0000,
+    const LCDC_START_ADDRESSES: [u32; 9] = [0x0680_0000, 0x0682_0000, 0x0684_0000, 0x0686_0000,
         0x0688_0000, 0x0689_0000, 0x0689_4000, 0x0689_8000, 0x068A_0000];
     const ENGINE_A_BG_START_ADDRESS: u32 = 0x0600_0000;
+    const ENGINE_A_OBJ_START_ADDRESS: u32 = 0x0640_0000;
     
     const ENGINE_A_BG_VRAM_MASK: u32 = 4 * 128 * 0x400 - 1;
+    const ENGINE_A_OBJ_VRAM_MASK: u32 = 2 * 128 * 0x400 - 1;
 
     pub fn new() -> Self {
         VRAM {
@@ -41,6 +44,7 @@ impl VRAM {
             // Functions
             lcdc_enabled: [false; 9],
             engine_a_bg: [None; 32],
+            engine_a_obj: [None; 16],
         }
     }
 
@@ -60,7 +64,10 @@ impl VRAM {
                 1 => for addr in self.mapping_ranges[index].clone().step_by(VRAM::MAPPING_LEN) {
                     self.engine_a_bg[(addr & VRAM::ENGINE_A_BG_VRAM_MASK) as usize / VRAM::MAPPING_LEN] = None;
                 },
-                2 ..= 5 => todo!(),
+                2 => for addr in self.mapping_ranges[index].clone().step_by(VRAM::MAPPING_LEN) {
+                    self.engine_a_obj[(addr & VRAM::ENGINE_A_OBJ_VRAM_MASK) as usize / VRAM::MAPPING_LEN] = None;
+                },
+                3 ..= 5 => todo!(),
                 _ => unreachable!(),
             }
         }
@@ -69,7 +76,7 @@ impl VRAM {
         if !new_cnt.enabled { return }
         match new_cnt.mst {
             0 => {
-                let start_addr = VRAM::LCDC_ADDRESSES[index];
+                let start_addr = VRAM::LCDC_START_ADDRESSES[index];
                 self.mapping_ranges[index] = start_addr..start_addr + VRAM::BANKS_LEN[index] as u32;
                 for addr in self.mapping_ranges[index].clone().step_by(VRAM::MAPPING_LEN) {
                     self.mappings.insert(addr, Mapping::new(bank, start_addr));
@@ -89,7 +96,20 @@ impl VRAM {
                         Some(Mapping::new(bank, (VRAM::MAPPING_LEN * i) as u32));
                 }
             },
-            2 ..= 5 => todo!(),
+            2 => {
+                assert!(bank != Bank::C && bank != Bank::D && bank != Bank::H && bank != Bank::I);
+                if bank == Bank::A || bank == Bank::B { assert_eq!(new_cnt.offset >> 1 & 0x1, 0) }
+                let start_addr = VRAM::ENGINE_A_OBJ_START_ADDRESS + bank.get_engine_a_offset(new_cnt.offset);
+                self.mapping_ranges[index] = start_addr..start_addr + VRAM::BANKS_LEN[index] as u32;
+                for (i, addr) in self.mapping_ranges[index].clone().step_by(VRAM::MAPPING_LEN).enumerate() {
+                    // TODO: Support overlapping banks
+                    assert!(!self.mappings.contains_key(&addr));
+                    self.mappings.insert(addr, Mapping::new(bank, start_addr));
+                    self.engine_a_obj[(addr & VRAM::ENGINE_A_OBJ_VRAM_MASK) as usize / VRAM::MAPPING_LEN] = 
+                        Some(Mapping::new(bank, (VRAM::MAPPING_LEN * i) as u32));
+                }
+            },
+            3 ..= 5 => todo!(),
             _ => unreachable!(),
         }
     }
@@ -100,6 +120,12 @@ impl VRAM {
 
     pub fn _get_engine_a_bg(&self, addr: u32) -> u8 {
         if let Some(mapping) = self.engine_a_bg[addr as usize / VRAM::MAPPING_LEN] {
+            self.banks[mapping.bank as usize][(mapping.offset + (addr % VRAM::MAPPING_LEN as u32)) as usize]
+        } else { 0 }
+    }
+
+    pub fn _get_engine_a_obj(&self, addr: u32) -> u8 {
+        if let Some(mapping) = self.engine_a_obj[addr as usize / VRAM::MAPPING_LEN] {
             self.banks[mapping.bank as usize][(mapping.offset + (addr % VRAM::MAPPING_LEN as u32)) as usize]
         } else { 0 }
     }
@@ -152,7 +178,7 @@ impl VRAMCNT {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq  )]
 enum Bank {
     A = 0,
     B = 1,
