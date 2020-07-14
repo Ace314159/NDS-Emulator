@@ -59,6 +59,7 @@ impl CP15 {
 
     fn write_control_reg(&mut self, m: u32, p: u32, value: u32) {
         if m != 0 || p != 0 { warn!("m and p are not 0 for CP15 Control Register Write: {} {}", m, p); return }
+        warn!("Writing to CP15 Control Register 0x{:X}", value);
         self.control.bits = value & Control::MASK | Control::ALWAYS_SET;
         self.interrupt_base = if self.control.contains(Control::INTERRUPT_BASE) { 0xFFFF_0000 } else { 0x0000_0000 };
     }
