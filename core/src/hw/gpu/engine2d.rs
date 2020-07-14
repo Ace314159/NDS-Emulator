@@ -549,7 +549,7 @@ impl OBJPixel {
 
 impl Engine2D {
     pub fn read_register(&self, addr: u32) -> u8 {
-        assert_eq!(addr >> 12, 0x04000);
+        assert_eq!((addr >> 12) & !0x1, 0x04000);
         match addr & 0xFFF {
             0x000 => self.dispcnt.read(0),
             0x001 => self.dispcnt.read(1),
@@ -637,7 +637,7 @@ impl Engine2D {
     }
 
     pub fn write_register(&mut self, scheduler: &mut Scheduler, addr: u32, value: u8) {
-        assert_eq!(addr >> 12, 0x04000);
+        assert_eq!((addr >> 12) & !0x1, 0x04000);
         match addr & 0xFFF {
             0x000 => self.dispcnt.write(scheduler, 0, value),
             0x001 => self.dispcnt.write(scheduler, 1, value),
