@@ -626,12 +626,14 @@ impl Engine2D {
             0x04B => self.win_obj_cnt.read(0),
             0x04C => self.mosaic.read(0),
             0x04D => self.mosaic.read(1),
+            0x04E ..= 0x04F => 0,
             0x050 => self.bldcnt.read(0),
             0x051 => self.bldcnt.read(1),
             0x052 => self.bldalpha.read(0),
             0x053 => self.bldalpha.read(1),
             0x054 => self.bldy.read(0),
             0x055 => self.bldy.read(1),
+            0x056 ..= 0x05F => 0,
             _ => { warn!("Ignoring Engine2D Read at 0x{:08X}", addr); 0 },
         }
     }
@@ -714,12 +716,14 @@ impl Engine2D {
             0x04B => self.win_obj_cnt.write(scheduler, 0, value),
             0x04C => self.mosaic.write(scheduler, 0, value),
             0x04D => self.mosaic.write(scheduler, 1, value),
+            0x04E ..= 0x04F => (),
             0x050 => self.bldcnt.write(scheduler, 0, value),
             0x051 => self.bldcnt.write(scheduler, 1, value),
             0x052 => self.bldalpha.write(scheduler, 0, value),
             0x053 => self.bldalpha.write(scheduler, 1, value),
             0x054 => self.bldy.write(scheduler, 0, value),
             0x055 => self.bldy.write(scheduler, 1, value),
+            0x056 ..= 0x05F => (),
             _ => warn!("Ignoring Engine2D Write 0x{:08X} = {:02X}", addr, value),
         }
     }
