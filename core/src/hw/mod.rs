@@ -35,6 +35,7 @@ pub struct HW {
     interrupts9: InterruptController,
     dma7: DMAController,
     dma9: DMAController,
+    dma_fill: [u32; 4],
     // Registers
     wramcnt: WRAMCNT,
     // Misc
@@ -72,6 +73,7 @@ impl HW {
             interrupts9: InterruptController::new(),
             dma7: DMAController::new(false),
             dma9: DMAController::new(true),
+            dma_fill: [0; 4],
             // Registesr
             wramcnt: WRAMCNT::new(3),
             // Misc
