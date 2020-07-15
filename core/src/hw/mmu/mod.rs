@@ -5,7 +5,7 @@ pub mod cp15;
 use std::mem::size_of;
 pub use cp15::CP15;
 use crate::num::{self, cast::FromPrimitive, NumCast, PrimInt, Unsigned};
-use super::{HW, Scheduler, InterruptRequest};
+use super::{HW, Scheduler};
 
 impl HW {
     const MAIN_MEM_MASK: u32 = HW::MAIN_MEM_SIZE as u32 - 1;

@@ -1,5 +1,5 @@
 use crate::num;
-use super::{AccessType, CP15, HW, MemoryValue, IORegister, InterruptRequest};
+use super::{AccessType, CP15, HW, MemoryValue, IORegister};
 use crate::hw::gpu::Engine2D;
 
 type MemoryRegion = ARM9MemoryRegion;

@@ -1,4 +1,4 @@
-use super::{AccessType, HW, MemoryValue, IORegister, InterruptRequest};
+use super::{AccessType, HW, MemoryValue, IORegister};
 
 type MemoryRegion = ARM7MemoryRegion;
 
