@@ -171,7 +171,7 @@ impl HW {
             0x0400_0216 => self.interrupts9.request.write(&mut self.scheduler, 2, value),
             0x0400_0217 => self.interrupts9.request.write(&mut self.scheduler, 3, value),
             0x0400_0240 ..= 0x0400_0246 => self.gpu.vram.write_vram_cnt(addr as usize & 0xF, value),
-            0x0400_0248 ..= 0x0400_0249 => self.gpu.vram.write_vram_cnt(addr as usize & 0xF - 1, value),
+            0x0400_0248 ..= 0x0400_0249 => self.gpu.vram.write_vram_cnt((addr as usize & 0xF) - 1, value),
             0x0400_0304 => self.gpu.powcnt1.write(&mut self.scheduler, 0, value),
             0x0400_0305 => self.gpu.powcnt1.write(&mut self.scheduler, 1, value),
             0x0400_0306 => self.gpu.powcnt1.write(&mut self.scheduler, 2, value),
