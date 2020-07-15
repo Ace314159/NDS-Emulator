@@ -104,25 +104,34 @@ impl CP15 {
 struct TCMControl {
     pub base: u32,
     pub virtual_size: u32,
+    virtual_size_shift: u32,
 }
 
 impl TCMControl {
     pub fn new(base: u32, virtual_size: u32) -> Self {
+        let mut v_size_copy = virtual_size;
+        let mut shift = 0;
+        while v_size_copy != 0x200 {
+            shift += 1;
+            v_size_copy >>= 1;
+            assert!(v_size_copy >= 0x200);
+        }
         TCMControl {
             base,
             virtual_size,
+            virtual_size_shift: shift,
         }
     }
 
     pub fn read(&self) -> u32 {
-        self.base << 12 | self.virtual_size << 1
+        self.base | self.virtual_size_shift << 1
     }
 
     pub fn write(&mut self, value: u32) {
         self.base = value & !0xFFF;
-        let size_shift = value >> 1 & 0x1F;
-        assert!((3..=23).contains(&size_shift));
-        self.virtual_size = 0x200 << size_shift;
+        self.virtual_size_shift = value >> 1 & 0x1F;
+        assert!((3..=23).contains(&self.virtual_size_shift));
+        self.virtual_size = 0x200 << self.virtual_size_shift;
     }
 }
 
