@@ -5,16 +5,18 @@ mod gpu;
 mod keypad;
 mod interrupt_controller;
 mod dma;
+mod timers;
 
 use header::Header;
 pub use mmu::{AccessType, MemoryValue};
 use mmu::{WRAMCNT, CP15};
-use scheduler::{Scheduler, EventType};
+use scheduler::{Scheduler, Event, EventType};
 pub use gpu::GPU;
 use keypad::Keypad;
 pub use keypad::Key;
 use interrupt_controller::{InterruptController, InterruptRequest};
 use dma::DMAController;
+use timers::Timers;
 
 pub struct HW {
     // Memory
@@ -36,6 +38,8 @@ pub struct HW {
     dma7: DMAController,
     dma9: DMAController,
     dma_fill: [u32; 4],
+    timers7: Timers,
+    timers9: Timers,
     // Registers
     wramcnt: WRAMCNT,
     // Misc
@@ -74,6 +78,8 @@ impl HW {
             dma7: DMAController::new(false),
             dma9: DMAController::new(true),
             dma_fill: [0; 4],
+            timers7: Timers::new(false),
+            timers9: Timers::new(true),
             // Registesr
             wramcnt: WRAMCNT::new(3),
             // Misc

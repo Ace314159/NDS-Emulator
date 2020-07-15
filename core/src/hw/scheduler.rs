@@ -59,6 +59,26 @@ impl HW {
                 }
                 for event in events.iter() { self.handle_event(*event) }
             },
+            EventType::TimerOverflow(is_nds9, timer) => {
+                let (timers, interrupts) = if is_nds9 {
+                    (&mut self.timers9, &mut self.interrupts9)
+                } else {
+                    (&mut self.timers7, &mut self.interrupts9)
+                };
+                if timers.timers[timer].cnt.irq {
+                    interrupts.request |= timers.timers[timer].interrupt
+                }
+                // Cascade Timers
+                if timer + 1 < timers.timers.len() && timers.timers[timer + 1].is_count_up() {
+                    if timers.timers[timer + 1].clock() { self.handle_event(EventType::TimerOverflow(is_nds9, timer + 1)) }
+                }
+                // TODO: Can I move this up to avoid recreating timers
+                let timers = if is_nds9 { &mut self.timers9 } else { &mut self.timers7 };
+                if !timers.timers[timer].is_count_up() {
+                    timers.timers[timer].reload();
+                    timers.timers[timer].create_event(&mut self.scheduler, 0);
+                }
+            },
         }
     }
 
@@ -152,7 +172,7 @@ impl Scheduler {
         } else { None }
     }
 
-    pub fn _add(&mut self, event: _Event) {
+    pub fn add(&mut self, event: Event) {
         self.event_queue.push(event.event_type, Reverse(event.cycle));
     }
 
@@ -160,12 +180,12 @@ impl Scheduler {
         self.event_queue.push(event_type, Reverse(self.cycle + 1));
     }
 
-    pub fn _remove(&mut self, event_type: EventType) {
+    pub fn remove(&mut self, event_type: EventType) {
         self.event_queue.remove(&event_type);
     }
 }
 
-pub struct _Event {
+pub struct Event {
     pub cycle: usize,
     pub event_type: EventType,
 }
@@ -175,4 +195,5 @@ pub enum EventType {
     DMA(bool, usize),
     VBlank,
     HBlank,
+    TimerOverflow(bool, usize),
 }
