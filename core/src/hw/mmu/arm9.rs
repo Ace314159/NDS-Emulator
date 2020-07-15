@@ -21,7 +21,7 @@ impl HW {
             MemoryRegion::Palette =>
                 HW::read_from_bytes(self.gpu_engine(addr),&Engine2D::read_palette_ram, addr),
             MemoryRegion::VRAM => self.read_vram(addr),
-            MemoryRegion::OAM => HW::read_mem(&self.gpu_engine(addr).oam, addr),
+            MemoryRegion::OAM => HW::read_mem(&self.gpu_engine(addr).oam, addr & 0x3FF),
             MemoryRegion::GBAROM => todo!(),
             MemoryRegion::GBARAM => todo!(),
             MemoryRegion::BIOS => HW::read_mem(&self.bios9, addr & 0xFFFF),
@@ -40,7 +40,7 @@ impl HW {
             MemoryRegion::Palette =>
                 HW::write_from_bytes(self.gpu_engine_mut(addr),&Engine2D::write_palette_ram, addr, value),
             MemoryRegion::VRAM => self.write_vram(addr, value),
-            MemoryRegion::OAM => HW::write_mem(&mut self.gpu_engine_mut(addr).oam, addr, value),
+            MemoryRegion::OAM => HW::write_mem(&mut self.gpu_engine_mut(addr).oam, addr & 0x3FF, value),
             MemoryRegion::GBAROM => todo!(),
             MemoryRegion::GBARAM => todo!(),
             MemoryRegion::BIOS => warn!("Writing to BIOS9 0x{:08x} = 0x{:X}", addr, value),
