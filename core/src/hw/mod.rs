@@ -46,6 +46,7 @@ pub struct HW {
     // Registers
     wramcnt: WRAMCNT,
     // Misc
+    arm7_cycles_ahead: usize,
     scheduler: Scheduler,
 }
 
@@ -87,13 +88,18 @@ impl HW {
             // Registesr
             wramcnt: WRAMCNT::new(3),
             // Misc
+            arm7_cycles_ahead: 0,
             scheduler: Scheduler::new(),
         }
     }
 
-    pub fn clock(&mut self) {
-        self.handle_events();
-        self.gpu.emulate_dot(&mut self.scheduler);
+    pub fn clock(&mut self, arm7_cycles: usize) {
+        self.arm7_cycles_ahead += arm7_cycles;
+        while self.arm7_cycles_ahead >= 6 {
+            self.arm7_cycles_ahead -= 6;
+            self.gpu.emulate_dot(&mut self.scheduler);
+        }
+        self.handle_events(arm7_cycles);
     }
 
     pub fn arm7_interrupts_requested(&mut self) -> bool {

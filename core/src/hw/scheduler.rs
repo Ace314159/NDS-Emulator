@@ -11,8 +11,8 @@ use super::{
 };
 
 impl HW {
-    pub fn handle_events(&mut self) {
-        self.scheduler.cycle += 1;
+    pub fn handle_events(&mut self, arm7_cycles: usize) {
+        self.scheduler.cycle += arm7_cycles;
         while let Some(event) = self.scheduler.get_next_event() {
             self.handle_event(event);
         }
@@ -108,8 +108,8 @@ impl HW {
         let mut cycles_passed = 0;
         for _ in 0..count {
             let cycle_type = if first { AccessType::N } else { AccessType::S };
-            access_time_fn(self, cycle_type, src_addr);
-            access_time_fn(self, cycle_type, dest_addr);
+            cycles_passed += access_time_fn(self, cycle_type, src_addr);
+            cycles_passed += access_time_fn(self, cycle_type, dest_addr);
             write_fn(self, dest_addr, read_fn(self, src_addr));
 
             src_addr = match src_addr_ctrl {
@@ -134,7 +134,7 @@ impl HW {
         cycles_passed += 2; // 2 I cycles
 
         // TODO: Don't halt CPU if PC is in TCM
-        for _ in 0..cycles_passed { self.clock() }
+        self.clock(cycles_passed);
         
         if irq {
             let interrupt = match num {
@@ -167,7 +167,7 @@ impl Scheduler {
     pub fn get_next_event(&mut self) -> Option<EventType> {
         if self.event_queue.len() == 0 { return None }
         let (_event_type, cycle) = self.event_queue.peek().unwrap();
-        if Reverse(self.cycle) == *cycle {
+        if Reverse(self.cycle) <= *cycle {
             Some(self.event_queue.pop().unwrap().0)
         } else { None }
     }
