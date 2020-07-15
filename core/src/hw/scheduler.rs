@@ -113,6 +113,7 @@ impl HW {
         if dest_addr_ctrl == 3 { channel.dad_latch = original_dest_addr }
         cycles_passed += 2; // 2 I cycles
 
+        // TODO: Don't halt CPU if PC is in TCM
         for _ in 0..cycles_passed { self.clock() }
         
         if irq {
