@@ -70,8 +70,6 @@ impl HW {
             0x0400_0006 => (self.gpu.vcount >> 0) as u8,
             0x0400_0007 => (self.gpu.vcount >> 8) as u8,
             0x0400_0008 ..= 0x0400_006F => self.gpu.engine_a.read_register(addr),
-            0x0400_1000 ..= 0x0400_1003 => self.gpu.engine_b.read_register(addr),
-            0x0400_1008 ..= 0x0400_106F => self.gpu.engine_b.read_register(addr),
             0x0400_0130 => self.keypad.keyinput.read(0),
             0x0400_0131 => self.keypad.keyinput.read(1),
             0x0400_0132 => self.keypad.keycnt.read(0),
@@ -96,6 +94,8 @@ impl HW {
             0x0400_0305 => self.gpu.powcnt1.read(1),
             0x0400_0306 => self.gpu.powcnt1.read(2),
             0x0400_0307 => self.gpu.powcnt1.read(3),
+            0x0400_1000 ..= 0x0400_1003 => self.gpu.engine_b.read_register(addr),
+            0x0400_1008 ..= 0x0400_106F => self.gpu.engine_b.read_register(addr),
             _ => { warn!("Ignoring ARM9 IO Register Read at 0x{:08X}", addr); 0 }
         }
     }
@@ -126,13 +126,14 @@ impl HW {
             0x0400_0215 => self.interrupts9.request.write(&mut self.scheduler, 1, value),
             0x0400_0216 => self.interrupts9.request.write(&mut self.scheduler, 2, value),
             0x0400_0217 => self.interrupts9.request.write(&mut self.scheduler, 3, value),
-            0x0400_1000 ..= 0x0400_106F => self.gpu.engine_b.write_register(&mut self.scheduler, addr, value),
             0x0400_0240 ..= 0x0400_0246 => self.gpu.vram.write_vram_cnt(addr as usize & 0xF, value),
             0x0400_0248 ..= 0x0400_0249 => self.gpu.vram.write_vram_cnt(addr as usize & 0xF - 1, value),
             0x0400_0304 => self.gpu.powcnt1.write(&mut self.scheduler, 0, value),
             0x0400_0305 => self.gpu.powcnt1.write(&mut self.scheduler, 1, value),
             0x0400_0306 => self.gpu.powcnt1.write(&mut self.scheduler, 2, value),
             0x0400_0307 => self.gpu.powcnt1.write(&mut self.scheduler, 3, value),
+            0x0400_1000 ..= 0x0400_1003 => self.gpu.engine_b.write_register(&mut self.scheduler, addr, value),
+            0x0400_1008 ..= 0x0400_106F => self.gpu.engine_b.write_register(&mut self.scheduler, addr, value),
             _ => warn!("Ignoring ARM9 IO Register Write 0x{:08X} = {:02X}", addr, value),
         }
     }
