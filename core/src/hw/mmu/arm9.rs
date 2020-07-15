@@ -70,6 +70,10 @@ impl HW {
             0x0400_0006 => (self.gpu.vcount >> 0) as u8,
             0x0400_0007 => (self.gpu.vcount >> 8) as u8,
             0x0400_0008 ..= 0x0400_006F => self.gpu.engine_a.read_register(addr),
+            0x0400_00B0 ..= 0x0400_00BB => self.dma9.read(0, addr - 0xB0),
+            0x0400_00BC ..= 0x0400_00C7 => self.dma9.read(1, addr - 0xBC),
+            0x0400_00C8 ..= 0x0400_00D3 => self.dma9.read(2, addr - 0xC8),
+            0x0400_00D4 ..= 0x0400_00DF => self.dma9.read(3, addr - 0xD4),
             0x0400_0130 => self.keypad.keyinput.read(0),
             0x0400_0131 => self.keypad.keyinput.read(1),
             0x0400_0132 => self.keypad.keycnt.read(0),
@@ -108,6 +112,10 @@ impl HW {
             0x0400_0006 => (), // VCOUNT is read only
             0x0400_0007 => (), // VCOUNT is read only
             0x0400_0008 ..= 0x0400_006F => self.gpu.engine_a.write_register(&mut self.scheduler, addr, value),
+            0x0400_00B0 ..= 0x0400_00BB => self.dma9.write(0, &mut self.scheduler, addr - 0xB0, value),
+            0x0400_00BC ..= 0x0400_00C7 => self.dma9.write(1, &mut self.scheduler, addr - 0xBC, value),
+            0x0400_00C8 ..= 0x0400_00D3 => self.dma9.write(2, &mut self.scheduler, addr - 0xC8, value),
+            0x0400_00D4 ..= 0x0400_00DF => self.dma9.write(3, &mut self.scheduler, addr - 0xD4, value),
             0x0400_0130 => self.keypad.keyinput.write(&mut self.scheduler, 0, value),
             0x0400_0131 => self.keypad.keyinput.write(&mut self.scheduler, 1, value),
             0x0400_0132 => self.keypad.keycnt.write(&mut self.scheduler, 0, value),

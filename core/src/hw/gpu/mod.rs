@@ -2,7 +2,10 @@ mod registers;
 mod engine2d;
 mod vram;
 
-use crate::hw::interrupt_controller::InterruptRequest;
+use crate::hw::{
+    interrupt_controller::InterruptRequest,
+    EventType, Scheduler,
+};
 use registers::{DISPSTAT, DISPSTATFlags, POWCNT1};
 pub use engine2d::Engine2D;
 use vram::VRAM;
@@ -41,7 +44,7 @@ impl GPU {
         }
     }
 
-    pub fn emulate_dot(&mut self) -> InterruptRequest {
+    pub fn emulate_dot(&mut self, scheduler: &mut Scheduler) -> InterruptRequest {
         // TODO: Optimize
         let mut interrupts = InterruptRequest::empty();
         if self.dot < GPU::WIDTH as u16 { // Visible
@@ -54,8 +57,9 @@ impl GPU {
             }
             if self.dot == 267 { // TODO: Take into account half and differentiate between ARM7 and ARM9
                 self.dispstat.insert(DISPSTATFlags::HBLANK);
-                // TODO: HBlank DMA
-                //if self.vcount < GPU::HEIGHT { self.hblank_called = true } // HDMA only occurs on visible scanlines
+                if self.vcount < GPU::HEIGHT as u16 {
+                    scheduler.run_now(EventType::HBlank);
+                }
             }
         }
         if self.vcount < GPU::HEIGHT as u16 { // Visible
@@ -67,8 +71,7 @@ impl GPU {
             }
         } else { // VBlank
             if self.vcount == GPU::HEIGHT as u16 && self.dot == 0 {
-                // TODO: VBlank DMA
-                //self.vblank_called = true;
+                scheduler.run_now(EventType::VBlank);
                 if self.dispstat.contains(DISPSTATFlags::VBLANK_IRQ_ENABLE) {
                     interrupts.insert(InterruptRequest::VBLANK)
                 }

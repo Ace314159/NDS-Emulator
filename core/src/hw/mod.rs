@@ -4,15 +4,17 @@ mod scheduler;
 mod gpu;
 mod keypad;
 mod interrupt_controller;
+mod dma;
 
 use header::Header;
 pub use mmu::{AccessType, MemoryValue};
 use mmu::{WRAMCNT, CP15};
-use scheduler::Scheduler;
+use scheduler::{Scheduler, EventType};
 pub use gpu::GPU;
 use keypad::Keypad;
 pub use keypad::Key;
 use interrupt_controller::{InterruptController, InterruptRequest};
+use dma::DMAController;
 
 pub struct HW {
     // Memory
@@ -31,6 +33,8 @@ pub struct HW {
     keypad: Keypad,
     interrupts7: InterruptController,
     interrupts9: InterruptController,
+    dma7: DMAController,
+    dma9: DMAController,
     // Registers
     wramcnt: WRAMCNT,
     // Misc
@@ -66,6 +70,8 @@ impl HW {
             keypad: Keypad::new(),
             interrupts7: InterruptController::new(),
             interrupts9: InterruptController::new(),
+            dma7: DMAController::new(false),
+            dma9: DMAController::new(true),
             // Registesr
             wramcnt: WRAMCNT::new(3),
             // Misc
@@ -75,7 +81,7 @@ impl HW {
 
     pub fn clock(&mut self) {
         self.handle_events();
-        self.gpu.emulate_dot();
+        self.gpu.emulate_dot(&mut self.scheduler);
     }
 
     pub fn arm7_interrupts_requested(&mut self) -> bool {

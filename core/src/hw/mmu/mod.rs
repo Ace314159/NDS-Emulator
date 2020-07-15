@@ -37,6 +37,17 @@ impl HW {
             write_fn(device, addr + i as u32, num::cast::<T, u8>(value >> 8 * i & mask).unwrap());
         }
     }
+
+    pub fn read_byte_from_value<T: MemoryValue>(value: &T, byte: usize) -> u8 {
+        let mask = FromPrimitive::from_u8(0xFF).unwrap();
+        num::cast::<T, u8>((*value >> (byte * 8)) & mask).unwrap()
+    }
+
+    pub fn write_byte_to_value<T: MemoryValue>(value: &mut T, byte: usize, new_value: u8) {
+        let mask: T = FromPrimitive::from_u32(0xFF << (8 * byte)).unwrap();
+        let new_value: T = FromPrimitive::from_u8(new_value).unwrap();
+        *value = *value & !mask | (new_value) << (8 * byte);
+    }
 }
 
 pub trait MemoryValue: Unsigned + PrimInt + NumCast + FromPrimitive + std::fmt::UpperHex {}
