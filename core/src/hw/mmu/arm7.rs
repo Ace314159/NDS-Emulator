@@ -1,4 +1,4 @@
-use super::{AccessType, HW, MemoryValue, IORegister};
+use super::{AccessType, HW, MemoryValue, IORegister, InterruptRequest};
 
 type MemoryRegion = ARM7MemoryRegion;
 
@@ -49,6 +49,10 @@ impl HW {
             0x0400_0133 => self.keypad.keycnt.read(1),
             0x0400_0136 => self.keypad.extkeyin.read(0),
             0x0400_0137 => self.keypad.extkeyin.read(1),
+            0x0400_0180 => self.ipc.read_sync7(0),
+            0x0400_0181 => self.ipc.read_sync7(1),
+            0x0400_0182 => self.ipc.read_sync7(2),
+            0x0400_0183 => self.ipc.read_sync7(3),
             0x0400_0208 => self.interrupts7.master_enable.read(0),
             0x0400_0209 => self.interrupts7.master_enable.read(1),
             0x0400_020A => self.interrupts7.master_enable.read(2),
@@ -81,6 +85,10 @@ impl HW {
             0x0400010C ..= 0x0400010F => self.timers7.timers[3].write(&mut self.scheduler, addr as usize % 4, value),
             0x0400_0136 => self.keypad.extkeyin.write(&mut self.scheduler, 0, value),
             0x0400_0137 => self.keypad.extkeyin.write(&mut self.scheduler, 1, value),
+            0x0400_0180 => if self.ipc.write_sync7(0, value) { self.interrupts9.request |= InterruptRequest::IPC_SYNC },
+            0x0400_0181 => if self.ipc.write_sync7(1, value) { self.interrupts9.request |= InterruptRequest::IPC_SYNC },
+            0x0400_0182 => if self.ipc.write_sync7(2, value) { self.interrupts9.request |= InterruptRequest::IPC_SYNC },
+            0x0400_0183 => if self.ipc.write_sync7(3, value) { self.interrupts9.request |= InterruptRequest::IPC_SYNC },
             0x0400_0208 => self.interrupts7.master_enable.write(&mut self.scheduler, 0, value),
             0x0400_0209 => self.interrupts7.master_enable.write(&mut self.scheduler, 1, value),
             0x0400_020A => self.interrupts7.master_enable.write(&mut self.scheduler, 2, value),

@@ -6,6 +6,7 @@ mod keypad;
 mod interrupt_controller;
 mod dma;
 mod timers;
+mod ipc;
 
 use header::Header;
 pub use mmu::{AccessType, MemoryValue};
@@ -17,6 +18,7 @@ pub use keypad::Key;
 use interrupt_controller::{InterruptController, InterruptRequest};
 use dma::DMAController;
 use timers::Timers;
+use ipc::IPC;
 
 pub struct HW {
     // Memory
@@ -40,6 +42,7 @@ pub struct HW {
     dma_fill: [u32; 4],
     timers7: Timers,
     timers9: Timers,
+    ipc: IPC,
     // Registers
     wramcnt: WRAMCNT,
     // Misc
@@ -80,6 +83,7 @@ impl HW {
             dma_fill: [0; 4],
             timers7: Timers::new(false),
             timers9: Timers::new(true),
+            ipc: IPC::new(),
             // Registesr
             wramcnt: WRAMCNT::new(3),
             // Misc

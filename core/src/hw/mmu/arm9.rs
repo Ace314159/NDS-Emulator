@@ -1,5 +1,5 @@
 use crate::num;
-use super::{AccessType, CP15, HW, MemoryValue, IORegister};
+use super::{AccessType, CP15, HW, MemoryValue, IORegister, InterruptRequest};
 use crate::hw::gpu::Engine2D;
 
 type MemoryRegion = ARM9MemoryRegion;
@@ -88,6 +88,10 @@ impl HW {
             0x0400_0133 => self.keypad.keycnt.read(1),
             0x0400_0136 => self.keypad.extkeyin.read(0),
             0x0400_0137 => self.keypad.extkeyin.read(1),
+            0x0400_0180 => self.ipc.read_sync9(0),
+            0x0400_0181 => self.ipc.read_sync9(1),
+            0x0400_0182 => self.ipc.read_sync9(2),
+            0x0400_0183 => self.ipc.read_sync9(3),
             0x0400_0208 => self.interrupts9.master_enable.read(0),
             0x0400_0209 => self.interrupts9.master_enable.read(1),
             0x0400_020A => self.interrupts7.master_enable.read(2),
@@ -142,6 +146,10 @@ impl HW {
             0x0400_0133 => self.keypad.keycnt.write(&mut self.scheduler, 1, value),
             0x0400_0136 => self.keypad.extkeyin.write(&mut self.scheduler, 0, value),
             0x0400_0137 => self.keypad.extkeyin.write(&mut self.scheduler, 1, value),
+            0x0400_0180 => if self.ipc.write_sync9(0, value) { self.interrupts7.request |= InterruptRequest::IPC_SYNC },
+            0x0400_0181 => if self.ipc.write_sync9(1, value) { self.interrupts7.request |= InterruptRequest::IPC_SYNC },
+            0x0400_0182 => if self.ipc.write_sync9(2, value) { self.interrupts7.request |= InterruptRequest::IPC_SYNC },
+            0x0400_0183 => if self.ipc.write_sync9(3, value) { self.interrupts7.request |= InterruptRequest::IPC_SYNC },
             0x0400_0208 => self.interrupts9.master_enable.write(&mut self.scheduler, 0, value),
             0x0400_0209 => self.interrupts9.master_enable.write(&mut self.scheduler, 1, value),
             0x0400_020A => self.interrupts9.master_enable.write(&mut self.scheduler, 2, value),
