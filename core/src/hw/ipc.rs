@@ -61,7 +61,7 @@ impl IPC {
         prev_cnt: &FIFOCNT, new_cnt: &FIFOCNT) -> InterruptRequest {
         let empty_condition = send_fifo.len() == 0 &&
             !prev_cnt.send_fifo_empty_irq && new_cnt.send_fifo_empty_irq;
-        let not_empty_condition = send_fifo.len() == IPC::FIFO_LEN &&
+        let not_empty_condition = recv_fifo.len() != 0 &&
             !prev_cnt.recv_fifo_not_empty_irq && new_cnt.recv_fifo_not_empty_irq;
 
         (if empty_condition { InterruptRequest::IPC_SEND_FIFO_EMPTY } else { InterruptRequest::empty() }) |
