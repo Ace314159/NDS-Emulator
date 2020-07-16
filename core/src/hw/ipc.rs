@@ -45,14 +45,14 @@ impl IPC {
     pub fn write_fifocnt7(&mut self, byte: usize, value: u8) -> InterruptRequest {
         println!("Write FIFOCNT7 {}: {:X}", byte, value);
         let prev_fifocnt = self.fifocnt7;
-        self.fifocnt7.write(&mut self.output7, &mut self.output9, byte, value);
+        self.fifocnt7.write(&mut self.output7, byte, value);
         IPC::check_fifo_interrupt(&self.output7, &self.output9,
             &prev_fifocnt, &self.fifocnt7)
     }
     pub fn write_fifocnt9(&mut self, byte: usize, value: u8) -> InterruptRequest {
         println!("Write FIFOCNT9 {}: {:X}", byte, value);
         let prev_fifocnt = self.fifocnt9;
-        self.fifocnt9.write(&mut self.output9, &mut self.output7, byte, value);
+        self.fifocnt9.write(&mut self.output9, byte, value);
         IPC::check_fifo_interrupt(&self.output9, &self.output7,
             &prev_fifocnt, &self.fifocnt9)
     }
@@ -139,7 +139,7 @@ impl FIFOCNT {
         }
     }
 
-    fn write(&mut self, send_fifo: &mut VecDeque<u32>, recv_fifo: &mut VecDeque<u32>, byte: usize, value: u8) {
+    fn write(&mut self, send_fifo: &mut VecDeque<u32>, byte: usize, value: u8) {
         match byte {
             0 => {
                 self.send_fifo_empty_irq = value >> 2 & 0x1 != 0;
