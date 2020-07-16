@@ -97,7 +97,9 @@ impl HW {
         self.arm7_cycles_ahead += arm7_cycles;
         while self.arm7_cycles_ahead >= 6 {
             self.arm7_cycles_ahead -= 6;
-            self.gpu.emulate_dot(&mut self.scheduler);
+            let interrupts = self.gpu.emulate_dot(&mut self.scheduler);
+            self.interrupts7.request |= interrupts;
+            self.interrupts9.request |= interrupts;
         }
         self.handle_events(arm7_cycles);
     }
