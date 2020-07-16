@@ -77,10 +77,12 @@ impl CP15 {
 
     fn write_cache_command(&mut self, m: u32, p: u32, value: u32) {
         match (m, p) {
-            (5, 0) if value == 0 => warn!("Invalidate Entire Instruction Cache"), // TODO: Invalidate Entire Instruction Cache
-            (6, 0) if value == 0 => warn!("Invalidate Entire Data Cache"), // TODO: Invalidate Entire Data Cache
-            (10, 4) if value == 0 => warn!("Drain Write Buffer"), // TODO: Drain Write Buffer
             (0, 4) if value == 0 => self.arm9_halted = true,
+            (5, 0) if value == 0 => info!("Invalidate Entire Instruction Cache"), // TODO: Invalidate Entire Instruction Cache
+            (5, 1) => info!("Invalidate Instruction Cache Line 0x{:X}", value), // TODO: Invalidate Instruction Cache Line
+            (6, 0) if value == 0 => info!("Invalidate Entire Data Cache"), // TODO: Invalidate Entire Data Cache
+            (10, 4) if value == 0 => info!("Drain Write Buffer"), // TODO: Drain Write Buffer
+            (14, 1) => info!("Clean and Invalidate Data Cache Line 0x{:X}", value), // TODO: Clean and Invalidate Data Cache Line
             _ => todo!(),
         }
     }
