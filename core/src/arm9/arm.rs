@@ -314,7 +314,15 @@ impl ARM9 {
             self.internal();
             self.regs.set_reg_i(src_dest_reg, value);
             if src_dest_reg == base_reg { write_back = false }
-            if src_dest_reg == 15 { self.fill_arm_instr_buffer(hw) }
+            if src_dest_reg == 15 {
+                if self.regs.pc & 0x1 != 0 {
+                    self.regs.pc -= 1;
+                    self.regs.set_t(true);
+                    self.fill_thumb_instr_buffer(hw);
+                } else {
+                    self.fill_arm_instr_buffer(hw);
+                }
+            }
         } else {
             let value = self.regs.get_reg_i(src_dest_reg);
             let value = if src_dest_reg == 15 { value.wrapping_add(4) } else { value };
