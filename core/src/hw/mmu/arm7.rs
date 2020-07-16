@@ -49,6 +49,7 @@ impl HW {
             0x0400_0133 => self.keypad.keycnt.read(1),
             0x0400_0136 => self.keypad.extkeyin.read(0),
             0x0400_0137 => self.keypad.extkeyin.read(1),
+            0x0400_0138 => 0, // TODO: RTC
             0x0400_0180 => self.ipc.read_sync7(0),
             0x0400_0181 => self.ipc.read_sync7(1),
             0x0400_0182 => self.ipc.read_sync7(2),
@@ -70,6 +71,10 @@ impl HW {
             0x0400_0215 => self.interrupts7.request.read(1),
             0x0400_0216 => self.interrupts7.request.read(2),
             0x0400_0217 => self.interrupts7.request.read(3),
+            0x0400_0304 => self.powcnt2.read(0),
+            0x0400_0305 => self.powcnt2.read(1),
+            0x0400_0306 => self.powcnt2.read(2),
+            0x0400_0307 => self.powcnt2.read(3),
             0x0400_0400 ..= 0x0400_051D => 0, // TODO: Sound Registers
             _ => { warn!("Ignoring ARM7 IO Register Read at 0x{:08X}", addr); 0 }
         }
@@ -91,6 +96,7 @@ impl HW {
             0x0400_010C ..= 0x0400_010F => self.timers7.timers[3].write(&mut self.scheduler, addr as usize % 4, value),
             0x0400_0136 => self.keypad.extkeyin.write(&mut self.scheduler, 0, value),
             0x0400_0137 => self.keypad.extkeyin.write(&mut self.scheduler, 1, value),
+            0x0400_0138 => (), // TODO: RTC
             0x0400_0180 => self.interrupts9.request |= self.ipc.write_sync7(0, value),
             0x0400_0181 => self.interrupts9.request |= self.ipc.write_sync7(1, value),
             0x0400_0182 => self.interrupts9.request |= self.ipc.write_sync7(2, value),
@@ -112,6 +118,10 @@ impl HW {
             0x0400_0215 => self.interrupts7.request.write(&mut self.scheduler, 1, value),
             0x0400_0216 => self.interrupts7.request.write(&mut self.scheduler, 2, value),
             0x0400_0217 => self.interrupts7.request.write(&mut self.scheduler, 3, value),
+            0x0400_0304 => self.powcnt2.write(&mut self.scheduler, 0, value),
+            0x0400_0305 => self.powcnt2.write(&mut self.scheduler, 1, value),
+            0x0400_0306 => self.powcnt2.write(&mut self.scheduler, 2, value),
+            0x0400_0307 => self.powcnt2.write(&mut self.scheduler, 3, value),
             0x0400_0400 ..= 0x0400_051D => (), // TODO: Sound Registers
             _ => warn!("Ignoring ARM7 IO Register Write 0x{:08X} = {:02X}", addr, value),
         }

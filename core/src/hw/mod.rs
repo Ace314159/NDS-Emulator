@@ -10,7 +10,7 @@ mod ipc;
 
 use header::Header;
 pub use mmu::{AccessType, MemoryValue};
-use mmu::{WRAMCNT, CP15};
+use mmu::{CP15, POWCNT2, WRAMCNT};
 use scheduler::{Scheduler, Event, EventType};
 pub use gpu::GPU;
 use keypad::Keypad;
@@ -45,6 +45,7 @@ pub struct HW {
     ipc: IPC,
     // Registers
     wramcnt: WRAMCNT,
+    powcnt2: POWCNT2,
     // Misc
     arm7_cycles_ahead: usize,
     scheduler: Scheduler,
@@ -87,6 +88,7 @@ impl HW {
             ipc: IPC::new(),
             // Registesr
             wramcnt: WRAMCNT::new(3),
+            powcnt2: POWCNT2::new(),
             // Misc
             arm7_cycles_ahead: 0,
             scheduler: Scheduler::new(),

@@ -130,5 +130,40 @@ impl IORegister for WRAMCNT {
         self.value = value & 0x3;
         self.changed();
     }
+}
 
+pub struct POWCNT2 {
+    enable_sound: bool,
+    enable_wifi: bool,
+}
+
+impl POWCNT2 {
+    pub fn new() -> Self {
+        POWCNT2 {
+            enable_sound: true,
+            enable_wifi: false,
+        }
+    }
+}
+
+impl IORegister for POWCNT2 {
+    fn read(&self, byte: usize) -> u8 {
+        match byte {
+            0 => (self.enable_wifi as u8) << 1 | (self.enable_sound as u8),
+            1 ..= 3 => 0,
+            _ => unreachable!(),
+        }
+    }
+
+    fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8) {
+        match byte {
+            0 => {
+                self.enable_sound = value & 0x1 != 0;
+                self.enable_wifi = value >> 1 & 0x1 != 0;
+            },
+            1 ..= 3 => (),
+            _ => unreachable!(),
+        }
+    }
+    
 }
