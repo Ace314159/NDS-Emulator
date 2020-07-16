@@ -110,9 +110,9 @@ impl WRAMCNT {
                 self.arm9_mask = HW::SHARED_WRAM_SIZE as u32 / 2 - 1;
             },
             3 => {
-                self.arm7_mask = 0;
-                self.arm9_offset = 0;
-                self.arm9_mask = HW::SHARED_WRAM_SIZE as u32 - 1;
+                self.arm7_offset = 0;
+                self.arm7_mask = HW::SHARED_WRAM_SIZE as u32 - 1;
+                self.arm9_mask = 0;
             },
             _ => unreachable!(),
         }
