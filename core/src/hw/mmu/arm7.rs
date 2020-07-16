@@ -59,6 +59,8 @@ impl HW {
             0x0400_0186 => self.ipc.read_fifocnt7(2),
             0x0400_0187 => self.ipc.read_fifocnt7(3),
             0x0400_01C0 ..= 0x0400_01C3 => 0, // TODO: SPI
+            0x0400_0204 => 0, // TODO: EXEMSTAT
+            0x0400_0205 => 0, // TODO: EXEMSTAT
             0x0400_0208 => self.interrupts7.master_enable.read(0),
             0x0400_0209 => self.interrupts7.master_enable.read(1),
             0x0400_020A => self.interrupts7.master_enable.read(2),
@@ -107,6 +109,8 @@ impl HW {
             0x0400_0186 => self.interrupts7.request |= self.ipc.write_fifocnt7(2, value),
             0x0400_0187 => self.interrupts7.request |= self.ipc.write_fifocnt7(3, value),
             0x0400_01C0 ..= 0x0400_01C3 => (), // TODO: SPI
+            0x0400_0204 => (), // TODO: EXEMSTAT
+            0x0400_0205 => (), // TODO: EXEMSTAT
             0x0400_0208 => self.interrupts7.master_enable.write(&mut self.scheduler, 0, value),
             0x0400_0209 => self.interrupts7.master_enable.write(&mut self.scheduler, 1, value),
             0x0400_020A => self.interrupts7.master_enable.write(&mut self.scheduler, 2, value),
