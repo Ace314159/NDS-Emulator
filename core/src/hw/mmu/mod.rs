@@ -167,3 +167,49 @@ impl IORegister for POWCNT2 {
     }
     
 }
+
+#[derive(Clone, Copy, PartialEq)]
+enum HaltMode {
+    None = 0,
+    GBA = 1,
+    Halt = 2,
+    Sleep = 3,
+}
+
+impl HaltMode {
+    fn from_bits(value: u8) -> Self {
+        match value {
+            0 => HaltMode::None,
+            1 => HaltMode::GBA,
+            2 => HaltMode::Halt,
+            3 => HaltMode::Sleep,
+            _ => unreachable!(),
+        }
+    }
+}
+
+pub struct HALTCNT {
+    mode: HaltMode,
+}
+
+impl HALTCNT {
+    pub fn new() -> Self {
+        HALTCNT {
+            mode: HaltMode::None,
+        }
+    }
+
+    pub fn unhalt(&mut self) { self.mode = HaltMode::None; }
+    pub fn halted(&self) -> bool { self.mode == HaltMode::Halt }
+}
+
+impl IORegister for HALTCNT {
+    fn read(&self, byte: usize) -> u8 { assert_eq!(byte, 0); (self.mode as u8) << 6 }
+
+    fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8) {
+        assert_eq!(byte, 0);
+        self.mode = HaltMode::from_bits(value >> 6);
+        assert!(self.mode != HaltMode::GBA && self.mode != HaltMode::Sleep); // TODO: Implement
+    }
+    
+}

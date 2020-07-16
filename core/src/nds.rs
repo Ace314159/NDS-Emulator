@@ -30,7 +30,8 @@ impl NDS {
             }
             while self.arm9_cycles_ahead >= 0 || self.hw.cp15.arm9_halted {
                 self.arm7.handle_irq(&mut self.hw);
-                let arm7_cycles_ran = self.arm7.emulate_instr(&mut self.hw);
+                let arm7_cycles_ran = if self.hw.haltcnt.halted() { 1 }
+                else { self.arm7.emulate_instr(&mut self.hw) };
                 self.hw.clock(arm7_cycles_ran);
                 if self.hw.cp15.arm9_halted { break }
                 else { self.arm9_cycles_ahead -= 2 * arm7_cycles_ran as i32 }

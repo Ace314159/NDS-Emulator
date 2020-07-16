@@ -70,6 +70,7 @@ impl ARM7 {
 
     pub fn handle_irq(&mut self, hw: &mut HW) {
         if self.regs.get_i() || !hw.arm7_interrupts_requested() { return }
+        hw.haltcnt.unhalt();
         self.regs.change_mode(Mode::IRQ);
         let lr = if self.regs.get_t() {
             self.read::<u16>(hw, AccessType::N, self.regs.pc);
