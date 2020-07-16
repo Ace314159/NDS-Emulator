@@ -35,22 +35,18 @@ impl IPC {
     }
 
     pub fn write_sync7(&mut self, byte: usize, value: u8) -> InterruptRequest {
-        println!("Write SYNC7 {}: {:X}", byte, value);
         self.sync7.write(&mut self.sync9, byte, value)
     }
     pub fn write_sync9(&mut self, byte: usize, value: u8) -> InterruptRequest {
-        println!("Write SYNC9 {}: {:X}", byte, value);
         self.sync9.write(&mut self.sync7, byte, value)
     }
     pub fn write_fifocnt7(&mut self, byte: usize, value: u8) -> InterruptRequest {
-        println!("Write FIFOCNT7 {}: {:X}", byte, value);
         let prev_fifocnt = self.fifocnt7;
         self.fifocnt7.write(&mut self.output7, byte, value);
         IPC::check_fifo_interrupt(&self.output7, &self.output9,
             &prev_fifocnt, &self.fifocnt7)
     }
     pub fn write_fifocnt9(&mut self, byte: usize, value: u8) -> InterruptRequest {
-        println!("Write FIFOCNT9 {}: {:X}", byte, value);
         let prev_fifocnt = self.fifocnt9;
         self.fifocnt9.write(&mut self.output9, byte, value);
         IPC::check_fifo_interrupt(&self.output9, &self.output7,
