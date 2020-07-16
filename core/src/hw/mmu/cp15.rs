@@ -7,6 +7,7 @@ pub struct CP15 {
     interrupt_base: u32,
     itcm_control: TCMControl,
     dtcm_control: TCMControl,
+    pub arm9_halted: bool,
 }
 
 impl CP15 {
@@ -16,6 +17,7 @@ impl CP15 {
             interrupt_base: 0xFFF_0000,
             itcm_control: TCMControl::new(0, HW::ITCM_SIZE as u32),
             dtcm_control: TCMControl::new(0x0080_3000, HW::DTCM_SIZE as u32),
+            arm9_halted: false,
         }
     }
 
@@ -78,6 +80,7 @@ impl CP15 {
             (5, 0) if value == 0 => warn!("Invalidate Entire Instruction Cache"), // TODO: Invalidate Entire Instruction Cache
             (6, 0) if value == 0 => warn!("Invalidate Entire Data Cache"), // TODO: Invalidate Entire Data Cache
             (10, 4) if value == 0 => warn!("Drain Write Buffer"), // TODO: Drain Write Buffer
+            (0, 4) if value == 0 => self.arm9_halted = true,
             _ => todo!(),
         }
     }
