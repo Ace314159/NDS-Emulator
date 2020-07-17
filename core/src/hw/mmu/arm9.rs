@@ -57,6 +57,7 @@ impl HW {
         for (i, addr) in (start_addr..start_addr + size).enumerate() {
             self.arm9_write(addr, self.rom[rom_offset + i]);
         }
+        self.arm9_write(0x23FFC80, 0x5u8);
         self.rom_header.arm9_entry_addr
     }
 
