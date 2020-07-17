@@ -1,6 +1,6 @@
 use crate::num;
 use super::{AccessType, CP15, HW, MemoryValue, IORegister};
-use crate::hw::gpu::Engine2D;
+use crate::hw::gpu::{GPU, Engine2D};
 
 type MemoryRegion = ARM9MemoryRegion;
 
@@ -20,7 +20,7 @@ impl HW {
             MemoryRegion::Palette =>
                 HW::read_from_bytes(self.gpu_engine(addr),&Engine2D::read_palette_ram, addr),
             MemoryRegion::VRAM => self.read_vram(addr),
-            MemoryRegion::OAM => HW::read_mem(&self.gpu_engine(addr).oam, addr & 0x3FF),
+            MemoryRegion::OAM => HW::read_mem(&self.gpu_engine(addr).oam, addr & GPU::OAM_MASK as u32),
             MemoryRegion::GBAROM => todo!(),
             MemoryRegion::GBARAM => todo!(),
             MemoryRegion::BIOS => HW::read_mem(&self.bios9, addr & 0xFFFF),
@@ -38,7 +38,7 @@ impl HW {
             MemoryRegion::Palette =>
                 HW::write_from_bytes(self.gpu_engine_mut(addr),&Engine2D::write_palette_ram, addr, value),
             MemoryRegion::VRAM => self.write_vram(addr, value),
-            MemoryRegion::OAM => HW::write_mem(&mut self.gpu_engine_mut(addr).oam, addr & 0x3FF, value),
+            MemoryRegion::OAM => HW::write_mem(&mut self.gpu_engine_mut(addr).oam, addr & GPU::OAM_MASK as u32, value),
             MemoryRegion::GBAROM => todo!(),
             MemoryRegion::GBARAM => todo!(),
             MemoryRegion::BIOS => warn!("Writing to BIOS9 0x{:08x} = 0x{:X}", addr, value),

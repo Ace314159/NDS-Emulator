@@ -31,8 +31,8 @@ pub struct Engine2D {
     bldy: BLDY,
 
     // Palettes
-    bg_palettes: [u16; 0x100],
-    obj_palettes: [u16; 0x100],
+    bg_palettes: [u16; GPU::PALETTE_SIZE],
+    obj_palettes: [u16; GPU::PALETTE_SIZE],
     pub oam: Vec<u8>,
 
     // Important Rendering Variables
@@ -44,6 +44,7 @@ pub struct Engine2D {
 
 impl Engine2D {
     const TRANSPARENT_COLOR: u16 = 0x8000;
+    const COLOR_MASK: u16 = !Engine2D::TRANSPARENT_COLOR; // Clear top bit so black isn't thought to be transparent
 
     pub fn new() -> Self {
         Engine2D {
@@ -74,8 +75,8 @@ impl Engine2D {
             bldy: BLDY::new(),
 
             // Palettes
-            bg_palettes: [0; 0x100],
-            obj_palettes: [0; 0x100],
+            bg_palettes: [0; GPU::PALETTE_SIZE],
+            obj_palettes: [0; GPU::PALETTE_SIZE],
             // VRAM
             oam: vec![0; 0x400],
 
@@ -187,7 +188,8 @@ impl Engine2D {
             ];
 
             // Store top 2 layers
-            let mut colors = [self.bg_palettes[0], self.bg_palettes[0]]; // Default is backdrop color
+            let backdrop_color = self.bg_palettes[0] & Engine2D::COLOR_MASK;
+            let mut colors = [backdrop_color, backdrop_color]; // Default is backdrop color
             let mut layers = [Layer::BD, Layer::BD];
             let mut priorities = [4, 4];
             let mut i = 0;
@@ -382,7 +384,7 @@ impl Engine2D {
                     if set_color { break } // Continue to look for color pixels
                 } else if !set_color {
                     self.objs_line[dot_x] = OBJPixel {
-                        color: self.obj_palettes[palette_num * 16 + color_num],
+                        color: self.obj_palettes[palette_num * 16 + color_num] & Engine2D::COLOR_MASK,
                         priority: (obj[2] >> 10 & 0x3) as u8,
                         semitransparent: mode == 1,
                     };
@@ -431,7 +433,7 @@ impl Engine2D {
             let (_, color_num) = self.get_color_from_tile(vram, get_bg, tile_start_addr, tile_num,
                 false, false, 8, x % 8, y % 8, 0);
             self.bg_lines[bg_i][dot_x] = if color_num == 0 { Engine2D::TRANSPARENT_COLOR }
-            else { self.bg_palettes[color_num] };
+            else { self.bg_palettes[color_num] & Engine2D::COLOR_MASK};
         }
     }
 
@@ -480,7 +482,7 @@ impl Engine2D {
             let (palette_num, color_num) = self.get_color_from_tile(vram, get_bg, tile_start_addr,
                 tile_num, flip_x, flip_y, bit_depth, x % 8, y % 8, palette_num);
             self.bg_lines[bg_i][dot_x] = if color_num == 0 { Engine2D::TRANSPARENT_COLOR }
-            else { self.bg_palettes[palette_num * 16 + color_num]};
+            else { self.bg_palettes[palette_num * 16 + color_num] & Engine2D::COLOR_MASK };
         }
     }
 
@@ -727,9 +729,9 @@ impl Engine2D {
     }
 
     pub fn read_palette_ram(&self, addr: u32) -> u8 {
-        let addr = (addr & 0x3FF) as usize;
-        let palettes = if addr < 0x200 { &self.bg_palettes } else { &self.obj_palettes };
-        let index = (addr & 0x1FF) / 2;
+        let addr = addr as usize & GPU::PALETTE_MASK;
+        let palettes = if addr < GPU::PALETTE_SIZE { &self.bg_palettes } else { &self.obj_palettes };
+        let index = (addr & GPU::PALETTE_SIZE / 2 - 1) / 2;
         if addr % 2 == 0 {
             (palettes[index] >> 0) as u8
         } else {
@@ -738,13 +740,13 @@ impl Engine2D {
     }
 
     pub fn write_palette_ram(&mut self, addr: u32, value: u8) {
-        let addr = (addr & 0x3FF) as usize;
-        let palettes = if addr < 0x200 { &mut self.bg_palettes } else { &mut self.obj_palettes };
-        let index = (addr & 0x1FF) / 2;
+        let addr = addr as usize & GPU::PALETTE_MASK;
+        let palettes = if addr < GPU::PALETTE_SIZE { &mut self.bg_palettes } else { &mut self.obj_palettes };
+        let index = (addr & GPU::PALETTE_SIZE / 2 - 1) / 2;
         if addr % 2 == 0 {
             palettes[index] = palettes[index] & !0x00FF | (value as u16) << 0;
         } else {
-            palettes[index] = palettes[index] & !0xFF00 | (value as u16) << 8 & !0x8000; // Clear high bit 
+            palettes[index] = palettes[index] & !0xFF00 | (value as u16) << 8;
         }
     }
 }
