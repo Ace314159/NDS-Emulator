@@ -206,7 +206,7 @@ impl IORegister for DISPSTAT {
                 let old_bits = self.flags.bits;
                 self.flags.bits = self.flags.bits & 0x7 | ((value as u16) & !0x7 & DISPSTATFlags::all().bits);
                 assert_eq!(old_bits & 0x7, self.flags.bits & 0x7);
-                self.vcount_setting = self.vcount_setting & !0x100 | (value as u16) << 8;
+                self.vcount_setting = self.vcount_setting & !0x100 | (value as u16 & 0x80) << 8;
             },
             1 => self.vcount_setting = self.vcount_setting & !0xFF | value as u16,
             _ => unreachable!(),
