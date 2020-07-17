@@ -55,7 +55,7 @@ pub struct HW {
 impl HW {
     const ITCM_SIZE: usize = 0x8000;
     const DTCM_SIZE: usize = 0x4000;
-    const MAIN_MEM_SIZE: usize = 0x20_0000;
+    const MAIN_MEM_SIZE: usize = 0x40_0000;
     const IWRAM_SIZE: usize = 0x1_0000;
     const SHARED_WRAM_SIZE: usize = 0x8000;
 
