@@ -135,27 +135,27 @@ impl VRAM {
         if self.lcdc_enabled[bank as usize] { Some(&self.banks[bank as usize]) } else { None }
     }
 
-    pub fn _get_engine_a_bg(&self, addr: u32) -> u8 {
+    pub fn get_engine_a_bg(&self, addr: usize) -> u8 {
         if let Some(mapping) = self.engine_a_bg[addr as usize / VRAM::MAPPING_LEN] {
-            self.banks[mapping.bank as usize][(mapping.offset + (addr % VRAM::MAPPING_LEN as u32)) as usize]
+            self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN]
         } else { 0 }
     }
 
-    pub fn _get_engine_a_obj(&self, addr: u32) -> u8 {
+    pub fn get_engine_a_obj(&self, addr: usize) -> u8 {
         if let Some(mapping) = self.engine_a_obj[addr as usize / VRAM::MAPPING_LEN] {
-            self.banks[mapping.bank as usize][(mapping.offset + (addr % VRAM::MAPPING_LEN as u32)) as usize]
+            self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN]
         } else { 0 }
     }
 
-    pub fn _get_engine_b_bg(&self, addr: u32) -> u8 {
+    pub fn get_engine_b_bg(&self, addr: usize) -> u8 {
         if let Some(mapping) = self.engine_b_bg[addr as usize / VRAM::MAPPING_LEN] {
-            self.banks[mapping.bank as usize][(mapping.offset + (addr % VRAM::MAPPING_LEN as u32)) as usize]
+            self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN]
         } else { 0 }
     }
 
-    pub fn _get_engine_b_obj(&self, addr: u32) -> u8 {
+    pub fn get_engine_b_obj(&self, addr: usize) -> u8 {
         if let Some(mapping) = self.engine_b_obj[addr as usize / VRAM::MAPPING_LEN] {
-            self.banks[mapping.bank as usize][(mapping.offset + (addr % VRAM::MAPPING_LEN as u32)) as usize]
+            self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN]
         } else { 0 }
     }
 
