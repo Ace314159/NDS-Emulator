@@ -13,7 +13,6 @@ impl HW {
             MemoryRegion::ITCM => HW::read_mem(&self.itcm, addr & HW::ITCM_MASK),
             MemoryRegion::DTCM => HW::read_mem(&self.dtcm, addr & HW::DTCM_MASK),
             MemoryRegion::MainMem => HW::read_mem(&self.main_mem, addr & HW::MAIN_MEM_MASK),
-            MemoryRegion::WRAM => todo!(),
             MemoryRegion::SharedWRAM if self.wramcnt.arm9_mask == 0 => num::zero(),
             MemoryRegion::SharedWRAM => HW::read_mem(&self.shared_wram,
                 self.wramcnt.arm9_offset + addr & self.wramcnt.arm9_mask),
@@ -33,7 +32,6 @@ impl HW {
             MemoryRegion::ITCM => HW::write_mem(&mut self.itcm, addr & HW::ITCM_MASK, value),
             MemoryRegion::DTCM => HW::write_mem(&mut self.dtcm, addr & HW::DTCM_MASK, value),
             MemoryRegion::MainMem => HW::write_mem(&mut self.main_mem, addr & HW::MAIN_MEM_MASK, value),
-            MemoryRegion::WRAM => todo!(),
             MemoryRegion::SharedWRAM => HW::write_mem(&mut self.shared_wram,
                 self.wramcnt.arm9_offset + addr & self.wramcnt.arm9_mask, value),
             MemoryRegion::IO => HW::write_from_bytes(self, &HW::arm9_write_io_register, addr, value),
@@ -213,7 +211,6 @@ pub enum ARM9MemoryRegion {
     ITCM,
     DTCM,
     MainMem,
-    WRAM,
     SharedWRAM,
     IO,
     Palette,
@@ -231,7 +228,7 @@ impl ARM9MemoryRegion {
         if cp15.addr_in_dtcm(addr) { return DTCM }
         match addr >> 24 {
             0x2 => MainMem,
-            0x3 => WRAM,
+            0x3 => SharedWRAM,
             0x4 => IO,
             0x5 => Palette,
             0x6 => VRAM,
