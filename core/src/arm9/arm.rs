@@ -584,15 +584,16 @@ impl ARM9 {
         let src2 = self.regs.get_reg_i(instr >> 16 & 0xF) as i32;
         let dest_reg = instr >> 12 & 0xF;
         let src1 = self.regs.get_reg_i(instr & 0xF) as i32;
-        let (src2, q) = if D::bool() {
+        let (src2, q1) = if D::bool() {
             (src2.saturating_mul(2), src2.checked_mul(2).is_none())
         } else { (src2, false) };
-        self.regs.set_reg_i(dest_reg, if Op::bool() {
-            src1.saturating_sub(src2)
+        let (result, q2) = if Op::bool() {
+            (src1.saturating_sub(src2), src1.checked_sub(src2).is_none() )
         } else {
-            src1.saturating_add(src2)
-        } as u32);
-        if q || src1.checked_add(src2).is_none() { self.regs.set_q(true) }
+            (src1.saturating_add(src2), src1.checked_add(src2).is_none() )
+        };
+        self.regs.set_reg_i(dest_reg, result as u32);
+        if q1 || q2 { self.regs.set_q(true) }
     }
 }
 
