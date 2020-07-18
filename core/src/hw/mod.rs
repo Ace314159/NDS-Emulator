@@ -8,6 +8,7 @@ mod dma;
 mod timers;
 mod ipc;
 mod math;
+mod spi;
 
 use header::Header;
 pub use mmu::{AccessType, MemoryValue};
@@ -21,6 +22,7 @@ use dma::DMAController;
 use timers::Timers;
 use ipc::IPC;
 use math::{Div, Sqrt};
+use spi::SPI;
 
 pub struct HW {
     // Memory
@@ -45,6 +47,7 @@ pub struct HW {
     timers7: Timers,
     timers9: Timers,
     ipc: IPC,
+    spi: SPI,
     // Registers
     wramcnt: WRAMCNT,
     powcnt2: POWCNT2,
@@ -64,7 +67,7 @@ impl HW {
     const IWRAM_SIZE: usize = 0x1_0000;
     const SHARED_WRAM_SIZE: usize = 0x8000;
 
-    pub fn new(bios7: Vec<u8>, bios9: Vec<u8>, rom: Vec<u8>) -> Self {
+    pub fn new(bios7: Vec<u8>, bios9: Vec<u8>, firmware: Vec<u8>, rom: Vec<u8>) -> Self {
         let mut main_mem = vec![0; HW::MAIN_MEM_SIZE];
         let rom_header = Header::new(&rom);
         let addr = 0x027F_FE00 & (HW::MAIN_MEM_SIZE - 1); 
@@ -92,6 +95,7 @@ impl HW {
             timers7: Timers::new(false),
             timers9: Timers::new(true),
             ipc: IPC::new(),
+            spi: SPI::new(firmware),
             // Registesr
             wramcnt: WRAMCNT::new(3),
             powcnt2: POWCNT2::new(),
