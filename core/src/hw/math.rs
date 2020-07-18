@@ -1,4 +1,5 @@
 use super::{HW, mmu::IORegister, scheduler::Scheduler};
+use num_integer::Roots;
 
 pub struct Div {
     pub cnt: DIVCNT,
@@ -58,6 +59,35 @@ impl Div {
     }
 }
 
+pub struct Sqrt {
+    pub cnt: SQRTCNT,
+    param: MathParam,
+    result: u32,
+}
+
+impl Sqrt {
+    pub fn new() -> Self {
+        Sqrt {
+            cnt: SQRTCNT::new(),
+            param: MathParam::new(),
+            result: 0,
+        }
+    }
+
+    pub fn read_param(&self, byte: usize) -> u8 { self.param.read(byte) }
+    pub fn read_result(&self, byte: usize) -> u8 { HW::read_byte_from_value(&self.result, byte) }
+
+    pub fn write_param(&mut self, scheduler: &mut Scheduler, byte: usize, value: u8) {
+        self.param.write(scheduler, byte, value);
+        // TODO: Take correct num of cycles
+        self.result = if self.cnt.is_64bit {
+            self.param.value.sqrt() as u32
+        } else {
+            (self.param.value as u32).sqrt()
+        };
+    }
+}
+
 pub struct MathParam {
     value: u64,
 }
@@ -111,6 +141,39 @@ impl IORegister for DIVCNT {
     fn write(&mut self, _scheduler: &mut super::scheduler::Scheduler, byte: usize, value: u8) {
         match byte {
             0 => self.mode = value & 0x3,
+            1 ..= 3 => (),
+            _ => unreachable!(),
+        }
+    }
+}
+
+pub struct SQRTCNT {
+    is_64bit: bool,
+    busy: bool,
+}
+
+impl SQRTCNT {
+    pub fn new() -> Self {
+        SQRTCNT {
+            is_64bit: false,
+            busy: false,
+        }
+    }
+}
+
+impl IORegister for SQRTCNT {
+    fn read(&self, byte: usize) -> u8 {
+        match byte {
+            0 => self.is_64bit as u8,
+            1 => (self.busy as u8) << 7,
+            2 ..= 3 => 0,
+            _ => unreachable!(),
+        }
+    }
+
+    fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8) {
+        match byte {
+            0 => self.is_64bit = value & 0x1 != 0,
             1 ..= 3 => (),
             _ => unreachable!(),
         }

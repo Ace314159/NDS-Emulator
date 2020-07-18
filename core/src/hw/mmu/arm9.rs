@@ -117,6 +117,9 @@ impl HW {
             0x0400_0298 ..= 0x0400_029F => self.div.read_denom(addr as usize & 0x7),
             0x0400_02A0 ..= 0x0400_02A7 => self.div.read_quot(addr as usize & 0x7),
             0x0400_02A8 ..= 0x0400_02AF => self.div.read_rem(addr as usize & 0x7),
+            0x0400_02B0 ..= 0x0400_02B3 => self.sqrt.cnt.read(addr as usize & 0xF),
+            0x0400_02B4 ..= 0x0400_02B7 => self.sqrt.read_result(addr as usize & 0x3),
+            0x0400_02B8 ..= 0x0400_02BF => self.sqrt.read_param(addr as usize & 0x7),
             0x0400_0304 => self.gpu.powcnt1.read(0),
             0x0400_0305 => self.gpu.powcnt1.read(1),
             0x0400_0306 => self.gpu.powcnt1.read(2),
@@ -187,6 +190,9 @@ impl HW {
             0x0400_0298 ..= 0x0400_029F => self.div.write_denom(&mut self.scheduler, addr as usize & 0x7, value),
             0x0400_02A0 ..= 0x0400_02A7 => (), // Div result registers are read-only
             0x0400_02A8 ..= 0x0400_02AF => (), // Div result registers are read-only
+            0x0400_02B0 ..= 0x0400_02B3 => self.sqrt.cnt.write(&mut self.scheduler, addr as usize & 0xF, value),
+            0x0400_02B4 ..= 0x0400_02B7 => (), // Sqrt result register is read-only
+            0x0400_02B8 ..= 0x0400_02BF => self.sqrt.write_param(&mut self.scheduler, addr as usize & 0x7, value),
             0x0400_0304 => self.gpu.powcnt1.write(&mut self.scheduler, 0, value),
             0x0400_0305 => self.gpu.powcnt1.write(&mut self.scheduler, 1, value),
             0x0400_0306 => self.gpu.powcnt1.write(&mut self.scheduler, 2, value),

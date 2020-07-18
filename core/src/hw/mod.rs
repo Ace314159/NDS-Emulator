@@ -20,7 +20,7 @@ use interrupt_controller::{InterruptController, InterruptRequest};
 use dma::DMAController;
 use timers::Timers;
 use ipc::IPC;
-use math::Div;
+use math::{Div, Sqrt};
 
 pub struct HW {
     // Memory
@@ -51,6 +51,7 @@ pub struct HW {
     pub haltcnt: HALTCNT,
     // Math
     div: Div,
+    sqrt: Sqrt,
     // Misc
     arm7_cycles_ahead: usize,
     scheduler: Scheduler,
@@ -97,6 +98,7 @@ impl HW {
             haltcnt: HALTCNT::new(),
             // Math
             div: Div::new(),
+            sqrt: Sqrt::new(),
             // Misc
             arm7_cycles_ahead: 0,
             scheduler: Scheduler::new(),
