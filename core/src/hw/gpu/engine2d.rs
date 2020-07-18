@@ -44,7 +44,6 @@ pub struct Engine2D {
 
 impl Engine2D {
     const TRANSPARENT_COLOR: u16 = 0x8000;
-    const COLOR_MASK: u16 = !Engine2D::TRANSPARENT_COLOR; // Clear top bit so black isn't thought to be transparent
 
     pub fn new() -> Self {
         Engine2D {
@@ -188,8 +187,7 @@ impl Engine2D {
             ];
 
             // Store top 2 layers
-            let backdrop_color = self.bg_palettes[0] & Engine2D::COLOR_MASK;
-            let mut colors = [backdrop_color, backdrop_color]; // Default is backdrop color
+            let mut colors = [self.bg_palettes[0], self.bg_palettes[0]]; // Default is backdrop color
             let mut layers = [Layer::BD, Layer::BD];
             let mut priorities = [4, 4];
             let mut i = 0;
@@ -384,7 +382,7 @@ impl Engine2D {
                     if set_color { break } // Continue to look for color pixels
                 } else if !set_color {
                     self.objs_line[dot_x] = OBJPixel {
-                        color: self.obj_palettes[palette_num * 16 + color_num] & Engine2D::COLOR_MASK,
+                        color: self.obj_palettes[palette_num * 16 + color_num],
                         priority: (obj[2] >> 10 & 0x3) as u8,
                         semitransparent: mode == 1,
                     };
@@ -433,7 +431,7 @@ impl Engine2D {
             let (_, color_num) = self.get_color_from_tile(vram, get_bg, tile_start_addr, tile_num,
                 false, false, 8, x % 8, y % 8, 0);
             self.bg_lines[bg_i][dot_x] = if color_num == 0 { Engine2D::TRANSPARENT_COLOR }
-            else { self.bg_palettes[color_num] & Engine2D::COLOR_MASK};
+            else { self.bg_palettes[color_num] };
         }
     }
 
@@ -482,7 +480,7 @@ impl Engine2D {
             let (palette_num, color_num) = self.get_color_from_tile(vram, get_bg, tile_start_addr,
                 tile_num, flip_x, flip_y, bit_depth, x % 8, y % 8, palette_num);
             self.bg_lines[bg_i][dot_x] = if color_num == 0 { Engine2D::TRANSPARENT_COLOR }
-            else { self.bg_palettes[palette_num * 16 + color_num] & Engine2D::COLOR_MASK };
+            else { self.bg_palettes[palette_num * 16 + color_num] };
         }
     }
 
@@ -735,6 +733,7 @@ impl Engine2D {
         if addr % 2 == 0 {
             (palettes[index] >> 0) as u8
         } else {
+            warn!("Reading Palette - 15th bit could be wrong: 0x{:X}", palettes[index] >> 8);
             (palettes[index] >> 8) as u8
         }
     }
@@ -746,7 +745,8 @@ impl Engine2D {
         if addr % 2 == 0 {
             palettes[index] = palettes[index] & !0x00FF | (value as u16) << 0;
         } else {
-            palettes[index] = palettes[index] & !0xFF00 | (value as u16) << 8;
+            if value & 0x80 != 0 { warn!("Writing to palette with 15th bit set - Reading could be inaccurate: 0x:{:X} ", value) }
+            palettes[index] = palettes[index] & !0xFF00 | (value as u16) << 8 & !0x8000;
         }
     }
 }
