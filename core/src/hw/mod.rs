@@ -7,6 +7,7 @@ mod interrupt_controller;
 mod dma;
 mod timers;
 mod ipc;
+mod math;
 
 use header::Header;
 pub use mmu::{AccessType, MemoryValue};
@@ -19,6 +20,7 @@ use interrupt_controller::{InterruptController, InterruptRequest};
 use dma::DMAController;
 use timers::Timers;
 use ipc::IPC;
+use math::Div;
 
 pub struct HW {
     // Memory
@@ -47,6 +49,8 @@ pub struct HW {
     wramcnt: WRAMCNT,
     powcnt2: POWCNT2,
     pub haltcnt: HALTCNT,
+    // Math
+    div: Div,
     // Misc
     arm7_cycles_ahead: usize,
     scheduler: Scheduler,
@@ -91,6 +95,8 @@ impl HW {
             wramcnt: WRAMCNT::new(3),
             powcnt2: POWCNT2::new(),
             haltcnt: HALTCNT::new(),
+            // Math
+            div: Div::new(),
             // Misc
             arm7_cycles_ahead: 0,
             scheduler: Scheduler::new(),

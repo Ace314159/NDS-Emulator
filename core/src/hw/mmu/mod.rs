@@ -44,7 +44,7 @@ impl HW {
     }
 
     pub fn write_byte_to_value<T: MemoryValue>(value: &mut T, byte: usize, new_value: u8) {
-        let mask: T = FromPrimitive::from_u32(0xFF << (8 * byte)).unwrap();
+        let mask: T = FromPrimitive::from_u64(0xFF << (8 * byte)).unwrap();
         let new_value: T = FromPrimitive::from_u8(new_value).unwrap();
         *value = *value & !mask | (new_value) << (8 * byte);
     }
@@ -55,6 +55,7 @@ pub trait MemoryValue: Unsigned + PrimInt + NumCast + FromPrimitive + std::fmt::
 impl MemoryValue for u8 {}
 impl MemoryValue for u16 {}
 impl MemoryValue for u32 {}
+impl MemoryValue for u64 {}
 
 #[derive(Clone, Copy)]
 pub enum AccessType {

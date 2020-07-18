@@ -112,6 +112,11 @@ impl HW {
             0x0400_0240 ..= 0x0400_0246 => 0,
             0x0400_0247 => self.wramcnt.read(0),
             0x0400_0248 ..= 0x0400_0249 => 0,
+            0x0400_0280 ..= 0x0400_0283 => self.div.cnt.read(addr as usize & 0xF),
+            0x0400_0290 ..= 0x0400_0297 => self.div.read_numer(addr as usize & 0x7),
+            0x0400_0298 ..= 0x0400_029F => self.div.read_denom(addr as usize & 0x7),
+            0x0400_02A0 ..= 0x0400_02A7 => self.div.read_quot(addr as usize & 0x7),
+            0x0400_02A8 ..= 0x0400_02AF => self.div.read_rem(addr as usize & 0x7),
             0x0400_0304 => self.gpu.powcnt1.read(0),
             0x0400_0305 => self.gpu.powcnt1.read(1),
             0x0400_0306 => self.gpu.powcnt1.read(2),
@@ -177,6 +182,11 @@ impl HW {
             0x0400_0240 ..= 0x0400_0246 => self.gpu.vram.write_vram_cnt(addr as usize & 0xF, value),
             0x0400_0247 => self.wramcnt.write(&mut self.scheduler, 0, value),
             0x0400_0248 ..= 0x0400_0249 => self.gpu.vram.write_vram_cnt((addr as usize & 0xF) - 1, value),
+            0x0400_0280 ..= 0x0400_0283 => self.div.cnt.write(&mut self.scheduler, addr as usize & 0xF, value),
+            0x0400_0290 ..= 0x0400_0297 => self.div.write_numer(&mut self.scheduler, addr as usize & 0x7, value),
+            0x0400_0298 ..= 0x0400_029F => self.div.write_denom(&mut self.scheduler, addr as usize & 0x7, value),
+            0x0400_02A0 ..= 0x0400_02A7 => (), // Div result registers are read-only
+            0x0400_02A8 ..= 0x0400_02AF => (), // Div result registers are read-only
             0x0400_0304 => self.gpu.powcnt1.write(&mut self.scheduler, 0, value),
             0x0400_0305 => self.gpu.powcnt1.write(&mut self.scheduler, 1, value),
             0x0400_0306 => self.gpu.powcnt1.write(&mut self.scheduler, 2, value),
