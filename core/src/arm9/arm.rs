@@ -437,7 +437,7 @@ impl ARM9 {
         let base = base - base_offset;
         let mut r_list = (instr & 0xFFFF) as u16;
         let actual_mode = self.regs.get_mode();
-        if psr_force_usr && !(load && r_list & 0x80 != 0) { self.regs.set_mode(Mode::USR) }
+        if psr_force_usr && !(load && r_list & (1 << 15) != 0) { self.regs.set_mode(Mode::USR) }
 
         self.instruction_prefetch::<u32>(hw, AccessType::N);
         let mut loaded_pc = false;
