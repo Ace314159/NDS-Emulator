@@ -543,7 +543,7 @@ impl ARM9 {
         (&mut self, hw: &mut HW, instr: u32) {
         // TODO: Do Timing
         self.instruction_prefetch::<u32>(hw, AccessType::S);
-        // TODO: Figure out difference beween MRC2 and MCR2
+        assert_ne!(instr >> 28, 0xF); // TODO: Implement 2 variants
         assert_eq!(instr >> 24 & 0xF, 0b1110);
         let cp_op = COp2::num() << 2 | COp1::num() << 1 | COp0::num();
         let cp_n = instr >> 8 & 0xF;
