@@ -37,6 +37,9 @@ bitflags! {
         const DMA3 = 1 << 11;
         const KEYPAD = 1 << 12;
         const GAME_PAK = 1 << 13;
+        const IPC_SYNC = 1 << 16;
+        const IPC_SEND_FIFO_EMPTY = 1 << 17;
+        const IPC_RECV_FIFO_NOT_EMPTY = 1 << 18;
     }
 }
 
