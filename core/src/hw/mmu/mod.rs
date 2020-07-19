@@ -11,6 +11,26 @@ impl HW {
     const MAIN_MEM_MASK: u32 = HW::MAIN_MEM_SIZE as u32 - 1;
     const IWRAM_MASK: u32 = HW::IWRAM_SIZE as u32 - 1;
 
+    fn read_gba_rom<T: MemoryValue>(&self, is_arm7: bool, addr: u32) -> T {
+        if self.exmem.gba_arm7_access == is_arm7 {
+            let cnt = if is_arm7 { &self.exmem.gba7 } else { &self.exmem.gba9 };
+            let value = match cnt.rom_n_access_time {
+                0 => addr / 2 | 0xFE08,
+                1 | 2 => addr / 2,
+                3 => 0xFFFF,
+                _ => unreachable!(),
+            };
+            num::cast::<u32, T>(match size_of::<T>() {
+                1 => value & 0xFF,
+                2 => value,
+                3 => (self.read_gba_rom::<u16>(is_arm7, addr + 1) as u32) << 16 | value,
+                _ => unreachable!(),
+            }).unwrap()
+        } else {
+            num::zero()
+        }
+    }
+
     fn read_mem<T: MemoryValue>(mem: &Vec<u8>, addr: u32) -> T {
         unsafe {
             *(&mem[addr as usize] as *const u8 as *const T)
