@@ -76,6 +76,7 @@ impl HW {
             0x0400_0216 => self.interrupts7.request.read(2),
             0x0400_0217 => self.interrupts7.request.read(3),
             0x0400_0241 => self.wramcnt.read(0),
+            0x0400_0300 => self.postflg7,
             0x0400_0301 => self.haltcnt.read(0),
             0x0400_0304 => self.powcnt2.read(0),
             0x0400_0305 => self.powcnt2.read(1),
@@ -129,6 +130,7 @@ impl HW {
             0x0400_0216 => self.interrupts7.request.write(&mut self.scheduler, 2, value),
             0x0400_0217 => self.interrupts7.request.write(&mut self.scheduler, 3, value),
             0x0400_0241 => (), // WRAMCNT is read-only
+            0x0400_0300 => (), // POSTFLG
             0x0400_0301 => self.haltcnt.write(&mut self.scheduler, 0, value),
             0x0400_0304 => self.powcnt2.write(&mut self.scheduler, 0, value),
             0x0400_0305 => self.powcnt2.write(&mut self.scheduler, 1, value),

@@ -52,6 +52,8 @@ pub struct HW {
     wramcnt: WRAMCNT,
     powcnt2: POWCNT2,
     pub haltcnt: HALTCNT,
+    postflg7: u8,
+    postflg9: u8,
     // Math
     div: Div,
     sqrt: Sqrt,
@@ -100,6 +102,8 @@ impl HW {
             wramcnt: WRAMCNT::new(3),
             powcnt2: POWCNT2::new(),
             haltcnt: HALTCNT::new(),
+            postflg7: 0x1, // TODO: Set to 1 after boot
+            postflg9: 0x1, // TODO: Set to 1 after boot
             // Math
             div: Div::new(),
             sqrt: Sqrt::new(),
