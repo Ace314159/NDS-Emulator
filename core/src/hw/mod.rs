@@ -12,7 +12,7 @@ mod spi;
 
 use header::Header;
 pub use mmu::{AccessType, MemoryValue};
-use mmu::{CP15, HALTCNT, POWCNT2, WRAMCNT};
+use mmu::{CP15, EXMEM, HALTCNT, POWCNT2, WRAMCNT};
 use scheduler::{Scheduler, Event, EventType};
 pub use gpu::GPU;
 use keypad::Keypad;
@@ -54,6 +54,7 @@ pub struct HW {
     pub haltcnt: HALTCNT,
     postflg7: u8,
     postflg9: u8,
+    exmem: EXMEM,
     // Math
     div: Div,
     sqrt: Sqrt,
@@ -104,6 +105,7 @@ impl HW {
             haltcnt: HALTCNT::new(),
             postflg7: 0x1, // TODO: Set to 1 after boot
             postflg9: 0x1, // TODO: Set to 1 after boot
+            exmem: EXMEM::new(),
             // Math
             div: Div::new(),
             sqrt: Sqrt::new(),

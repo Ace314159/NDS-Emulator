@@ -63,6 +63,8 @@ impl HW {
             0x0400_01C1 => self.spi.read_cnt(1),
             0x0400_01C2 => self.spi.read_data(),
             0x0400_01C3 => 0, // SPI bug makes upper 8 bits always 0
+            0x0400_0204 => self.exmem.read_arm7(),
+            0x0400_0205 => self.exmem.read_common(),
             0x0400_0208 => self.interrupts7.master_enable.read(0),
             0x0400_0209 => self.interrupts7.master_enable.read(1),
             0x0400_020A => self.interrupts7.master_enable.read(2),
@@ -117,6 +119,8 @@ impl HW {
             0x0400_01C1 => self.spi.write_cnt(&mut self.scheduler, 1, value),
             0x0400_01C2 => self.spi.write_data(value),
             0x0400_01C3 => (), // SPI bug makes upper 8 bits always 0
+            0x0400_0204 => self.exmem.write_arm7(value),
+            0x0400_0205 => (), // Upper bits are read-only for ARM7
             0x0400_0208 => self.interrupts7.master_enable.write(&mut self.scheduler, 0, value),
             0x0400_0209 => self.interrupts7.master_enable.write(&mut self.scheduler, 1, value),
             0x0400_020A => self.interrupts7.master_enable.write(&mut self.scheduler, 2, value),

@@ -68,6 +68,71 @@ pub trait IORegister {
     fn write(&mut self, scheduler: &mut Scheduler, byte: usize, value: u8);
 }
 
+pub struct EXMEM {
+    gba7: ExMemGBA,
+    gba9: ExMemGBA,
+    gba_arm7_access: bool,
+    nds_arm7_access: bool,
+    main_mem_interface_mode: bool,
+    main_mem_arm7_priority: bool,
+}
+
+impl EXMEM {
+    pub fn new() -> Self {
+        EXMEM {
+            gba7: ExMemGBA::new(),
+            gba9: ExMemGBA::new(),
+            gba_arm7_access: false,
+            nds_arm7_access: false,
+            main_mem_interface_mode: false,
+            main_mem_arm7_priority: false,
+        }
+    }
+
+    pub fn read_arm7(&self) -> u8 { (self.gba_arm7_access as u8) << 7 | self.gba7.read() }
+    pub fn read_arm9(&self) -> u8 { (self.gba_arm7_access as u8) << 7 | self.gba9.read() }
+    pub fn read_common(&self) -> u8 {
+        (self.main_mem_arm7_priority as u8) << 7 | (self.main_mem_interface_mode as u8) << 6 | (1 << 5) |
+        (self.nds_arm7_access as u8) << 3
+    }
+    pub fn write_arm7(&mut self, value: u8) { self.gba7.write(value) }
+    pub fn write_arm9(&mut self, value: u8) { self.gba_arm7_access = value >> 7 & 0x1 != 0; self.gba9.write(value) }
+    pub fn write_common(&mut self, value: u8) {
+        self.main_mem_arm7_priority = value >> 7 & 0x1 != 0;
+        self.main_mem_interface_mode = value >> 6 & 0x1 != 0;
+        self.nds_arm7_access = value >> 3 & 0x1 != 0;
+    }
+}
+
+pub struct ExMemGBA {
+    sram_access_time: u8,
+    rom_n_access_time: u8,
+    rom_s_access_time: u8,
+    phi: u8,
+}
+
+impl ExMemGBA {
+    pub fn new() -> Self {
+        ExMemGBA {
+            sram_access_time: 0,
+            rom_n_access_time: 0,
+            rom_s_access_time: 0,
+            phi: 0,
+        }
+    }
+    
+    pub fn read(&self) -> u8 {
+        self.phi << 5 | self.rom_s_access_time << 4 | self.rom_n_access_time << 2 | self.sram_access_time
+    }
+
+    pub fn write(&mut self, value: u8) {
+        self.sram_access_time = value & 0x3;
+        self.rom_n_access_time = value >> 2 & 0x3;
+        self.rom_s_access_time = value >> 4 & 0x1;
+        self.phi = value >> 5 & 0x3;
+    }
+}
+
 pub struct WRAMCNT {
     value: u8,
 
