@@ -2,6 +2,7 @@ pub struct Firmware {
     mem: Vec<u8>,
     state: State,
     read_value: u8,
+    write_enable_latch: bool,
 }
 
 impl Firmware {
@@ -10,6 +11,7 @@ impl Firmware {
             mem,
             state: State::ReadInstr,
             read_value: 0,
+            write_enable_latch: false,
         }
     }
 
@@ -40,6 +42,12 @@ impl Firmware {
                     self.write(value);
                 }
             },
+
+            State::HandleInstr(Instr::ReadStatus) => {
+                // TODO: Implement busy flag
+                self.read_value = (self.write_enable_latch as u8) << 1;
+                self.state = State::ReadInstr;
+            },
         };
     }
 }
@@ -54,12 +62,14 @@ enum State {
 enum Instr {
     Read(usize, u32),
     ContinuousRead(u32),
+    ReadStatus,
 }
 
 impl Instr {
     pub fn from_byte(value: u8) -> Self {
         match value {
             0x03 => Self::Read(0, 0),
+            0x05 => Self::ReadStatus,
             _ => todo!(),
         }
     }
