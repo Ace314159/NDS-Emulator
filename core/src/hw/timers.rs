@@ -112,15 +112,15 @@ impl Timer {
             2 => {
                 scheduler.remove(EventType::TimerOverflow(self.is_nds9, self.index));
                 let prev_start = self.cnt.start;
+                if !self.is_count_up() && self.cnt.start {
+                    self.counter = self.calc_counter(global_cycle);
+                }
                 self.cnt.write(scheduler, 0, value);
                 if !self.is_count_up() {
                     if !prev_start && self.cnt.start {
                         self.reload();
                         self.create_event(scheduler, 1);
-                    } else if prev_start && !self.cnt.start {
-                        self.counter = self.calc_counter(global_cycle);
                     } else if self.cnt.start {
-                        self.counter = self.calc_counter(global_cycle);
                         self.create_event(scheduler, 0);
                     }
                 } else {
