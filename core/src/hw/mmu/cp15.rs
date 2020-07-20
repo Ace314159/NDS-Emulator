@@ -170,7 +170,7 @@ impl Control {
     const ALWAYS_SET: u32 = (1 << 6) | (1 << 5) | (1 << 4) | (1 << 3);
 
     pub fn new() -> Self {
-        Control::from_bits(Control::ALWAYS_SET).unwrap()
+        Control::from_bits(0x52078).unwrap()
     }
 }
 
