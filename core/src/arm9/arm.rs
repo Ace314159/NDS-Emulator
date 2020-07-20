@@ -223,11 +223,14 @@ impl ARM9 {
                 result as u32
             },
             0b01 => { // SMLAW/SMULW
-                assert!(X::bool(), accumulate != 0);
-                let product = ((operand2 as i32 as u64 * get_half(operand1, Y::bool()) as i32 as u64) >> 16) as i32;
-                let (result, overflowed) = product.overflowing_add(accumulate as i32);
-                if overflowed { self.regs.set_q(true) }
-                result as u32
+                let product = ((operand2 as i32 as u64).wrapping_mul(get_half(operand1, Y::bool()) as i32 as u64) >> 16) as i32;
+                if X::bool() { // SMULW
+                    product as u32
+                } else { // SMLAW
+                    let (product, overflowed) = product.overflowing_add(accumulate as i32);
+                    if overflowed { self.regs.set_q(true) }
+                    product as u32
+                }
             },
             0b10 => { // SMLAL
                 self.internal();
