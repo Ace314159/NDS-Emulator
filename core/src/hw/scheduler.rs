@@ -63,7 +63,7 @@ impl HW {
                 let (timers, interrupts) = if is_nds9 {
                     (&mut self.timers9, &mut self.interrupts9)
                 } else {
-                    (&mut self.timers7, &mut self.interrupts9)
+                    (&mut self.timers7, &mut self.interrupts7)
                 };
                 if timers.timers[timer].cnt.irq {
                     interrupts.request |= timers.timers[timer].interrupt
