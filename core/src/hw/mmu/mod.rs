@@ -42,11 +42,11 @@ impl HW {
                 1 | 2 => addr / 2,
                 3 => 0xFFFF,
                 _ => unreachable!(),
-            };
+            } & 0xFFFF;
             num::cast::<u32, T>(match size_of::<T>() {
                 1 => value & 0xFF,
                 2 => value,
-                3 => (self.read_gba_rom::<u16>(is_arm7, addr + 1) as u32) << 16 | value,
+                4 => (self.read_gba_rom::<u16>(is_arm7, addr + 1) as u32) << 16 | value,
                 _ => unreachable!(),
             }).unwrap()
         } else {
