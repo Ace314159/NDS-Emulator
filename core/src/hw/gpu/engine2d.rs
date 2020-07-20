@@ -31,8 +31,8 @@ pub struct Engine2D {
     bldy: BLDY,
 
     // Palettes
-    bg_palettes: [u16; GPU::PALETTE_SIZE],
-    obj_palettes: [u16; GPU::PALETTE_SIZE],
+    bg_palettes: Vec<u16>,
+    obj_palettes: Vec<u16>,
     pub oam: Vec<u8>,
 
     // Important Rendering Variables
@@ -74,8 +74,8 @@ impl Engine2D {
             bldy: BLDY::new(),
 
             // Palettes
-            bg_palettes: [0; GPU::PALETTE_SIZE],
-            obj_palettes: [0; GPU::PALETTE_SIZE],
+            bg_palettes: vec![0; GPU::PALETTE_SIZE],
+            obj_palettes: vec![0; GPU::PALETTE_SIZE],
             // VRAM
             oam: vec![0; 0x400],
 
