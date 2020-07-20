@@ -373,7 +373,7 @@ impl Engine2D {
                 let tile_y = y_diff % 8;
                 let palette_num = (obj[2] >> 12 & 0xF) as usize;
                 // Flipped at tile level, so no need to flip again
-                let (palette_num, color_num) = self.get_color_from_tile(vram, get_obj, 0x10000, tile_num,
+                let (palette_num, color_num) = Engine2D::get_color_from_tile(vram, get_obj, 0x10000, tile_num,
                     false, false, bit_depth, tile_x as usize, tile_y as usize, palette_num);
                 if color_num == 0 { continue }
                 let mode = obj[0] >> 10 & 0x3;
@@ -428,7 +428,7 @@ impl Engine2D {
             let tile_num = get_bg(vram, addr) as usize;
             
             // Convert from tile to pixels
-            let (_, color_num) = self.get_color_from_tile(vram, get_bg, tile_start_addr, tile_num,
+            let (_, color_num) = Engine2D::get_color_from_tile(vram, get_bg, tile_start_addr, tile_num,
                 false, false, 8, x % 8, y % 8, 0);
             self.bg_lines[bg_i][dot_x] = if color_num == 0 { Engine2D::TRANSPARENT_COLOR }
             else { self.bg_palettes[color_num] };
@@ -477,14 +477,14 @@ impl Engine2D {
             let palette_num = (screen_entry >> 12) & 0xF;
             
             // Convert from tile to pixels
-            let (palette_num, color_num) = self.get_color_from_tile(vram, get_bg, tile_start_addr,
+            let (palette_num, color_num) = Engine2D::get_color_from_tile(vram, get_bg, tile_start_addr,
                 tile_num, flip_x, flip_y, bit_depth, x % 8, y % 8, palette_num);
             self.bg_lines[bg_i][dot_x] = if color_num == 0 { Engine2D::TRANSPARENT_COLOR }
             else { self.bg_palettes[palette_num * 16 + color_num] };
         }
     }
 
-    fn get_color_from_tile<F: Fn(&VRAM, usize) -> u8>(&self, vram: &VRAM, get_vram_byte: F, tile_start_addr: usize, tile_num: usize,
+    fn get_color_from_tile<F: Fn(&VRAM, usize) -> u8>(vram: &VRAM, get_vram_byte: F, tile_start_addr: usize, tile_num: usize,
         flip_x: bool, flip_y: bool, bit_depth: usize, tile_x: usize, tile_y: usize, palette_num: usize, ) -> (usize, usize) {
         let addr = tile_start_addr + 8 * bit_depth * tile_num;
         let tile_x = if flip_x { 7 - tile_x } else { tile_x };
@@ -749,4 +749,7 @@ impl Engine2D {
             palettes[index] = palettes[index] & !0xFF00 | (value as u16) << 8 & !0x8000;
         }
     }
+
+    pub fn bg_palettes(&self) -> &Vec<u16> { &self.bg_palettes }
+    pub fn obj_palettes(&self) -> &Vec<u16> { &self.obj_palettes }
 }
