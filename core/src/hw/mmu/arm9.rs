@@ -16,6 +16,7 @@ impl HW {
             MemoryRegion::SharedWRAM if self.wramcnt.arm9_mask == 0 => num::zero(),
             MemoryRegion::SharedWRAM => HW::read_mem(&self.shared_wram,
                 self.wramcnt.arm9_offset + addr & self.wramcnt.arm9_mask),
+            MemoryRegion::IO if (0x0410_0000 ..= 0x0410_0003).contains(&addr) => self.ipc_fifo_recv(false, addr),
             MemoryRegion::IO => HW::read_from_bytes(self, &HW::arm9_read_io_register, addr),
             MemoryRegion::Palette =>
                 HW::read_from_bytes(self.gpu_engine(addr),&Engine2D::read_palette_ram, addr),

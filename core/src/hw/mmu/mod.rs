@@ -19,7 +19,9 @@ impl HW {
             self.interrupts9.request |= interrupt;
             num::cast::<u32, T>(value).unwrap()
         } else {
-            todo!()
+            let (value, interrupt) = self.ipc.arm9_recv();
+            self.interrupts7.request |= interrupt;
+            num::cast::<u32, T>(value).unwrap()
         }
     }
 
@@ -27,7 +29,7 @@ impl HW {
         if addr != 0x0400_0188 || size_of::<T>() != 4 { todo!() }
         let value = num::cast::<T, u32>(value).unwrap();
         if is_arm7 {
-            todo!()
+            self.interrupts9.request |= self.ipc.arm7_send(value);
         } else {
             self.interrupts7.request |= self.ipc.arm9_send(value);
         }

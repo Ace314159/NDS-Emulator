@@ -28,6 +28,8 @@ impl HW {
             MemoryRegion::SharedWRAM => HW::write_mem(&mut self.shared_wram,
                 self.wramcnt.arm7_offset + addr & self.wramcnt.arm7_mask, value),
             MemoryRegion::IWRAM => HW::write_mem(&mut self.iwram, addr & HW::IWRAM_MASK, value),
+            MemoryRegion::IO if (0x0400_0188 ..= 0x0400_018B).contains(&addr) =>
+                self.ipc_fifo_send(true, addr, value),
             MemoryRegion::IO => HW::write_from_bytes(self, &HW::arm7_write_io_register, addr, value),
             MemoryRegion::GBAROM => (),
             MemoryRegion::GBARAM => todo!(),

@@ -41,6 +41,10 @@ impl IPC {
         IPC::recv(&self.fifocnt9, &mut self.fifocnt7, &mut self.output9,
             &mut self.prev_value9)
     }
+    pub fn arm9_recv(&mut self) -> (u32, InterruptRequest) {
+        IPC::recv(&self.fifocnt7, &mut self.fifocnt9, &mut self.output7,
+            &mut self.prev_value7)
+    }
 
     pub fn write_sync7(&mut self, byte: usize, value: u8) -> InterruptRequest {
         self.sync7.write(&mut self.sync9, byte, value)
@@ -59,6 +63,9 @@ impl IPC {
         self.fifocnt9.write(&mut self.output9, &mut self.prev_value9, byte, value);
         IPC::check_fifo_interrupt(&self.output9, &self.output7,
             &prev_fifocnt, &self.fifocnt9)
+    }
+    pub fn arm7_send(&mut self, value: u32) -> InterruptRequest {
+        IPC::send(&mut self.fifocnt7, &self.fifocnt9, &mut self.output7, value)
     }
     pub fn arm9_send(&mut self, value: u32) -> InterruptRequest {
         IPC::send(&mut self.fifocnt9, &self.fifocnt7, &mut self.output9, value)
