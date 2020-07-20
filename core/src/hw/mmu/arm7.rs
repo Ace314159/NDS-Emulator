@@ -14,6 +14,8 @@ impl HW {
             MemoryRegion::IWRAM => HW::read_mem(&self.iwram, addr & HW::IWRAM_MASK),
             MemoryRegion::IO if (0x0410_0000 ..= 0x0410_0003).contains(&addr) => self.ipc_fifo_recv(true, addr),
             MemoryRegion::IO => HW::read_from_bytes(self, &HW::arm7_read_io_register, addr),
+            MemoryRegion::GBAROM => self.read_gba_rom(true, addr),
+            MemoryRegion::GBARAM => todo!(),
         }
     }
 
@@ -27,6 +29,8 @@ impl HW {
                 self.wramcnt.arm7_offset + addr & self.wramcnt.arm7_mask, value),
             MemoryRegion::IWRAM => HW::write_mem(&mut self.iwram, addr & HW::IWRAM_MASK, value),
             MemoryRegion::IO => HW::write_from_bytes(self, &HW::arm7_write_io_register, addr, value),
+            MemoryRegion::GBAROM => (),
+            MemoryRegion::GBARAM => todo!(),
         }
     }
 
@@ -168,6 +172,8 @@ pub enum ARM7MemoryRegion {
     SharedWRAM,
     IWRAM,
     IO,
+    GBAROM,
+    GBARAM,
 }
 
 impl ARM7MemoryRegion {
@@ -179,6 +185,8 @@ impl ARM7MemoryRegion {
             0x3 if addr < 0x0380_0000 => SharedWRAM,
             0x3 => IWRAM,
             0x4 => IO,
+            0x8 | 0x9 => GBAROM,
+            0xA => GBARAM,
             _ => todo!(),
         }
     }
