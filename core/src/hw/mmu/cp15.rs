@@ -14,7 +14,7 @@ impl CP15 {
     pub fn new() -> Self {
         CP15 {
             control: Control::new(),
-            interrupt_base: 0xFFF_0000,
+            interrupt_base: 0xFFFF_0000,
             itcm_control: TCMControl::new(0, HW::ITCM_SIZE as u32),
             dtcm_control: TCMControl::new(0x0080_3000, HW::DTCM_SIZE as u32),
             arm9_halted: false,
