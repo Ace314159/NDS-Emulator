@@ -1,6 +1,7 @@
 mod registers;
 mod engine2d;
 mod vram;
+pub mod debug;
 
 use crate::hw::{
     interrupt_controller::InterruptRequest,

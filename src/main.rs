@@ -47,11 +47,14 @@ fn main() {
     let rom = fs::read("IRQ.nds").unwrap();
     let mut nds = NDS::new(bios7, bios9, firmware, rom);
 
+    let mut palettes_window = TextureWindow::new("Palettes");
+
     while !display.should_close() {
         nds.emulate_frame();
+        let (pixels, width, height) = nds.render_palettes(Engine::A, GraphicsType::BG);
         display.render(&mut nds, &mut imgui,
-            |_ui, _keys_pressed, _modifiers| {
-
+            |ui, keys_pressed, _modifiers| {
+            palettes_window.render(ui, &keys_pressed, pixels, width, height, || {});
         });
     }
 }

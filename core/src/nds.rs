@@ -2,7 +2,11 @@ use crate::arm7::ARM7;
 use crate::arm9::ARM9;
 use crate::hw::HW;
 
-pub use crate::hw::Key;
+pub use crate::hw::{
+    Engine,
+    GraphicsType,
+    Key
+};
 
 pub struct NDS {
     arm9_cycles_ahead: i32, // Measured in 66 MHz ARM9 cycles
@@ -49,6 +53,10 @@ impl NDS {
 
     pub fn release_key(&mut self, key: Key) {
         self.hw.release_key(key);
+    }
+
+    pub fn render_palettes(&self, engine: Engine, graphics_type: GraphicsType) -> (Vec<u16>, usize, usize) {
+        self.hw.render_palettes(engine, graphics_type)
     }
 }
 

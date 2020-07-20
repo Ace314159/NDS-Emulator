@@ -147,4 +147,25 @@ impl HW {
     pub fn release_key(&mut self, key: Key) {
         self.keypad.release_key(key);
     }
+
+    pub fn render_palettes(&self, engine: Engine, graphics_type: GraphicsType) -> (Vec<u16>, usize, usize) {
+        let engine = match engine {
+            Engine::A => &self.gpu.engine_a,
+            Engine::B => &self.gpu.engine_b,
+        };
+        match graphics_type {
+            GraphicsType::BG => GPU::render_palettes(engine.bg_palettes()),
+            GraphicsType::OBJ => GPU::render_palettes(engine.obj_palettes()),
+        }
+    }
+}
+
+pub enum Engine {
+    A,
+    B,
+}
+
+pub enum GraphicsType {
+    BG,
+    OBJ,
 }
