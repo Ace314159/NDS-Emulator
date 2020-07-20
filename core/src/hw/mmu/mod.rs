@@ -11,6 +11,29 @@ impl HW {
     const MAIN_MEM_MASK: u32 = HW::MAIN_MEM_SIZE as u32 - 1;
     const IWRAM_MASK: u32 = HW::IWRAM_SIZE as u32 - 1;
 
+    // TODO: Replace with const generic
+    fn ipc_fifo_recv<T: MemoryValue>(&mut self, is_arm7: bool, addr: u32) -> T {
+        if addr != 0x0410_0000 || size_of::<T>() != 4 { todo!() }
+        if is_arm7 {
+            let (value, interrupt) = self.ipc.arm7_recv();
+            self.interrupts9.request |= interrupt;
+            num::cast::<u32, T>(value).unwrap()
+        } else {
+            todo!()
+        }
+    }
+
+    fn ipc_fifo_send<T: MemoryValue>(&mut self, is_arm7: bool, addr: u32, value: T) {
+        if addr != 0x0400_0188 || size_of::<T>() != 4 { todo!() }
+        let value = num::cast::<T, u32>(value).unwrap();
+        if is_arm7 {
+            todo!()
+        } else {
+            self.interrupts7.request |= self.ipc.arm9_send(value);
+        }
+    }
+
+    // TODO: Replace with const generic
     fn read_gba_rom<T: MemoryValue>(&self, is_arm7: bool, addr: u32) -> T {
         if self.exmem.gba_arm7_access == is_arm7 {
             let cnt = if is_arm7 { &self.exmem.gba7 } else { &self.exmem.gba9 };

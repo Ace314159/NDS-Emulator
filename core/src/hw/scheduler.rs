@@ -87,7 +87,7 @@ impl HW {
     } 
 
     fn run_dma<A, R, W, T: MemoryValue>(&mut self, is_nds9: bool, num: usize, access_time_fn: A, read_fn: R, write_fn: W)
-        where A: Fn(&mut HW, AccessType, u32) -> usize, R: Fn(&HW, u32) -> T, W: Fn(&mut HW, u32, T) {
+        where A: Fn(&mut HW, AccessType, u32) -> usize, R: Fn(&mut HW, u32) -> T, W: Fn(&mut HW, u32, T) {
         let channel = self.get_channel(is_nds9, num);
         let count = channel.count_latch;
         let mut src_addr = channel.sad_latch;
@@ -110,7 +110,8 @@ impl HW {
             let cycle_type = if first { AccessType::N } else { AccessType::S };
             cycles_passed += access_time_fn(self, cycle_type, src_addr);
             cycles_passed += access_time_fn(self, cycle_type, dest_addr);
-            write_fn(self, dest_addr, read_fn(self, src_addr));
+            let value = read_fn(self, src_addr);
+            write_fn(self, dest_addr, value);
 
             src_addr = match src_addr_ctrl {
                 0 => src_addr.wrapping_add(addr_change),

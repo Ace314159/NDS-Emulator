@@ -8,7 +8,7 @@ impl HW {
     const ITCM_MASK: u32 = HW::ITCM_SIZE as u32 - 1;
     const DTCM_MASK: u32 = HW::DTCM_SIZE as u32 - 1;
 
-    pub fn arm9_read<T: MemoryValue>(&self, addr: u32) -> T {
+    pub fn arm9_read<T: MemoryValue>(&mut self, addr: u32) -> T {
         match MemoryRegion::from_addr(addr, &self.cp15) {
             MemoryRegion::ITCM => HW::read_mem(&self.itcm, addr & HW::ITCM_MASK),
             MemoryRegion::DTCM => HW::read_mem(&self.dtcm, addr & HW::DTCM_MASK),
@@ -34,6 +34,8 @@ impl HW {
             MemoryRegion::MainMem => HW::write_mem(&mut self.main_mem, addr & HW::MAIN_MEM_MASK, value),
             MemoryRegion::SharedWRAM => HW::write_mem(&mut self.shared_wram,
                 self.wramcnt.arm9_offset + addr & self.wramcnt.arm9_mask, value),
+            MemoryRegion::IO if (0x0400_0188 ..= 0x0400_018B).contains(&addr) =>
+                self.ipc_fifo_send(false, addr, value),
             MemoryRegion::IO => HW::write_from_bytes(self, &HW::arm9_write_io_register, addr, value),
             MemoryRegion::Palette =>
                 HW::write_from_bytes(self.gpu_engine_mut(addr),&Engine2D::write_palette_ram, addr, value),

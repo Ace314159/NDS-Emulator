@@ -3,7 +3,7 @@ use super::{AccessType, HW, MemoryValue, IORegister};
 type MemoryRegion = ARM7MemoryRegion;
 
 impl HW {
-    pub fn arm7_read<T: MemoryValue>(&self, addr: u32) -> T {
+    pub fn arm7_read<T: MemoryValue>(&mut self, addr: u32) -> T {
         match MemoryRegion::from_addr(addr) {
             MemoryRegion::BIOS => HW::read_mem(&self.bios7, addr),
             MemoryRegion::MainMem => HW::read_mem(&self.main_mem, addr & HW::MAIN_MEM_MASK),
@@ -12,6 +12,7 @@ impl HW {
             MemoryRegion::SharedWRAM => HW::read_mem(&self.shared_wram,
                 self.wramcnt.arm7_offset + addr & self.wramcnt.arm7_mask),
             MemoryRegion::IWRAM => HW::read_mem(&self.iwram, addr & HW::IWRAM_MASK),
+            MemoryRegion::IO if (0x0410_0000 ..= 0x0410_0003).contains(&addr) => self.ipc_fifo_recv(true, addr),
             MemoryRegion::IO => HW::read_from_bytes(self, &HW::arm7_read_io_register, addr),
         }
     }

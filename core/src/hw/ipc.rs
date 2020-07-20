@@ -6,9 +6,11 @@ pub struct IPC {
     fifocnt7: FIFOCNT,
     sync7: SYNC,
     output7: VecDeque<u32>,
+    prev_value7: u32,
     fifocnt9: FIFOCNT,
     sync9: SYNC,
     output9: VecDeque<u32>,
+    prev_value9: u32,
 }
 
 impl IPC {
@@ -19,9 +21,11 @@ impl IPC {
             fifocnt7: FIFOCNT::new(),
             sync7: SYNC::new(),
             output7: VecDeque::new(),
+            prev_value7: 0,
             fifocnt9: FIFOCNT::new(),
             sync9: SYNC::new(),
             output9: VecDeque::new(),
+            prev_value9: 0,
         }
     }
 
@@ -33,6 +37,10 @@ impl IPC {
     pub fn read_fifocnt9(&self, byte: usize) -> u8 {
         self.fifocnt9.read(&self.output9, &self.output7, byte)
     }
+    pub fn arm7_recv(&mut self) -> (u32, InterruptRequest) {
+        IPC::recv(&self.fifocnt9, &mut self.fifocnt7, &mut self.output9,
+            &mut self.prev_value9)
+    }
 
     pub fn write_sync7(&mut self, byte: usize, value: u8) -> InterruptRequest {
         self.sync7.write(&mut self.sync9, byte, value)
@@ -42,15 +50,18 @@ impl IPC {
     }
     pub fn write_fifocnt7(&mut self, byte: usize, value: u8) -> InterruptRequest {
         let prev_fifocnt = self.fifocnt7;
-        self.fifocnt7.write(&mut self.output7, byte, value);
+        self.fifocnt7.write(&mut self.output7, &mut self.prev_value7, byte, value);
         IPC::check_fifo_interrupt(&self.output7, &self.output9,
             &prev_fifocnt, &self.fifocnt7)
     }
     pub fn write_fifocnt9(&mut self, byte: usize, value: u8) -> InterruptRequest {
         let prev_fifocnt = self.fifocnt9;
-        self.fifocnt9.write(&mut self.output9, byte, value);
+        self.fifocnt9.write(&mut self.output9, &mut self.prev_value9, byte, value);
         IPC::check_fifo_interrupt(&self.output9, &self.output7,
             &prev_fifocnt, &self.fifocnt9)
+    }
+    pub fn arm9_send(&mut self, value: u32) -> InterruptRequest {
+        IPC::send(&mut self.fifocnt9, &self.fifocnt7, &mut self.output9, value)
     }
 
     fn check_fifo_interrupt(send_fifo: &VecDeque<u32>, recv_fifo: &VecDeque<u32>,
@@ -62,6 +73,35 @@ impl IPC {
 
         (if empty_condition { InterruptRequest::IPC_SEND_FIFO_EMPTY } else { InterruptRequest::empty() }) |
         (if not_empty_condition { InterruptRequest::IPC_RECV_FIFO_NOT_EMPTY } else { InterruptRequest::empty() })
+    }
+
+    fn recv(send_cnt: &FIFOCNT, recv_cnt: &mut FIFOCNT, recv_fifo: &mut VecDeque<u32>,
+        prev_value: &mut u32) -> (u32, InterruptRequest) {
+        if !recv_cnt.enable { return (*prev_value, InterruptRequest::empty()) }
+        assert!(send_cnt.enable); // TODO: Figure out behavior
+        let interrupt = if let Some(value) = recv_fifo.pop_front() {
+            *prev_value = value;
+            if send_cnt.enable && send_cnt.send_fifo_empty_irq && recv_fifo.is_empty() {
+                InterruptRequest::IPC_SEND_FIFO_EMPTY
+            } else { InterruptRequest::empty() }
+        } else {
+            recv_cnt.error = true;
+            InterruptRequest::empty()
+        };
+        (*prev_value, interrupt)
+    }
+
+    fn send(send_cnt: &mut FIFOCNT, recv_cnt: &FIFOCNT, send_fifo: &mut VecDeque<u32>, value: u32) -> InterruptRequest {
+        if !send_cnt.enable { return InterruptRequest::empty() }
+        let interrupt = if recv_cnt.enable && recv_cnt.recv_fifo_not_empty_irq && send_fifo.is_empty() {
+            InterruptRequest::IPC_RECV_FIFO_NOT_EMPTY
+        } else { InterruptRequest::empty() };
+        if send_fifo.len() == IPC::FIFO_LEN {
+            send_cnt.error = true;
+        } else {
+            send_fifo.push_back(value);
+        }
+        interrupt
     }
 }
 
@@ -135,12 +175,13 @@ impl FIFOCNT {
         }
     }
 
-    fn write(&mut self, send_fifo: &mut VecDeque<u32>, byte: usize, value: u8) {
+    fn write(&mut self, send_fifo: &mut VecDeque<u32>, prev_output: &mut u32, byte: usize, value: u8) {
         match byte {
             0 => {
                 self.send_fifo_empty_irq = value >> 2 & 0x1 != 0;
                 if value >> 3 & 0x1 != 0 {
                     send_fifo.clear();
+                    *prev_output = 0;
                 }
             },
             1 => {
