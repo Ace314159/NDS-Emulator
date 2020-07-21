@@ -488,7 +488,7 @@ impl ARM9 {
                 r_list >>= 1;
             }
             exec(calc_addr(), reg, true);
-            let write_back = if original_r_list & (1 << base_reg) != 0 && load {
+            let write_back = if write_back && original_r_list & (1 << base_reg) != 0 && load {
                 // reg is the last register loaded
                 original_r_list.count_ones() == 1 || base_reg != reg
             } else { write_back };
