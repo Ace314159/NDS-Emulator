@@ -129,7 +129,7 @@ impl EXMEM {
             gba9: ExMemGBA::new(),
             gba_arm7_access: false,
             nds_arm7_access: false,
-            main_mem_interface_mode: false,
+            main_mem_interface_mode: true,
             main_mem_arm7_priority: false,
         }
     }
@@ -137,7 +137,8 @@ impl EXMEM {
     pub fn read_arm7(&self) -> u8 { (self.gba_arm7_access as u8) << 7 | self.gba7.read() }
     pub fn read_arm9(&self) -> u8 { (self.gba_arm7_access as u8) << 7 | self.gba9.read() }
     pub fn read_common(&self) -> u8 {
-        (self.main_mem_arm7_priority as u8) << 7 | (self.main_mem_interface_mode as u8) << 6 | (1 << 5) |
+        // TODO: Is bit 5 set or clear?
+        (self.main_mem_arm7_priority as u8) << 7 | (self.main_mem_interface_mode as u8) << 6 |
         (self.nds_arm7_access as u8) << 3
     }
     pub fn write_arm7(&mut self, value: u8) { self.gba7.write(value) }
