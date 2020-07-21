@@ -71,20 +71,16 @@ impl HW {
     const SHARED_WRAM_SIZE: usize = 0x8000;
 
     pub fn new(bios7: Vec<u8>, bios9: Vec<u8>, firmware: Vec<u8>, rom: Vec<u8>) -> Self {
-        let mut main_mem = vec![0; HW::MAIN_MEM_SIZE];
-        let rom_header = Header::new(&rom);
-        let addr = 0x027F_FE00 & (HW::MAIN_MEM_SIZE - 1); 
-        main_mem[addr..addr + 0x160].copy_from_slice(&rom[..0x160]);
         HW {
             // Memory
             cp15: CP15::new(),
             bios7,
             bios9,
-            rom_header,
+            rom_header: Header::new(&rom),
             rom,
             itcm: vec![0; HW::ITCM_SIZE],
             dtcm: vec![0; HW::DTCM_SIZE],
-            main_mem,
+            main_mem: vec![0; HW::MAIN_MEM_SIZE],
             iwram: vec![0; HW::IWRAM_SIZE],
             shared_wram: vec![0; HW::SHARED_WRAM_SIZE],
             // Devices
@@ -112,7 +108,7 @@ impl HW {
             // Misc
             arm7_cycles_ahead: 0,
             scheduler: Scheduler::new(),
-        }
+        }.init_mem()
     }
 
     pub fn clock(&mut self, arm7_cycles: usize) {
@@ -157,6 +153,25 @@ impl HW {
             GraphicsType::BG => GPU::render_palettes(engine.bg_palettes()),
             GraphicsType::OBJ => GPU::render_palettes(engine.obj_palettes()),
         }
+    }
+
+    pub fn init_mem(mut self) -> Self {
+        let addr = 0x027F_FE00 & (HW::MAIN_MEM_SIZE - 1); 
+        self.main_mem[addr..addr + 0x170].copy_from_slice(&self.rom[..0x170]);
+        
+        let cart_id = 0x000_01FC2u32; // TODO: Actually calculate cart ID
+        for addr in [0x027FF800, 0x027FFC00].iter() {
+            self.arm9_write(addr + 0x0, cart_id);
+            self.arm9_write(addr + 0x4, cart_id);
+            self.arm9_write(addr + 0x8, u16::from_le_bytes([self.rom[0x15E], self.rom[0x15F]]));
+            self.arm9_write(addr + 0xA, u16::from_le_bytes([self.rom[0x6C], self.rom[0x6D]]));
+        }
+
+        self.arm9_write(0x027FF850, 0x5835u16);
+        self.arm9_write(0x027FFC10, 0x5835u16);
+        self.arm9_write(0x027FFC30, 0xFFFFu16);
+        self.arm9_write(0x027FFC40, 0x0001u16);
+        self
     }
 }
 
