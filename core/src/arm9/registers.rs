@@ -21,7 +21,7 @@ pub enum Reg {
     CPSR,
     SPSR,
 }
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum Mode {
     USR = 0b10000,
     FIQ = 0b10001,
