@@ -127,20 +127,20 @@ impl DMAOccasion {
                 0 => DMAOccasion::Immediate,
                 1 => DMAOccasion::VBlank,
                 2 => DMAOccasion::HBlank,
-                3 => DMAOccasion::StartOfDisplay,
-                4 => DMAOccasion::MainMemoryDisplay,
-                5 => DMAOccasion::DSCartridge,
-                6 => DMAOccasion::GBACartridge,
-                7 => DMAOccasion::GeometryCommandFIFO,
+                3 => { warn!("Start Of Display DMA not implemented!"); DMAOccasion::StartOfDisplay },
+                4 => { warn!("Main Memory Display DMA not implemented!"); DMAOccasion::MainMemoryDisplay },
+                5 => { warn!("DS Cartridge DMA not implemented!"); DMAOccasion::DSCartridge },
+                6 => { warn!("GBA Cartridge DMA not implemented!"); DMAOccasion::GBACartridge },
+                7 => { warn!("Geometry Command FIFO DMA not implemented!"); DMAOccasion::GeometryCommandFIFO },
                 _ => unreachable!(),
             }
         } else {
             match start_timing & 0x3 {
                 0 => DMAOccasion::Immediate,
-                1 => DMAOccasion::VBlank,
-                2 => DMAOccasion::DSCartridge,
-                3 if dma_num % 2 == 0 => DMAOccasion::WirelessInterrupt,
-                3 => DMAOccasion::GBACartridge,
+                1 => { warn!("VBlank DMA not implemented!"); DMAOccasion::VBlank },
+                2 => { warn!("DS Cartridge DMA not implemented!"); DMAOccasion::DSCartridge },
+                3 if dma_num % 2 == 0 => { warn!("WirelessInterrupt DMA not implemented!"); DMAOccasion::WirelessInterrupt },
+                3 => { warn!("GBA Cartridge DMA not implemented!"); DMAOccasion::GBACartridge },
                 _ => unreachable!(),
             }
         }
