@@ -40,6 +40,8 @@ bitflags! {
         const IPC_SYNC = 1 << 16;
         const IPC_SEND_FIFO_EMPTY = 1 << 17;
         const IPC_RECV_FIFO_NOT_EMPTY = 1 << 18;
+        const GAME_CARD_TRANSFER_COMPLETION = 1 << 19;
+        const GAME_CARD_IREQ_MC = 1 << 20;
     }
 }
 
@@ -68,6 +70,8 @@ bitflags! {
         const IPC_SYNC = 1 << 16;
         const IPC_SEND_FIFO_EMPTY = 1 << 17;
         const IPC_RECV_FIFO_NOT_EMPTY = 1 << 18;
+        const GAME_CARD_TRANSFER_COMPLETION = 1 << 19;
+        const GAME_CARD_IREQ_MC = 1 << 20;
     }
 }
 
