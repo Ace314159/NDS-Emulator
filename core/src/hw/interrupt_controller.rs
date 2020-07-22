@@ -88,10 +88,10 @@ impl IORegister for InterruptEnable {
 
     fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8) {
         match byte {
-            0 => self.bits = self.bits & !0x0000_00FF | (value as u32) << 0 & InterruptEnable::all().bits,
-            1 => self.bits = self.bits & !0x0000_FF00 | (value as u32) << 8 & InterruptEnable::all().bits,
-            2 => self.bits = self.bits & !0x00FF_0000 | (value as u32) << 16 & InterruptEnable::all().bits,
-            3 => self.bits = self.bits & !0xFF00_0000 | (value as u32) << 24 & InterruptEnable::all().bits,
+            0 => self.bits = self.bits & !0x0000_00FF | (value as u32) << 0,
+            1 => self.bits = self.bits & !0x0000_FF00 | (value as u32) << 8,
+            2 => self.bits = self.bits & !0x00FF_0000 | (value as u32) << 16,
+            3 => self.bits = self.bits & !0xFF00_0000 | (value as u32) << 24,
             _ => unreachable!(),
         }
     }
