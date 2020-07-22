@@ -79,6 +79,12 @@ impl HW {
                     timers.timers[timer].create_event(&mut self.scheduler, 0);
                 }
             },
+            EventType::RunGameCardCommand(is_arm7) => {
+                if self.cartridge.run_command(self.chip_id) {
+                    let interrupts = if is_arm7 { &mut self.interrupts7 } else { &mut self.interrupts9 };
+                    interrupts.request |= InterruptRequest::GAME_CARD_TRANSFER_COMPLETION;
+                }
+            },
         }
     }
 
@@ -197,4 +203,5 @@ pub enum EventType {
     VBlank,
     HBlank,
     TimerOverflow(bool, usize),
+    RunGameCardCommand(bool),
 }

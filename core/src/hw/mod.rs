@@ -9,6 +9,9 @@ mod timers;
 mod ipc;
 mod math;
 mod spi;
+mod cartridge;
+
+use std::convert::TryInto;
 
 use header::Header;
 pub use mmu::{AccessType, MemoryValue};
@@ -23,6 +26,7 @@ use timers::Timers;
 use ipc::IPC;
 use math::{Div, Sqrt};
 use spi::SPI;
+use cartridge::Cartridge;
 
 pub struct HW {
     // Memory
@@ -30,7 +34,7 @@ pub struct HW {
     bios7: Vec<u8>,
     bios9: Vec<u8>,
     rom_header: Header,
-    rom: Vec<u8>,
+    cartridge: Cartridge,
     itcm: Vec<u8>,
     dtcm: Vec<u8>,
     main_mem: Vec<u8>,
@@ -59,6 +63,7 @@ pub struct HW {
     div: Div,
     sqrt: Sqrt,
     // Misc
+    chip_id: u32,
     arm7_cycles_ahead: usize,
     scheduler: Scheduler,
 }
@@ -77,7 +82,7 @@ impl HW {
             bios7,
             bios9,
             rom_header: Header::new(&rom),
-            rom,
+            cartridge: Cartridge::new(rom),
             itcm: vec![0; HW::ITCM_SIZE],
             dtcm: vec![0; HW::DTCM_SIZE],
             main_mem: vec![0; HW::MAIN_MEM_SIZE],
@@ -106,6 +111,7 @@ impl HW {
             div: Div::new(),
             sqrt: Sqrt::new(),
             // Misc
+            chip_id: 0x000_01FC2u32, // TODO: Actually calculate cart ID
             arm7_cycles_ahead: 0,
             scheduler: Scheduler::new(),
         }.init_mem()
@@ -156,15 +162,14 @@ impl HW {
     }
 
     pub fn init_mem(mut self) -> Self {
-        let addr = 0x027F_FE00 & (HW::MAIN_MEM_SIZE - 1); 
-        self.main_mem[addr..addr + 0x170].copy_from_slice(&self.rom[..0x170]);
+        let addr = 0x027F_FE00 & (HW::MAIN_MEM_SIZE - 1);
+        self.main_mem[addr..addr + 0x170].copy_from_slice(&self.cartridge.rom()[..0x170]);
         
-        let cart_id = 0x000_01FC2u32; // TODO: Actually calculate cart ID
         for addr in [0x027FF800, 0x027FFC00].iter() {
-            self.arm9_write(addr + 0x0, cart_id);
-            self.arm9_write(addr + 0x4, cart_id);
-            self.arm9_write(addr + 0x8, u16::from_le_bytes([self.rom[0x15E], self.rom[0x15F]]));
-            self.arm9_write(addr + 0xA, u16::from_le_bytes([self.rom[0x6C], self.rom[0x6D]]));
+            self.arm9_write(addr + 0x0, self.chip_id);
+            self.arm9_write(addr + 0x4, self.chip_id);
+            self.arm9_write(addr + 0x8, u16::from_le_bytes(self.cartridge.rom()[0x15E..=0x15F].try_into().unwrap()));
+            self.arm9_write(addr + 0xA, u16::from_le_bytes(self.cartridge.rom()[0x6C..=0x6D].try_into().unwrap()));
         }
 
         self.arm9_write(0x027FF850, 0x5835u16);

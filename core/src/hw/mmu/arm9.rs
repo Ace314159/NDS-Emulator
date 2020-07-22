@@ -58,7 +58,7 @@ impl HW {
         let rom_offset = self.rom_header.arm9_rom_offset as usize;
         let size = self.rom_header.arm9_size;
         for (i, addr) in (start_addr..start_addr + size).enumerate() {
-            self.arm9_write(addr, self.rom[rom_offset + i]);
+            self.arm9_write(addr, self.cartridge.rom()[rom_offset + i]);
         }
         self.arm9_write(0x23FFC80, 0x5u8);
         self.rom_header.arm9_entry_addr
@@ -98,6 +98,14 @@ impl HW {
             0x0400_0185 => self.ipc.read_fifocnt9(1),
             0x0400_0186 => self.ipc.read_fifocnt9(2),
             0x0400_0187 => self.ipc.read_fifocnt9(3),
+            0x0400_01A0 => self.cartridge.spicnt.read(!self.exmem.nds_arm7_access, 0),
+            0x0400_01A1 => self.cartridge.spicnt.read(!self.exmem.nds_arm7_access, 1),
+            0x0400_01A2 => self.cartridge.read_spi_data(!self.exmem.nds_arm7_access),
+            0x0400_01A3 => 0, // Upper byte of AUXSPIDATA is always 0
+            0x0400_01A4 => self.cartridge.read_romctrl(!self.exmem.nds_arm7_access, 0),
+            0x0400_01A5 => self.cartridge.read_romctrl(!self.exmem.nds_arm7_access, 1),
+            0x0400_01A6 => self.cartridge.read_romctrl(!self.exmem.nds_arm7_access, 2),
+            0x0400_01A7 => self.cartridge.read_romctrl(!self.exmem.nds_arm7_access, 3),
             0x0400_0204 => self.exmem.read_arm9(),
             0x0400_0205 => self.exmem.read_common(),
             0x0400_0208 => self.interrupts9.master_enable.read(0),
@@ -131,6 +139,7 @@ impl HW {
             0x0400_0307 => self.gpu.powcnt1.read(3),
             0x0400_1000 ..= 0x0400_1003 => self.gpu.engine_b.read_register(addr),
             0x0400_1008 ..= 0x0400_106F => self.gpu.engine_b.read_register(addr),
+            0x0410_0010 ..= 0x0410_0013 => self.cartridge.read_gamecard(addr as usize & 0x3),
             _ => { warn!("Ignoring ARM9 IO Register Read at 0x{:08X}", addr); 0 }
         }
     }
@@ -173,6 +182,26 @@ impl HW {
             0x0400_0185 => self.interrupts9.request |= self.ipc.write_fifocnt9(1, value),
             0x0400_0186 => self.interrupts9.request |= self.ipc.write_fifocnt9(2, value),
             0x0400_0187 => self.interrupts9.request |= self.ipc.write_fifocnt9(3, value),
+            0x0400_01A0 => self.cartridge.spicnt.write(!self.exmem.nds_arm7_access, 0, value),
+            0x0400_01A1 => self.cartridge.spicnt.write(!self.exmem.nds_arm7_access, 1, value),
+            0x0400_01A2 => self.cartridge.write_spi_data(!self.exmem.nds_arm7_access, value),
+            0x0400_01A3 => (), // TODO: Does this write do anything?
+            0x0400_01A4 => self.cartridge.write_romctrl(&mut self.scheduler, false,
+                !self.exmem.nds_arm7_access, 0, value),
+            0x0400_01A5 => self.cartridge.write_romctrl(&mut self.scheduler, false,
+                !self.exmem.nds_arm7_access, 1, value),
+            0x0400_01A6 => self.cartridge.write_romctrl(&mut self.scheduler, false,
+                !self.exmem.nds_arm7_access, 2, value),
+            0x0400_01A7 => self.cartridge.write_romctrl(&mut self.scheduler, false,
+                !self.exmem.nds_arm7_access, 3, value),
+            0x0400_01A8 => self.cartridge.write_command(!self.exmem.nds_arm7_access, 0, value),
+            0x0400_01A9 => self.cartridge.write_command(!self.exmem.nds_arm7_access, 1, value),
+            0x0400_01AA => self.cartridge.write_command(!self.exmem.nds_arm7_access, 2, value),
+            0x0400_01AB => self.cartridge.write_command(!self.exmem.nds_arm7_access, 3, value),
+            0x0400_01AC => self.cartridge.write_command(!self.exmem.nds_arm7_access, 4, value),
+            0x0400_01AD => self.cartridge.write_command(!self.exmem.nds_arm7_access, 5, value),
+            0x0400_01AE => self.cartridge.write_command(!self.exmem.nds_arm7_access, 6, value),
+            0x0400_01AF => self.cartridge.write_command(!self.exmem.nds_arm7_access, 7, value),
             0x0400_0204 => self.exmem.write_arm9(value),
             0x0400_0205 => self.exmem.write_common(value),
             0x0400_0208 => self.interrupts9.master_enable.write(&mut self.scheduler, 0, value),

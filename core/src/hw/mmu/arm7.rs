@@ -166,7 +166,7 @@ impl HW {
         let rom_offset = self.rom_header.arm7_rom_offset as usize;
         let size = self.rom_header.arm7_size;
         for (i, addr) in (start_addr..start_addr + size).enumerate() {
-            self.arm7_write(addr, self.rom[rom_offset + i]);
+            self.arm7_write(addr, self.cartridge.rom()[rom_offset + i]);
         }
         self.rom_header.arm7_entry_addr
     }
