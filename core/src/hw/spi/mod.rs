@@ -20,7 +20,7 @@ impl SPI {
     pub fn read_data(&self) -> u8 {
         match self.cnt.device {
             Device::Firmware => self.firmware.read(),
-            _ => todo!(),
+            _ => 0,
         }
     }
     
@@ -31,7 +31,7 @@ impl SPI {
     pub fn write_data(&mut self, value: u8) {
         match self.cnt.device {
             Device::Firmware => self.firmware.write(value),
-            _ => todo!(),
+            _ => (),
         }
     }
 }
