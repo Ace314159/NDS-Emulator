@@ -16,7 +16,7 @@ impl TextureWindow {
         TextureWindow {
             texture: Texture::new(),
             scale: 1.0,
-            title: ImString::new(title.to_string()),
+            title: ImString::new(title),
         }
     }
 

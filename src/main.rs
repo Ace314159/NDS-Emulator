@@ -64,9 +64,14 @@ fn main() {
         display.render(&mut nds, &mut imgui,
             |ui, keys_pressed, _modifiers| {
             palettes_window.render(ui, &keys_pressed, pixels, width, height, || {
+                let combo_width = ui.window_size()[0] * 0.3;
+
+                ui.set_next_item_width(combo_width);
                 ComboBox::new(im_str!("Engine"))
                 .build_simple(ui, &mut palettes_engine,
                 &engines, &(|i| Cow::from(ImString::new(i.label()))));
+
+                ui.set_next_item_width(combo_width);
                 ComboBox::new(im_str!("Graphics Type"))
                 .build_simple(ui, &mut palettes_graphics_type,
                 &graphics_types, &(|i| Cow::from(ImString::new(i.label()))));
