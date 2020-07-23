@@ -17,6 +17,7 @@ impl HW {
             MemoryRegion::SharedWRAM => HW::read_mem(&self.shared_wram,
                 self.wramcnt.arm9_offset + addr & self.wramcnt.arm9_mask),
             MemoryRegion::IO if (0x0410_0000 ..= 0x0410_0003).contains(&addr) => self.ipc_fifo_recv(false, addr),
+            MemoryRegion::IO if (0x0410_0010 ..= 0x0410_0013).contains(&addr) => self.read_game_card(false, addr),
             MemoryRegion::IO => HW::read_from_bytes(self, &HW::arm9_read_io_register, addr),
             MemoryRegion::Palette =>
                 HW::read_from_bytes(self.gpu_engine(addr),&Engine2D::read_palette_ram, addr),
@@ -139,7 +140,6 @@ impl HW {
             0x0400_0307 => self.gpu.powcnt1.read(3),
             0x0400_1000 ..= 0x0400_1003 => self.gpu.engine_b.read_register(addr),
             0x0400_1008 ..= 0x0400_106F => self.gpu.engine_b.read_register(addr),
-            0x0410_0010 ..= 0x0410_0013 => self.cartridge.read_gamecard(addr as usize & 0x3),
             _ => { warn!("Ignoring ARM9 IO Register Read at 0x{:08X}", addr); 0 }
         }
     }

@@ -63,7 +63,6 @@ pub struct HW {
     div: Div,
     sqrt: Sqrt,
     // Misc
-    chip_id: u32,
     arm7_cycles_ahead: usize,
     scheduler: Scheduler,
 }
@@ -111,7 +110,6 @@ impl HW {
             div: Div::new(),
             sqrt: Sqrt::new(),
             // Misc
-            chip_id: 0x000_01FC2u32, // TODO: Actually calculate cart ID
             arm7_cycles_ahead: 0,
             scheduler: Scheduler::new(),
         }.init_mem()
@@ -166,8 +164,8 @@ impl HW {
         self.main_mem[addr..addr + 0x170].copy_from_slice(&self.cartridge.rom()[..0x170]);
         
         for addr in [0x027FF800, 0x027FFC00].iter() {
-            self.arm9_write(addr + 0x0, self.chip_id);
-            self.arm9_write(addr + 0x4, self.chip_id);
+            self.arm9_write(addr + 0x0, self.cartridge.chip_id());
+            self.arm9_write(addr + 0x4, self.cartridge.chip_id());
             self.arm9_write(addr + 0x8, u16::from_le_bytes(self.cartridge.rom()[0x15E..=0x15F].try_into().unwrap()));
             self.arm9_write(addr + 0xA, u16::from_le_bytes(self.cartridge.rom()[0x6C..=0x6D].try_into().unwrap()));
         }

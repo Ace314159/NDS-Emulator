@@ -1,53 +1,123 @@
 use std::convert::TryInto;
+use std::collections::VecDeque;
+use std::ops::Range;
 
-use super::scheduler::{EventType, Scheduler};
+use super::scheduler::{Event, Scheduler};
 
 pub struct Cartridge {
+    chip_id: u32,
     rom: Vec<u8>,
+    // Registers
     pub spicnt: SPICNT,
     romctrl: ROMCTRL,
     command: [u8; 8],
-    gamecard_bytes: [u8; 4],
+    cur_game_card_word: u32,
+    // Data Transfer
+    rom_bytes_left: usize,
+    game_card_words: VecDeque<u32>,
 }
 
 impl Cartridge {
     pub fn new(rom: Vec<u8>) -> Self {
         Cartridge {
+            chip_id: 0x000_01FC2u32, // TODO: Actually Calculate
             rom,
+            // Registers
             spicnt: SPICNT::new(),
             romctrl: ROMCTRL::new(),
             command: [0; 8],
-            gamecard_bytes: [0; 4],
+            cur_game_card_word: 0,
+            // Data Transfer
+            rom_bytes_left: 0,
+            game_card_words: VecDeque::new(),
         }
     }
 
-    pub fn run_command(&mut self, chip_id: u32) -> bool {
-        self.romctrl.block_busy = false;
-        self.romctrl.data_word_ready = true; // TODO: Take some time to set this
+    pub fn run_command(&mut self, scheduler: &mut Scheduler, is_arm7: bool) {
+        //self.romctrl.key1_gap1_len = 0x10;
+        //self.romctrl.key1_gap2_len = 0x10;
+        //self.romctrl.key2_encrypt_data = false;
+        //self.romctrl.key2_encrypt_cmd = false;
+        //self.romctrl.block_busy = false;
+        //self.romctrl.data_block_size = 0x4;
+        //self.romctrl.resb_release_reset = false;
+        assert_eq!(self.rom_bytes_left % 4, 0);
+        self.rom_bytes_left = match self.romctrl.data_block_size {
+            0 => 0,
+            7 => 4,
+            _ => { assert!(self.romctrl.data_block_size < 7); 0x100 << self.romctrl.data_block_size },
+        };
+        self.romctrl.block_busy = true;
+        self.romctrl.data_word_ready = false;
         match self.command[0] {
             0xB7 => {
                 for byte in self.command[5..8].iter() { assert_eq!(*byte, 0) }
                 let addr = u32::from_be_bytes(self.command[1..=4].try_into().unwrap()) as usize;
-                self.gamecard_bytes.copy_from_slice(&self.rom[addr..addr + 4]);
+                assert!(addr + self.rom_bytes_left < self.rom.len()); // TODO: Handle mirroring later
+                let addr = if addr < 0x8000 { 0x8000 + (addr & 0x1FFF) } else { addr };
+                let transfer_len = self.rom_bytes_left;
+                let mut copy_rom = |range: Range<usize>| for addr in range.step_by(4) {
+                    self.game_card_words.push_back(u32::from_le_bytes(self.rom[addr..addr + 4].try_into().unwrap()));
+                };
+                if addr & 0x1000 != (addr + transfer_len) & 0x1000 { // Crosess 4K boundary
+                    let block4k_start = addr & !0xFFF;
+                    let block4k_end = block4k_start + 0x1000;
+                    let extra_len = transfer_len - (block4k_end - addr);
+                    copy_rom(addr..block4k_end);
+                    copy_rom(block4k_start..block4k_start + extra_len);
+                } else {
+                    copy_rom(addr..addr + transfer_len);
+                }
             },
             0xB8 => {
                 for byte in self.command[1..8].iter() { assert_eq!(*byte, 0) }
-                for i in 0..4 { self.gamecard_bytes[i] = (chip_id >> i * 8) as u8 };
+                // Chip ID is repeated
+                for _ in 0..self.rom_bytes_left / 4 {
+                    self.game_card_words.push_back(self.chip_id);
+                }
             },
             _ => todo!(),
         };
+
+        // TODO: Take into account WR bit
+        if self.rom_bytes_left == 0 {
+            // 8 command bytes transferred
+            scheduler.schedule(Event::ROMBlockEnded(is_arm7), scheduler.cycle + self.transfer_byte_time() * 8);
+        } else {
+            // 8 command bytes + 4 bytes for word
+            scheduler.schedule(Event::ROMWordTransfered, scheduler.cycle + self.transfer_byte_time() * (8 + 4));
+        }
+    }
+
+    pub fn update_word(&mut self) {
+        self.cur_game_card_word = self.game_card_words.pop_front().unwrap();
+        self.romctrl.data_word_ready = true;
+    }
+
+    pub fn end_block(&mut self) -> bool {
+        self.romctrl.block_busy = false;
         self.spicnt.transfer_ready_irq
     }
 
-    pub fn read_gamecard(&self, byte: usize) -> u8 {
-        println!("Reading from game card");
-        assert!(byte < 4);
-        self.gamecard_bytes[byte]
+    pub fn read_gamecard(&mut self, scheduler: &mut Scheduler, is_arm7: bool, has_access: bool) -> u32 {
+        if !has_access { warn!("No Read Access from Game Card Command"); return 0 }
+        if self.romctrl.data_word_ready {
+            self.romctrl.data_word_ready = false;
+            self.rom_bytes_left -= 4;
+
+            if self.rom_bytes_left > 0 {
+                // 1 word (4 bytes) transferred
+                scheduler.schedule(Event::ROMWordTransfered, scheduler.cycle + self.transfer_byte_time() * 4);
+            } else {
+                scheduler.run_now(Event::ROMBlockEnded(is_arm7));
+            }
+        }
+        self.cur_game_card_word
     }
 
     pub fn read_spi_data(&self, has_access: bool) -> u8 {
         if !has_access { warn!("No Read Access to SPI DATA"); return 0 }
-        println!("Reading from AUX SPI DATA");
+        //println!("Reading from AUX SPI DATA");
         0
     }
 
@@ -58,21 +128,25 @@ impl Cartridge {
         println!("Writing to AUX SPI DATA: 0x{:X}", value);
     }
 
-    pub fn write_romctrl(&mut self, scheduler: &mut Scheduler, is_arm7: bool, has_access: bool, byte: usize, value: u8) {
-        self.romctrl.write(scheduler, is_arm7, has_access, byte, value);
-    }
-
     pub fn write_command(&mut self, has_access: bool, byte: usize, value: u8) {
-        if !has_access { warn!("No Write Access to Gamecard Command"); return }
+        if !has_access { warn!("No Write Access to Game Card Command"); return }
         assert!(byte < 8);
-        println!("Writing Command Byte {}: 0x{:X}", byte, value);
+        //println!("Writing Command Byte {}: 0x{:X}", byte, value);
         self.command[byte] = value;
     }
 
+    pub fn write_romctrl(&mut self, scheduler: &mut Scheduler, is_arm7: bool, has_access: bool, byte: usize, value: u8) {
+        if self.romctrl.write(has_access, byte, value) { self.run_command(scheduler, is_arm7) }
+    }
+
+    pub fn chip_id(&self) -> u32 { self.chip_id }
     pub fn rom(&self) -> &Vec<u8> { &self.rom }
+
+    fn transfer_byte_time(&self) -> usize { if self.romctrl.transfer_clk_rate { 8 } else { 5 } }
 }
 
 pub struct SPICNT {
+    // Registers
     baudrate: u8,
     hold_chipselect: bool,
     busy: bool,
@@ -95,7 +169,7 @@ impl SPICNT {
 
     pub fn read(&self, has_access: bool, byte: usize) -> u8 {
         if !has_access { warn!("No Read Access to AUX SPI CNT"); return 0 }
-        println!("Reading AUXSPICNT {}", byte);
+        //println!("Reading AUXSPICNT {}", byte);
         match byte {
             0 => (self.busy as u8) << 7 | (self.hold_chipselect as u8) << 6 | self.baudrate,
             1 => (self.slot_enable as u8) << 7 | (self.transfer_ready_irq as u8) << 6 | (self.slot_mode as u8) << 5,
@@ -104,7 +178,7 @@ impl SPICNT {
     }
 
     pub fn write(&mut self, has_access: bool, byte: usize, value: u8) {
-        println!("Writing AUXSPICNT {}: 0x{:X}", byte, value);
+        //println!("Writing AUXSPICNT {}: 0x{:X}", byte, value);
         if !has_access { warn!("No Write Access to AUX SPI CNT"); return }
         match byte {
             0 => {
@@ -157,7 +231,7 @@ impl ROMCTRL {
 
     pub fn read(&self, has_access: bool, byte: usize) -> u8 {
         if !has_access { warn!("No Read Access to ROM CTRL"); return 0 }
-        println!("Reading AUXROMCTRL {}", byte);
+        //println!("Reading AUXROMCTRL {}", byte);
         // TODO: Are bits 13 and 14 the same
         match byte {
             0 => self.key1_gap1_len as u8,
@@ -169,9 +243,9 @@ impl ROMCTRL {
         }
     }
 
-    pub fn write(&mut self, scheduler: &mut Scheduler, is_arm7: bool, has_access: bool, byte: usize, value: u8) {
-        if !has_access { warn!("No Write Access to ROM CTRL"); return }
-        println!("Writing AUXROMCTRL {}: 0x{:X}", byte, value);
+    pub fn write(&mut self, has_access: bool, byte: usize, value: u8) -> bool {
+        if !has_access { warn!("No Write Access to ROM CTRL"); return false }
+        //println!("Writing AUXROMCTRL {}: 0x{:X}", byte, value);
         match byte {
             0 => self.key1_gap1_len = self.key1_gap1_len & !0xFF | value as u16,
             1 => {
@@ -181,7 +255,7 @@ impl ROMCTRL {
             },
             2 => {
                 self.key1_gap2_len = value & 0x3F;
-                self.key2_encrypt_cmd = value >> 5 & 0x1 != 0;
+                self.key2_encrypt_cmd = value >> 6 & 0x1 != 0;
                 // Data-word Status (data_word_ready) is read-only
             },
             3 => {
@@ -190,13 +264,10 @@ impl ROMCTRL {
                 self.key1_gap_clks = value >> 4 & 0x1 != 0;
                 self.resb_release_reset = self.resb_release_reset || value >> 5 & 0x1 != 0; // Cannot be cleared once set
                 self.wr = value >> 6 & 0x1 != 0;
-                if value & 0x80 != 0 { // Block Start
-                    // TODO: Add Delay
-                    self.block_busy = true;
-                    scheduler.run_now(EventType::RunGameCardCommand(is_arm7));
-                }
+                return value & 0x80 != 0; // Block Start
             },
             _ => unreachable!(),
         }
+        false
     }
 }

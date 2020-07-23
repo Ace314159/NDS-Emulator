@@ -35,6 +35,13 @@ impl HW {
         }
     }
 
+    fn read_game_card<T: MemoryValue>(&mut self, is_arm7: bool, addr: u32) -> T {
+        if addr != 0x0410_0010 || size_of::<T>() != 4 { todo!() }
+        let value = self.cartridge.read_gamecard(&mut self.scheduler, is_arm7,
+            self.exmem.nds_arm7_access == is_arm7);
+        num::cast::<u32, T>(value).unwrap()
+    }
+
     // TODO: Replace with const generic
     fn read_gba_rom<T: MemoryValue>(&self, is_arm7: bool, addr: u32) -> T {
         if self.exmem.gba_arm7_access == is_arm7 {
