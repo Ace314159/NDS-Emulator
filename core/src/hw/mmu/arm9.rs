@@ -72,7 +72,10 @@ impl HW {
             0x0400_0005 => self.gpu.dispstat.read(1),
             0x0400_0006 => (self.gpu.vcount >> 0) as u8,
             0x0400_0007 => (self.gpu.vcount >> 8) as u8,
-            0x0400_0008 ..= 0x0400_006F => self.gpu.engine_a.read_register(addr),
+            0x0400_0008 ..= 0x0400_005F => self.gpu.engine_a.read_register(addr),
+            0x0400_0060 ..= 0x0400_006B => 0, // TODO: Other GPU
+            0x0400_006C ..= 0x0400_006D => 0, // TODO: MASTER_BRIGHT
+            0x0400_006E ..= 0x0400_006F => 0,
             0x0400_00B0 ..= 0x0400_00BB => self.dma9.read(0, addr - 0xB0),
             0x0400_00BC ..= 0x0400_00C7 => self.dma9.read(1, addr - 0xBC),
             0x0400_00C8 ..= 0x0400_00D3 => self.dma9.read(2, addr - 0xC8),
@@ -139,7 +142,11 @@ impl HW {
             0x0400_0306 => self.gpu.powcnt1.read(2),
             0x0400_0307 => self.gpu.powcnt1.read(3),
             0x0400_1000 ..= 0x0400_1003 => self.gpu.engine_b.read_register(addr),
-            0x0400_1008 ..= 0x0400_106F => self.gpu.engine_b.read_register(addr),
+            0x0400_1004 ..= 0x0400_1007 => 0,
+            0x0400_1008 ..= 0x0400_105F => self.gpu.engine_b.read_register(addr),
+            0x0400_1060 ..= 0x0400_106B => 0,
+            0x0400_106C ..= 0x0400_106D => 0, // TODO: MASTER_BRIGHT
+            0x0400_106E ..= 0x0400_106F => 0,
             _ => { warn!("Ignoring ARM9 IO Register Read at 0x{:08X}", addr); 0 }
         }
     }
@@ -151,7 +158,10 @@ impl HW {
             0x0400_0005 => self.gpu.dispstat.write(&mut self.scheduler, 1, value),
             0x0400_0006 => (), // VCOUNT is read only
             0x0400_0007 => (), // VCOUNT is read only
-            0x0400_0008 ..= 0x0400_006F => self.gpu.engine_a.write_register(&mut self.scheduler, addr, value),
+            0x0400_0008 ..= 0x0400_005F => self.gpu.engine_a.write_register(&mut self.scheduler, addr, value),
+            0x0400_0060 ..= 0x0400_006B => (), // TODO: Other GPU
+            0x0400_006C ..= 0x0400_006D => (), // TODO: MASTER_BRIGHT
+            0x0400_006E ..= 0x0400_006F => (),
             0x0400_00B0 ..= 0x0400_00BB => self.dma9.write(0, &mut self.scheduler, addr - 0xB0, value),
             0x0400_00BC ..= 0x0400_00C7 => self.dma9.write(1, &mut self.scheduler, addr - 0xBC, value),
             0x0400_00C8 ..= 0x0400_00D3 => self.dma9.write(2, &mut self.scheduler, addr - 0xC8, value),
@@ -234,7 +244,11 @@ impl HW {
             0x0400_0306 => self.gpu.powcnt1.write(&mut self.scheduler, 2, value),
             0x0400_0307 => self.gpu.powcnt1.write(&mut self.scheduler, 3, value),
             0x0400_1000 ..= 0x0400_1003 => self.gpu.engine_b.write_register(&mut self.scheduler, addr, value),
-            0x0400_1008 ..= 0x0400_106F => self.gpu.engine_b.write_register(&mut self.scheduler, addr, value),
+            0x0400_1004 ..= 0x0400_1007 => (),
+            0x0400_1008 ..= 0x0400_105F => self.gpu.engine_b.write_register(&mut self.scheduler, addr, value),
+            0x0400_1060 ..= 0x0400_106B => (),
+            0x0400_106C ..= 0x0400_106D => (), // TODO: MASTER_BRIGHT
+            0x0400_106E ..= 0x0400_106F => (),
             _ => warn!("Ignoring ARM9 IO Register Write 0x{:08X} = {:02X}", addr, value),
         }
     }
