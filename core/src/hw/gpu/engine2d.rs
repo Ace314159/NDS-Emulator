@@ -402,8 +402,8 @@ impl Engine2D {
         let dx = self.dxs[bg_i - 2];
         let dy = self.dys[bg_i - 2];
         let bgcnt = self.bgcnts[bg_i];
-        let tile_start_addr = bgcnt.tile_block as usize * 0x4000;
-        let map_start_addr = bgcnt.map_block as usize * 0x800;
+        let tile_start_addr = self.calc_tile_start_addr(&bgcnt);
+        let map_start_addr = self.calc_map_start_addr(&bgcnt);
         let map_size = 128 << bgcnt.screen_size; // In Pixels
         let (mosaic_x, mosaic_y) = if bgcnt.mosaic {
             (self.mosaic.bg_size.h_size as usize, self.mosaic.bg_size.v_size as usize)
@@ -439,8 +439,8 @@ impl Engine2D {
         let x_offset = self.hofs[bg_i].offset as usize;
         let y_offset = self.vofs[bg_i].offset as usize;
         let bgcnt = self.bgcnts[bg_i];
-        let tile_start_addr = bgcnt.tile_block as usize * 0x4000;
-        let map_start_addr = bgcnt.map_block as usize * 0x800;
+        let tile_start_addr = self.calc_tile_start_addr(&bgcnt);
+        let map_start_addr = self.calc_map_start_addr(&bgcnt);
         let bit_depth = if bgcnt.bpp8 { 8 } else { 4 }; // Also bytes per row of tile
         let (mosaic_x, mosaic_y) = if bgcnt.mosaic {
             (self.mosaic.bg_size.h_size as usize, self.mosaic.bg_size.v_size as usize)
@@ -500,6 +500,14 @@ impl Engine2D {
     pub fn latch_affine(&mut self) {
         self.bgxs_latch = self.bgxs.clone();
         self.bgys_latch = self.bgys.clone();
+    }
+
+    fn calc_tile_start_addr(&self, bgcnt: &BGCNT) -> usize {
+        self.dispcnt.char_base as usize * 0x1_0000 + bgcnt.tile_block as usize * 0x4000
+    }
+
+    fn calc_map_start_addr(&self, bgcnt: &BGCNT) -> usize {
+        self.dispcnt.screen_base as usize * 0x1_0000 + bgcnt.map_block as usize * 0x800
     }
 }
 
