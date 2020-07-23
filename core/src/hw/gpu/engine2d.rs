@@ -727,9 +727,9 @@ impl Engine2D {
     }
 
     pub fn read_palette_ram(&self, addr: u32) -> u8 {
-        let addr = addr as usize & GPU::PALETTE_MASK;
+        let addr = addr as usize & (2 * GPU::PALETTE_SIZE - 1);
         let palettes = if addr < GPU::PALETTE_SIZE { &self.bg_palettes } else { &self.obj_palettes };
-        let index = (addr & GPU::PALETTE_SIZE / 2 - 1) / 2;
+        let index = (addr & GPU::PALETTE_SIZE - 1) / 2;
         if addr % 2 == 0 {
             (palettes[index] >> 0) as u8
         } else {
@@ -738,16 +738,12 @@ impl Engine2D {
         }
     }
 
-    pub fn write_palette_ram(&mut self, addr: u32, value: u8) {
-        let addr = addr as usize & GPU::PALETTE_MASK;
+    pub fn write_palette_ram(&mut self, addr: usize, value: u16) {
+        let addr = addr as usize & (2 * GPU::PALETTE_SIZE - 1);
         let palettes = if addr < GPU::PALETTE_SIZE { &mut self.bg_palettes } else { &mut self.obj_palettes };
-        let index = (addr & GPU::PALETTE_SIZE / 2 - 1) / 2;
-        if addr % 2 == 0 {
-            palettes[index] = palettes[index] & !0x00FF | (value as u16) << 0;
-        } else {
-            if value & 0x80 != 0 { warn!("Writing to palette with 15th bit set - Reading could be inaccurate: 0x:{:X} ", value) }
-            palettes[index] = palettes[index] & !0xFF00 | (value as u16) << 8 & !0x8000;
-        }
+        let index = (addr & GPU::PALETTE_SIZE - 1) / 2;
+        palettes[index] = value;
+        if value & 0x8000 != 0 { warn!("Writing to palette with 15th bit set - Reading could be inaccurate: 0x{:X} ", value) }
     }
 
     pub fn bg_palettes(&self) -> &Vec<u16> { &self.bg_palettes }

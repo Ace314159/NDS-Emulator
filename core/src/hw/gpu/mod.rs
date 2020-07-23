@@ -29,8 +29,7 @@ impl GPU {
     pub const WIDTH: usize = 256;
     pub const HEIGHT: usize = 192;
 
-    pub const PALETTE_SIZE: usize = 0x400;
-    pub const PALETTE_MASK: usize = GPU::PALETTE_SIZE - 1;
+    pub const PALETTE_SIZE: usize = 0x200;
     pub const OAM_SIZE: usize = 0x400;
     pub const OAM_MASK: usize = GPU::OAM_SIZE - 1;
 

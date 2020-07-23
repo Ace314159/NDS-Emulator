@@ -2,7 +2,7 @@ use super::GPU;
 
 impl GPU {
     pub fn render_palettes<>(palettes: &Vec<u16>) -> (Vec<u16>, usize, usize) {
-        let palettes_size = 32;
+        let palettes_size = 16;
         let size = palettes_size * 8;
         let mut pixels = vec![0; size * size];
         for palette_y in 0..palettes_size {
