@@ -117,21 +117,19 @@ impl Cartridge {
 
     pub fn read_spi_data(&self, has_access: bool) -> u8 {
         if !has_access { warn!("No Read Access to SPI DATA"); return 0 }
-        //println!("Reading from AUX SPI DATA");
         0
     }
 
     pub fn read_romctrl(&self, has_access: bool, byte: usize) -> u8 { self.romctrl.read(has_access, byte) }
 
-    pub fn write_spi_data(&mut self, has_access: bool, value: u8) {
+    pub fn write_spi_data(&mut self, has_access: bool, _value: u8) {
         if !has_access { warn!("No Write Access to SPI DATA"); return }
-        println!("Writing to AUX SPI DATA: 0x{:X}", value);
+        //println!("Writing to AUX SPI DATA: 0x{:X}", value);
     }
 
     pub fn write_command(&mut self, has_access: bool, byte: usize, value: u8) {
         if !has_access { warn!("No Write Access to Game Card Command"); return }
         assert!(byte < 8);
-        //println!("Writing Command Byte {}: 0x{:X}", byte, value);
         self.command[byte] = value;
     }
 
