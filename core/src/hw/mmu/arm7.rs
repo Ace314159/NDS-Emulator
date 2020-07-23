@@ -66,6 +66,10 @@ impl HW {
             0x0400_0185 => self.ipc.read_fifocnt7(1),
             0x0400_0186 => self.ipc.read_fifocnt7(2),
             0x0400_0187 => self.ipc.read_fifocnt7(3),
+            0x0400_01A0 => self.cartridge.spicnt.read(self.exmem.nds_arm7_access, 0),
+            0x0400_01A1 => self.cartridge.spicnt.read(self.exmem.nds_arm7_access, 1),
+            0x0400_01A2 => self.cartridge.read_spi_data(self.exmem.nds_arm7_access),
+            0x0400_01A3 => 0, // Upper byte of AUXSPIDATA is always 0
             0x0400_01C0 => self.spi.read_cnt(0),
             0x0400_01C1 => self.spi.read_cnt(1),
             0x0400_01C2 => self.spi.read_data(),
@@ -124,6 +128,10 @@ impl HW {
             0x0400_0185 => self.interrupts7.request |= self.ipc.write_fifocnt7(1, value),
             0x0400_0186 => self.interrupts7.request |= self.ipc.write_fifocnt7(2, value),
             0x0400_0187 => self.interrupts7.request |= self.ipc.write_fifocnt7(3, value),
+            0x0400_01A0 => self.cartridge.spicnt.write(self.exmem.nds_arm7_access, 0, value),
+            0x0400_01A1 => self.cartridge.spicnt.write(self.exmem.nds_arm7_access, 1, value),
+            0x0400_01A2 => self.cartridge.write_spi_data(self.exmem.nds_arm7_access, value),
+            0x0400_01A3 => (), // TODO: Does this write do anything?
             0x0400_01C0 => self.spi.write_cnt(&mut self.scheduler, 0, value),
             0x0400_01C1 => self.spi.write_cnt(&mut self.scheduler, 1, value),
             0x0400_01C2 => self.spi.write_data(value),
