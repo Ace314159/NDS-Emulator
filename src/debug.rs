@@ -37,13 +37,6 @@ impl TextureWindow {
     }
 }
 
-pub fn control_combo_with_arrows(ui: &Ui, keys_pressed: &HashSet<Key>, val: &mut usize, max: usize) {
-    if ui.is_window_focused() {
-        if keys_pressed.contains(&Key::Up) && *val != 0 { *val -= 1 }
-        if keys_pressed.contains(&Key::Down) { *val = std::cmp::min(*val + 1, max) }
-    }
-}
-
 pub struct Texture {
     tex: u32,
     width: f32,

@@ -1,6 +1,7 @@
 mod display;
 mod debug;
 
+use std::borrow::Cow;
 use std::fs;
 
 use nds_core::simplelog::*;
@@ -48,15 +49,28 @@ fn main() {
     let firmware = fs::read("firmware.bin").unwrap();
     let rom = fs::read("IRQ.nds").unwrap();
     let mut nds = NDS::new(bios7, bios9, firmware, rom);
+    
+    let engines = [Engine::A, Engine::B];
+    let graphics_types = [GraphicsType::BG, GraphicsType::OBJ];
 
     let mut palettes_window = TextureWindow::new("Palettes");
+    let mut palettes_engine = 0;
+    let mut palettes_graphics_type = 0;
 
     while !display.should_close() {
         nds.emulate_frame();
-        let (pixels, width, height) = nds.render_palettes(Engine::A, GraphicsType::BG);
+        let (pixels, width, height) =
+            nds.render_palettes(engines[palettes_engine], graphics_types[palettes_graphics_type]);
         display.render(&mut nds, &mut imgui,
             |ui, keys_pressed, _modifiers| {
-            palettes_window.render(ui, &keys_pressed, pixels, width, height, || {});
+            palettes_window.render(ui, &keys_pressed, pixels, width, height, || {
+                ComboBox::new(im_str!("Engine"))
+                .build_simple(ui, &mut palettes_engine,
+                &engines, &(|i| Cow::from(ImString::new(i.label()))));
+                ComboBox::new(im_str!("Graphics Type"))
+                .build_simple(ui, &mut palettes_graphics_type,
+                &graphics_types, &(|i| Cow::from(ImString::new(i.label()))));
+            });
         });
     }
 }

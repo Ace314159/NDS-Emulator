@@ -178,12 +178,32 @@ impl HW {
     }
 }
 
+#[derive(Clone, Copy)]
 pub enum Engine {
-    A,
-    B,
+    A = 0,
+    B = 1,
 }
 
+impl Engine {
+    pub fn label(&self) -> &str {
+        match self {
+            Engine::A => "A",
+            Engine::B => "B",
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
 pub enum GraphicsType {
     BG,
     OBJ,
+}
+
+impl GraphicsType {
+    pub fn label(&self) -> &str {
+        match self {
+            GraphicsType::BG => "BG",
+            GraphicsType::OBJ => "OBJ",
+        }
+    }
 }
