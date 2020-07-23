@@ -82,6 +82,7 @@ impl CP15 {
             (5, 1) => info!("Invalidate Instruction Cache Line 0x{:X}", value), // TODO: Invalidate Instruction Cache Line
             (6, 0) if value == 0 => info!("Invalidate Entire Data Cache"), // TODO: Invalidate Entire Data Cache
             (6, 1) => info!("Invalidate Data Cache Line 0x{:X}", value), // TODO: Invalidate Data Cache Line
+            (10, 1) => info!("Clean Data Cache Line 0x{:X}", value), // TODO: Clean Data Cache Line
             (10, 4) if value == 0 => info!("Drain Write Buffer"), // TODO: Drain Write Buffer
             (14, 1) => info!("Clean and Invalidate Data Cache Line 0x{:X}", value), // TODO: Clean and Invalidate Data Cache Line
             (14, 2) => info!("Clean and Invalidate Data Cache Index 0x{:X}", value), // TODO: Clean and Invalidate Data Cache Line
