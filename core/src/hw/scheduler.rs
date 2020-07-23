@@ -18,9 +18,9 @@ impl HW {
         }
     }
 
-    pub fn handle_event(&mut self, event: EventType) {
+    pub fn handle_event(&mut self, event: Event) {
         match event {
-            EventType::DMA(is_nds9, num) => {
+            Event::DMA(is_nds9, num) => {
                 let channel = self.get_channel(is_nds9, num);
                 // TODO: Clean Up
                 if channel.cnt.transfer_32 {
@@ -41,25 +41,25 @@ impl HW {
                     }
                 }
             },
-            EventType::VBlank => {
+            Event::VBlank => {
                 let mut events = Vec::new();
                 for channel in self.dma9.channels.iter().chain(self.dma7.channels.iter()) {
                     if channel.cnt.start_timing == DMAOccasion::VBlank {
-                        events.push(EventType::DMA(channel.is_nds9, channel.num));
+                        events.push(Event::DMA(channel.is_nds9, channel.num));
                     }
                 }
                 for event in events.iter() { self.handle_event(*event) }
             },
-            EventType::HBlank => {
+            Event::HBlank => {
                 let mut events = Vec::new();
                 for channel in self.dma9.channels.iter().chain(self.dma7.channels.iter()) {
                     if channel.cnt.start_timing == DMAOccasion::HBlank {
-                        events.push(EventType::DMA(channel.is_nds9, channel.num));
+                        events.push(Event::DMA(channel.is_nds9, channel.num));
                     }
                 }
                 for event in events.iter() { self.handle_event(*event) }
             },
-            EventType::TimerOverflow(is_nds9, timer) => {
+            Event::TimerOverflow(is_nds9, timer) => {
                 let (timers, interrupts) = if is_nds9 {
                     (&mut self.timers9, &mut self.interrupts9)
                 } else {
@@ -70,7 +70,7 @@ impl HW {
                 }
                 // Cascade Timers
                 if timer + 1 < timers.timers.len() && timers.timers[timer + 1].is_count_up() {
-                    if timers.timers[timer + 1].clock() { self.handle_event(EventType::TimerOverflow(is_nds9, timer + 1)) }
+                    if timers.timers[timer + 1].clock() { self.handle_event(Event::TimerOverflow(is_nds9, timer + 1)) }
                 }
                 // TODO: Can I move this up to avoid recreating timers
                 let timers = if is_nds9 { &mut self.timers9 } else { &mut self.timers7 };
@@ -79,7 +79,7 @@ impl HW {
                     timers.timers[timer].create_event(&mut self.scheduler, 0);
                 }
             },
-            EventType::RunGameCardCommand(is_arm7) => {
+            Event::RunGameCardCommand(is_arm7) => {
                 if self.cartridge.run_command(self.chip_id) {
                     let interrupts = if is_arm7 { &mut self.interrupts7 } else { &mut self.interrupts9 };
                     interrupts.request |= InterruptRequest::GAME_CARD_TRANSFER_COMPLETION;
@@ -159,7 +159,7 @@ impl HW {
 
 pub struct Scheduler {
     pub cycle: usize,
-    event_queue: PriorityQueue<EventType, Reverse<usize>>,
+    event_queue: PriorityQueue<Event, Reverse<usize>>,
 }
 
 impl Scheduler {
@@ -171,7 +171,7 @@ impl Scheduler {
         }
     }
 
-    pub fn get_next_event(&mut self) -> Option<EventType> {
+    pub fn get_next_event(&mut self) -> Option<Event> {
         if self.event_queue.len() == 0 { return None }
         let (_event_type, cycle) = self.event_queue.peek().unwrap();
         if Reverse(self.cycle) <= *cycle {
@@ -179,26 +179,21 @@ impl Scheduler {
         } else { None }
     }
 
-    pub fn add(&mut self, event: Event) {
-        self.event_queue.push(event.event_type, Reverse(event.cycle));
+    pub fn schedule(&mut self, event: Event, cycle: usize) {
+        self.event_queue.push(event, Reverse(cycle));
     }
 
-    pub fn run_now(&mut self, event_type: EventType) {
-        self.event_queue.push(event_type, Reverse(self.cycle + 1));
+    pub fn run_now(&mut self, event: Event) {
+        self.event_queue.push(event, Reverse(self.cycle));
     }
 
-    pub fn remove(&mut self, event_type: EventType) {
+    pub fn remove(&mut self, event_type: Event) {
         self.event_queue.remove(&event_type);
     }
 }
 
-pub struct Event {
-    pub cycle: usize,
-    pub event_type: EventType,
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum EventType {
+pub enum Event {
     DMA(bool, usize),
     VBlank,
     HBlank,

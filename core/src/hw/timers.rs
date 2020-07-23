@@ -1,4 +1,4 @@
-use super::{Scheduler, Event, EventType, mmu::IORegister};
+use super::{Scheduler, Event, mmu::IORegister};
 use super::InterruptRequest;
 
 pub struct Timers {
@@ -85,10 +85,10 @@ impl Timer {
         // Add 1 for 1 cycle delay in timer start
         self.time_till_first_clock = prescaler - (global_cycle + 1) % prescaler;
         self.timer_len = prescaler * (0x10000 - self.reload as usize - 1);
-        scheduler.add(Event {
-            cycle: global_cycle + self.time_till_first_clock + self.timer_len,
-            event_type: EventType::TimerOverflow(self.is_nds9, self.index),
-        });
+        scheduler.schedule(
+            Event::TimerOverflow(self.is_nds9, self.index),
+            global_cycle + self.time_till_first_clock + self.timer_len
+        );
     }
 
     pub fn is_count_up(&self) -> bool { self.cnt.count_up }
@@ -110,7 +110,7 @@ impl Timer {
             0 => self.reload = self.reload & !0x00FF | (value as u16) << 0,
             1 => self.reload = self.reload & !0xFF00 | (value as u16) << 8,
             2 => {
-                scheduler.remove(EventType::TimerOverflow(self.is_nds9, self.index));
+                scheduler.remove(Event::TimerOverflow(self.is_nds9, self.index));
                 let prev_start = self.cnt.start;
                 if !self.is_count_up() && self.cnt.start {
                     self.counter = self.calc_counter(global_cycle);

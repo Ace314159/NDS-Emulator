@@ -16,7 +16,7 @@ use std::convert::TryInto;
 use header::Header;
 pub use mmu::{AccessType, MemoryValue};
 use mmu::{CP15, EXMEM, HALTCNT, POWCNT2, WRAMCNT};
-use scheduler::{Scheduler, Event, EventType};
+use scheduler::{Scheduler, Event};
 pub use gpu::GPU;
 use keypad::Keypad;
 pub use keypad::Key;

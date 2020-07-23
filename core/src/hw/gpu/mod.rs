@@ -5,7 +5,7 @@ pub mod debug;
 
 use crate::hw::{
     interrupt_controller::InterruptRequest,
-    EventType, Scheduler,
+    Event, Scheduler,
 };
 use registers::{DISPSTAT, DISPSTATFlags, POWCNT1};
 pub use engine2d::Engine2D;
@@ -64,7 +64,7 @@ impl GPU {
             if self.dot == 267 { // TODO: Take into account half and differentiate between ARM7 and ARM9
                 self.dispstat.insert(DISPSTATFlags::HBLANK);
                 if self.vcount < GPU::HEIGHT as u16 {
-                    scheduler.run_now(EventType::HBlank);
+                    scheduler.run_now(Event::HBlank);
                 }
             }
         }
@@ -72,12 +72,14 @@ impl GPU {
             self.dispstat.remove(DISPSTATFlags::VBLANK);
             if self.dot == 257 {
                 // TOOD: Use POWCNT to selectively render engines
-                self.engine_a.render_line(&self.vram, &VRAM::get_engine_a_bg, &VRAM::get_engine_a_obj, self.vcount);
-                self.engine_b.render_line(&self.vram, &VRAM::get_engine_b_bg, &VRAM::get_engine_b_obj, self.vcount);
+                self.engine_a.render_line(&self.vram, &VRAM::get_engine_a_bg,
+                    &VRAM::get_engine_a_obj, self.vcount);
+                self.engine_b.render_line(&self.vram, &VRAM::get_engine_b_bg,
+                    &VRAM::get_engine_b_obj, self.vcount);
             }
         } else { // VBlank
             if self.vcount == GPU::HEIGHT as u16 && self.dot == 0 {
-                scheduler.run_now(EventType::VBlank);
+                scheduler.run_now(Event::VBlank);
                 if self.dispstat.contains(DISPSTATFlags::VBLANK_IRQ_ENABLE) {
                     interrupts.insert(InterruptRequest::VBLANK)
                 }

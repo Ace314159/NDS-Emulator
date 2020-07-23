@@ -1,4 +1,4 @@
-use super::{HW, mmu::IORegister, Scheduler, EventType};
+use super::{HW, mmu::IORegister, Scheduler, Event};
 
 pub struct DMAController {
     pub channels: [DMAChannel; 4],
@@ -99,7 +99,7 @@ impl IORegister for DMAChannel {
                 self.cnt.write(scheduler, 1, value);
                 if !prev_enable && self.cnt.enable {
                     self.latch();
-                    scheduler.run_now(EventType::DMA(self.is_nds9, self.num));
+                    scheduler.run_now(Event::DMA(self.is_nds9, self.num));
                 }
             },
             _ => unreachable!(),
