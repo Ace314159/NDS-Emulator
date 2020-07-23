@@ -1,11 +1,13 @@
 mod display;
+mod debug;
 
 use std::fs;
 
 use nds_core::simplelog::*;
-use nds_core::nds::NDS;
+use nds_core::nds::{NDS, Engine, GraphicsType};
 
 use display::Display;
+use debug::*;
 use imgui::*;
 
 fn main() {
