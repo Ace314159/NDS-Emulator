@@ -131,7 +131,8 @@ impl ARM9 {
         let opcode = OpH::num() << 1 | OpL::num();
         let dest_reg_msb = instr >> 7 & 0x1;
         let src_reg_msb = instr >> 6 & 0x1;
-        let src = self.regs.get_reg_i((src_reg_msb << 3 | instr >> 3 & 0x7) as u32);
+        let src_reg = (src_reg_msb << 3 | instr >> 3 & 0x7) as u32;
+        let src = self.regs.get_reg_i(src_reg);
         let dest_reg = (dest_reg_msb << 3 | instr & 0x7) as u32;
         let dest = self.regs.get_reg_i(dest_reg);
         let result = match opcode {
@@ -139,8 +140,12 @@ impl ARM9 {
             0b01 => self.sub(dest, src, true), // CMP
             0b10 => src,
             0b11 => {
-                assert_eq!(dest_reg_msb, 0);
                 self.instruction_prefetch::<u16>(hw, AccessType::N);
+                if dest_reg_msb != 0 { // BLX
+                    assert_ne!(src_reg, 15);
+                    // LR is PC + 3 (not PC + 2 because thumb bit)
+                    self.regs.set_reg(Reg::R14, self.regs.pc.wrapping_sub(1));
+                }
                 self.regs.pc = src;
                 if src & 0x1 != 0 {
                     self.regs.pc = self.regs.pc & !0x1;
