@@ -332,7 +332,7 @@ impl Engine2D {
                 let obj_x_bounds = if double_size { obj_width * 2 } else { obj_width };
                 if !(obj_x..obj_x + obj_x_bounds).contains(&dot_x_signed) { continue }
 
-                //let base_tile_num = (obj[2] & 0x3FF) as usize;
+                let base_tile_num = (obj[2] & 0x3FF) as usize;
                 let x_diff = dot_x_signed - obj_x;
                 let y = vcount / self.mosaic.obj_size.v_size * self.mosaic.obj_size.v_size;
                 let y_diff = (y as u16).wrapping_sub(obj_y) & 0xFF;
@@ -364,17 +364,18 @@ impl Engine2D {
                     )
                 };
                 let bit_depth = if obj[0] >> 13 & 0x1 != 0 { 8 } else { 4 };
-                /*let base_tile_num = if bit_depth == 8 { base_tile_num / 2 } else { base_tile_num };
-                let tile_num = base_tile_num + if self.dispcnt.contains(DISPCNTFlags::OBJ_TILES1D) {
-                    (y_diff as i16 / 8 * obj_width + x_diff) / 8
-                } else { y_diff as i16 / 8 * 0x80 / (bit_depth as i16) + x_diff / 8 } as usize;*/
-                let tile_num = 0; // TODO: Actually calculate
+                let boundary = 0x10 << self.dispcnt.tile_obj_1d_bound;
+                let base_tile_num = if bit_depth == 8 { base_tile_num / 2 } else { base_tile_num };
+                let tile_num = base_tile_num + if self.dispcnt.contains(DISPCNTFlags::TILE_OBJ_1D) {
+                    y_diff as i16 / 8 * boundary / (bit_depth as i16) + x_diff / 8
+                } else { (y_diff as i16 / 8 * obj_width + x_diff) / 8 } as usize;
                 let tile_x = x_diff % 8;
                 let tile_y = y_diff % 8;
                 let palette_num = (obj[2] >> 12 & 0xF) as usize;
                 // Flipped at tile level, so no need to flip again
-                let (palette_num, color_num) = Engine2D::get_color_from_tile(vram, get_obj, 0x10000, tile_num,
-                    false, false, bit_depth, tile_x as usize, tile_y as usize, palette_num);
+                let (palette_num, color_num) = Engine2D::get_color_from_tile(vram,
+                    get_obj, 0, tile_num, false, false,
+                    bit_depth, tile_x as usize, tile_y as usize, palette_num);
                 if color_num == 0 { continue }
                 let mode = obj[0] >> 10 & 0x3;
                 if mode == 2 {
