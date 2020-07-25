@@ -69,7 +69,7 @@ bitflags! {
         const DISPLAY_WINDOW0 = 1 << 13;
         const DISPLAY_WINDOW1 = 1 << 14;
         const DISPLAY_OBJ_WINDOW = 1 << 15;
-        const BITMAP_OBJ_1D_BOUND = 1 << 22;
+        const BITMAP_OBJ_1D_BOUND = 1 << 22; // TODO: Only Engine A
         const OBJ_PROCESS_HBLANK = 1 << 23;
         const BG_EXTENDED_PALETTES = 1 << 30;
         const OBJ_EXTENDED_PALETTES = 1 << 31;
@@ -82,8 +82,8 @@ pub struct DISPCNT {
     pub display_mode: DisplayMode,
     pub vram_block: u8, // TODO: Only Engine A
     pub tile_obj_1d_bound: u8,
-    pub char_base: u8,
-    pub screen_base: u8,
+    pub char_base: u8, // TODO: Only Engine A
+    pub screen_base: u8, // TODO: Only Engine A
 }
 
 impl DISPCNT {
