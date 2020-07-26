@@ -35,7 +35,11 @@ impl Div {
             self.rem.value = 0;
             if self.cnt.mode == 0 { special_invert(&mut self.quot.value) }
         } else if denom == 0 {
-            self.quot.value = (numer.signum() * -1) as u64;
+            if numer == 0 {
+                self.quot.value = -1i64 as u64;
+            } else {
+                self.quot.value = (numer.signum() * -1) as u64;
+            }
             self.rem.value = numer as u64;
             if self.cnt.mode == 0 { special_invert(&mut self.quot.value) }
         } else {
