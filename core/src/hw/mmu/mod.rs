@@ -212,7 +212,7 @@ impl WRAMCNT {
     fn changed(&mut self) {
         match self.value {
             0 => {
-                self.arm7_offset = 0;
+                self.arm7_mask = 0;
                 self.arm9_mask = 0;
                 self.arm9_mask = HW::SHARED_WRAM_SIZE as u32 - 1;
             },
