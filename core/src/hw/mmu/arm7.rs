@@ -10,7 +10,7 @@ impl HW {
             MemoryRegion::SharedWRAM if self.wramcnt.arm7_mask == 0 =>
                 HW::read_mem(&self.iwram, addr & HW::IWRAM_MASK),
             MemoryRegion::SharedWRAM => HW::read_mem(&self.shared_wram,
-                self.wramcnt.arm7_offset + addr & self.wramcnt.arm7_mask),
+                self.wramcnt.arm7_offset + (addr & self.wramcnt.arm7_mask)),
             MemoryRegion::IWRAM => HW::read_mem(&self.iwram, addr & HW::IWRAM_MASK),
             MemoryRegion::IO if (0x0410_0000 ..= 0x0410_0003).contains(&addr) => self.ipc_fifo_recv(true, addr),
             MemoryRegion::IO => HW::read_from_bytes(self, &HW::arm7_read_io_register, addr),

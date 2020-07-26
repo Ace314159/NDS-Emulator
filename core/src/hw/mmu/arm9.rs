@@ -15,7 +15,7 @@ impl HW {
             MemoryRegion::MainMem => HW::read_mem(&self.main_mem, addr & HW::MAIN_MEM_MASK),
             MemoryRegion::SharedWRAM if self.wramcnt.arm9_mask == 0 => num::zero(),
             MemoryRegion::SharedWRAM => HW::read_mem(&self.shared_wram,
-                self.wramcnt.arm9_offset + addr & self.wramcnt.arm9_mask),
+                self.wramcnt.arm9_offset + (addr & self.wramcnt.arm9_mask)),
             MemoryRegion::IO if (0x0410_0000 ..= 0x0410_0003).contains(&addr) => self.ipc_fifo_recv(false, addr),
             MemoryRegion::IO if (0x0410_0010 ..= 0x0410_0013).contains(&addr) => self.read_game_card(false, addr),
             MemoryRegion::IO => HW::read_from_bytes(self, &HW::arm9_read_io_register, addr),
