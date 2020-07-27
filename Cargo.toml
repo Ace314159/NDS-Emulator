@@ -13,3 +13,6 @@ imgui-opengl-renderer = "0.8.0"
 gl = "0.14.0"
 glfw = "0.39.0"
 nds-core = { path = "core" }
+
+[profile.release]
+debug = true
