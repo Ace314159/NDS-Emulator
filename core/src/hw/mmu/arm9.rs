@@ -13,7 +13,10 @@ impl HW {
             MemoryRegion::ITCM => HW::read_mem(&self.itcm, addr & HW::ITCM_MASK),
             MemoryRegion::DTCM => HW::read_mem(&self.dtcm, addr & HW::DTCM_MASK),
             MemoryRegion::MainMem => HW::read_mem(&self.main_mem, addr & HW::MAIN_MEM_MASK),
-            MemoryRegion::SharedWRAM if self.wramcnt.arm9_mask == 0 => num::zero(),
+            MemoryRegion::SharedWRAM if self.wramcnt.arm9_mask == 0 => {
+                warn!("Reading from Unmapped ARM9 Shared WRAM: 0x{:X}", addr);
+                num::zero()
+            },
             MemoryRegion::SharedWRAM => HW::read_mem(&self.shared_wram,
                 self.wramcnt.arm9_offset + (addr & self.wramcnt.arm9_mask)),
             MemoryRegion::IO if (0x0410_0000 ..= 0x0410_0003).contains(&addr) => self.ipc_fifo_recv(false, addr),
@@ -33,6 +36,7 @@ impl HW {
             MemoryRegion::ITCM => HW::write_mem(&mut self.itcm, addr & HW::ITCM_MASK, value),
             MemoryRegion::DTCM => HW::write_mem(&mut self.dtcm, addr & HW::DTCM_MASK, value),
             MemoryRegion::MainMem => HW::write_mem(&mut self.main_mem, addr & HW::MAIN_MEM_MASK, value),
+            MemoryRegion::SharedWRAM if self.wramcnt.arm9_mask == 0 => warn!("Writing to Unmapped ARM9 Shared WRAM"),
             MemoryRegion::SharedWRAM => HW::write_mem(&mut self.shared_wram,
                 self.wramcnt.arm9_offset + addr & self.wramcnt.arm9_mask, value),
             MemoryRegion::IO if (0x0400_0188 ..= 0x0400_018B).contains(&addr) =>
