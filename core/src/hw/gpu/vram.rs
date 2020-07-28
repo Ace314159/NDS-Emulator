@@ -10,6 +10,7 @@ pub struct VRAM {
     lcdc_enabled: [bool; 9],
     engine_a_bg: [Option<Mapping>; 32],
     engine_a_obj: [Option<Mapping>; 16],
+    engine_a_bg_ext_pal: [Option<Mapping>; 2],
     engine_b_bg: [Option<Mapping>; 8],
     engine_b_obj: [Option<Mapping>; 8],
 }
@@ -37,6 +38,7 @@ impl VRAM {
     const BANK_C: usize = Bank::C as usize;
     const BANK_D: usize = Bank::D as usize;
     const BANK_E: usize = Bank::E as usize;
+    const BANK_F: usize = Bank::F as usize;
     const BANK_G: usize = Bank::G as usize;
     const BANK_H: usize = Bank::H as usize;
     const BANK_I: usize = Bank::I as usize;
@@ -61,6 +63,7 @@ impl VRAM {
             lcdc_enabled: [false; 9],
             engine_a_bg: [None; 32],
             engine_a_obj: [None; 16],
+            engine_a_bg_ext_pal: [None; 2],
             engine_b_bg: [None; 8],
             engine_b_obj: [None; 8],
         }
@@ -91,6 +94,10 @@ impl VRAM {
                 (VRAM::BANK_D, 4) | (VRAM::BANK_I, 2) =>
                     VRAM::remove_mapping(&mut self.mapping_ranges, index,
                     VRAM::ENGINE_B_OBJ_VRAM_MASK, &mut self.engine_b_obj),
+                (VRAM::BANK_E, 4) => VRAM::remove_no_addr_mapping(&mut self.engine_a_bg_ext_pal,
+                    0, 32 * 0x400),
+                (VRAM::BANK_E ..= VRAM::BANK_F, 4) => VRAM::remove_no_addr_mapping(&mut self.engine_a_bg_ext_pal,
+                    bank.get_ext_bg_pal_offset(self.cnts[index].mst), 16 * 0x400),
                 (_index, 3 ..= 5) => todo!(),
                 _ => unreachable!(),
             }
@@ -126,6 +133,10 @@ impl VRAM {
             (VRAM::BANK_D, 4) | (VRAM::BANK_I, 2) =>
                 VRAM::add_mapping(&mut self.mapping_ranges, &mut self.mappings,VRAM::ENGINE_B_OBJ_START_ADDRESS,
                 bank, VRAM::ENGINE_B_OBJ_VRAM_MASK, &mut self.engine_b_obj),
+            (VRAM::BANK_E, 4) => VRAM::add_no_addr_mapping(Bank::E, &mut self.engine_a_bg_ext_pal,
+                0, 32 * 0x400),
+            (VRAM::BANK_E ..= VRAM::BANK_F, 4) => VRAM::add_no_addr_mapping(bank, &mut self.engine_a_bg_ext_pal,
+                bank.get_ext_bg_pal_offset(self.cnts[index].mst), 16 * 0x400),
             (_index, 3 ..= 5) => todo!(),
             _ => unreachable!(),
         }
@@ -143,6 +154,12 @@ impl VRAM {
 
     pub fn get_engine_a_obj(&self, addr: usize) -> u8 {
         if let Some(mapping) = self.engine_a_obj[addr as usize / VRAM::MAPPING_LEN] {
+            self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN]
+        } else { 0 }
+    }
+
+    pub fn _get_engine_a_bg_ext_pal(&self, addr: usize) -> u8 {
+        if let Some(mapping) = self.engine_a_bg_ext_pal[addr as usize / VRAM::MAPPING_LEN] {
             self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN]
         } else { 0 }
     }
@@ -183,9 +200,23 @@ impl VRAM {
         }
     }
 
+    fn add_no_addr_mapping(bank: Bank, arr: &mut [Option<Mapping>], offset: usize, size: usize) {
+        for (i, addr) in (0..size).step_by(VRAM::MAPPING_LEN).enumerate() {
+            // TODO: Support overlapping banks
+            assert!(arr[(addr + offset) / VRAM::MAPPING_LEN].is_none());
+            arr[(addr + offset) / VRAM::MAPPING_LEN] = Some(Mapping::new(bank, (VRAM::MAPPING_LEN * i) as u32));
+        }
+    }
+
     fn remove_mapping(mapping_ranges: &[Range<u32>; 9], index: usize, mask: u32, arr: &mut [Option<Mapping>]) {
         for addr in mapping_ranges[index].clone().step_by(VRAM::MAPPING_LEN) {
             arr[(addr & mask) as usize / VRAM::MAPPING_LEN] = None;
+        }
+    }
+
+    fn remove_no_addr_mapping(arr: &mut [Option<Mapping>], offset: usize, size: usize) {
+        for addr in (0..size).step_by(VRAM::MAPPING_LEN) {
+            arr[(addr + offset) / VRAM::MAPPING_LEN] = None;
         }
     }
 }
@@ -262,5 +293,10 @@ impl Bank {
             Bank::F | Bank::G => 0x4000 * (offset & 0x1) + 0x1_0000 * (offset >> 1 & 0x1),
             Bank::H | Bank::I => unreachable!(),
         }
+    }
+
+    pub fn get_ext_bg_pal_offset(&self, offset: u8) -> usize {
+        assert!(offset < 2); // TODO: Figure out behavior
+        offset as usize * 0x400 * 16
     }
 }
