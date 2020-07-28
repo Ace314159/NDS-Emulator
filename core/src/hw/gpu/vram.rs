@@ -14,6 +14,8 @@ pub struct VRAM {
     engine_a_obj_ext_pal: [Option<Mapping>; 1],
     engine_b_bg: [Option<Mapping>; 8],
     engine_b_obj: [Option<Mapping>; 8],
+    engine_b_bg_ext_pal: [Option<Mapping>; 2],
+    engine_b_obj_ext_pal: [Option<Mapping>; 1],
 }
 
 impl VRAM {
@@ -68,6 +70,8 @@ impl VRAM {
             engine_a_obj_ext_pal: [None; 1],
             engine_b_bg: [None; 8],
             engine_b_obj: [None; 8],
+            engine_b_bg_ext_pal: [None; 2],
+            engine_b_obj_ext_pal: [None; 1],
         }
     }
 
@@ -101,6 +105,10 @@ impl VRAM {
                 (VRAM::BANK_E ..= VRAM::BANK_F, 4) => VRAM::remove_no_addr_mapping(&mut self.engine_a_bg_ext_pal,
                     bank.get_ext_bg_pal_offset(self.cnts[index].mst), 16 * 0x400),
                 (VRAM::BANK_F ..= VRAM::BANK_G, 5) => VRAM::remove_no_addr_mapping(&mut self.engine_a_obj_ext_pal,
+                    0, 8 * 0x400),
+                (VRAM::BANK_H, 2) => VRAM::remove_no_addr_mapping(&mut self.engine_b_bg_ext_pal,
+                    0, 32 * 0x400),
+                (VRAM::BANK_I, 3) => VRAM::remove_no_addr_mapping(&mut self.engine_b_obj_ext_pal,
                     0, 8 * 0x400),
                 (_index, 3 ..= 5) => todo!(),
                 _ => unreachable!(),
@@ -142,6 +150,10 @@ impl VRAM {
             (VRAM::BANK_E ..= VRAM::BANK_F, 4) => VRAM::add_no_addr_mapping(bank, &mut self.engine_a_bg_ext_pal,
                 bank.get_ext_bg_pal_offset(self.cnts[index].mst), 16 * 0x400),
             (VRAM::BANK_F ..= VRAM::BANK_G, 5) => VRAM::add_no_addr_mapping(bank, &mut self.engine_a_obj_ext_pal,
+                0, 8 * 0x400),
+            (VRAM::BANK_H, 2) => VRAM::add_no_addr_mapping(bank, &mut self.engine_b_bg_ext_pal,
+                0, 32 * 0x400),
+            (VRAM::BANK_I, 3) => VRAM::add_no_addr_mapping(bank, &mut self.engine_b_obj_ext_pal,
                 0, 8 * 0x400),
             (_index, 3 ..= 5) => todo!(),
             _ => unreachable!(),
