@@ -35,14 +35,12 @@ impl CP15 {
         info!("Writing 0b{:b} to C{}, C{}, {}", value, n, m, p);
         match n {
             1 => self.write_control_reg(m, p, value),
-            2 => warn!("Ignoring MMU Translation Table Base Write: C{}, C{}, {}: 0x{:X}", n, m, p, value),
-            3 => warn!("Ignoring MMU Domain Access Control Write: C{}, C{}, {}: 0x{:X}", n, m, p, value),
-            5 => warn!("Ignoring MMU Domain Fault Status Write: C{}, C{}, {}: 0x{:X}", n, m, p, value),
+            2 => self.write_cachability(m, p, value),
+            3 => self.write_cache_write_bufferability(m, p, value),
+            5 => self.write_ap_regions(m, p, value),
             6 => self.write_pu_regions(m, p, value),
             7 => self.write_cache_command(m, p, value),
-            8 => warn!("Ignoring MMU TLB Control Write: C{}, C{}, {}: 0x{:X}", n, m, p, value),
             9 => self.write_cache_control(m, p, value),
-            10 => warn!("Ignoring MMU TLB Lockdown Write: C{}, C{}, {}: 0x{:X}", n, m, p, value),
             _ => todo!(),
         }
     }
@@ -65,6 +63,29 @@ impl CP15 {
         warn!("Writing to CP15 Control Register 0x{:X}", value);
         self.control.bits = value & Control::MASK | Control::ALWAYS_SET;
         self.interrupt_base = if self.control.contains(Control::INTERRUPT_BASE) { 0xFFFF_0000 } else { 0x0000_0000 };
+    }
+
+    fn write_cachability(&mut self, m: u32, p: u32, value: u32) {
+        match (m, p) {
+            (0, 0) => warn!("Cachability Bits for Data/Unified Region: 0x{:X}", value),
+            (0, 1) => warn!("Cachability Bits for Instruction Region: 0x{:X}", value),
+            _ => todo!(),
+        }
+    }
+
+    fn write_cache_write_bufferability(&mut self, m: u32, p: u32, value: u32) {
+        if m != 0 || p != 0 { warn!("m and p are not 0 for CP15 Cache write Bufferability: {} {}", m, p); return }
+        info!("Cache Write Bufferability: 0x{:X}", value);
+    }
+
+    fn write_ap_regions(&mut self, m: u32, p: u32, value: u32) {
+        match (m, p) {
+            (0, 0) => warn!("AP Data/Unified Protection Region: 0x{:X}", value),
+            (0, 1) => warn!("AP Instruction Protection Region: 0x{:X}", value),
+            (0, 2) => warn!("Extended AP Data/Unified Protection Region: 0x{:X}", value),
+            (0, 3) => warn!("Extended AP Instruction Protection Region: 0x{:X}", value),
+            _ => todo!(),
+        }
     }
 
     fn write_pu_regions(&mut self, m: u32, p: u32, value: u32) {
