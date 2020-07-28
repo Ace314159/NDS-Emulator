@@ -8,6 +8,11 @@ pub struct CP15 {
     itcm_control: TCMControl,
     dtcm_control: TCMControl,
     pub arm9_halted: bool,
+    // AP Regions
+    ap_data_region: u32,
+    ap_instr_region: u32,
+    ext_ap_data_region: u32,
+    ext_ap_instr_region: u32,
 }
 
 impl CP15 {
@@ -18,6 +23,11 @@ impl CP15 {
             itcm_control: TCMControl::new(0, HW::ITCM_SIZE as u32),
             dtcm_control: TCMControl::new(0x0080_3000, HW::DTCM_SIZE as u32),
             arm9_halted: false,
+            // AP Regions
+            ap_data_region: 0,
+            ap_instr_region: 0,
+            ext_ap_data_region: 0,
+            ext_ap_instr_region: 0,
         }
     }
 
@@ -26,6 +36,7 @@ impl CP15 {
         match n {
             0 if (m, p) == (0, 1) => 0x0F0D2112, // Cache Type Register
             1 => self.read_control_reg(m, p),
+            5 => self.read_ap_regions(m, p),
             9 => self.read_cache_control(m, p),
             _ => todo!(),
         }
@@ -58,6 +69,16 @@ impl CP15 {
         self.control.bits
     }
 
+    fn read_ap_regions(&self, m: u32, p: u32) -> u32 {
+        match (m, p) {
+            (0, 0) => self.ap_data_region,
+            (0, 1) => self.ap_instr_region,
+            (0, 2) => self.ext_ap_data_region,
+            (0, 3) => self.ext_ap_instr_region,
+            _ => todo!(),
+        }
+    }
+
     fn write_control_reg(&mut self, m: u32, p: u32, value: u32) {
         if m != 0 || p != 0 { warn!("m and p are not 0 for CP15 Control Register Write: {} {}", m, p); return }
         warn!("Writing to CP15 Control Register 0x{:X}", value);
@@ -80,10 +101,10 @@ impl CP15 {
 
     fn write_ap_regions(&mut self, m: u32, p: u32, value: u32) {
         match (m, p) {
-            (0, 0) => warn!("AP Data/Unified Protection Region: 0x{:X}", value),
-            (0, 1) => warn!("AP Instruction Protection Region: 0x{:X}", value),
-            (0, 2) => warn!("Extended AP Data/Unified Protection Region: 0x{:X}", value),
-            (0, 3) => warn!("Extended AP Instruction Protection Region: 0x{:X}", value),
+            (0, 0) => self.ap_data_region = value & 0xFFFF,
+            (0, 1) => self.ap_instr_region = value & 0xFFFF,
+            (0, 2) => self.ext_ap_data_region = value,
+            (0, 3) => self.ext_ap_instr_region = value,
             _ => todo!(),
         }
     }
