@@ -379,8 +379,14 @@ impl<E: EngineType> Engine2D<E> {
                     self.windows_lines[2][dot_x] = obj_window_enabled;
                     if set_color { break } // Continue to look for color pixels
                 } else if !set_color {
+                    let palette_num = palette_num * 16 + color_num;
+                    let color = if self.dispcnt.contains(DISPCNTFlags::OBJ_EXTENDED_PALETTES) {
+                        vram.get_obj_ext_pal::<E>(palette_num)
+                    } else {
+                        self.obj_palettes[palette_num]
+                    };
                     self.objs_line[dot_x] = OBJPixel {
-                        color: self.obj_palettes[palette_num * 16 + color_num],
+                        color,
                         priority: (obj[2] >> 10 & 0x3) as u8,
                         semitransparent: mode == 1,
                     };
