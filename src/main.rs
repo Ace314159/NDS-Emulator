@@ -52,8 +52,11 @@ fn main() {
     
     let engines = [Engine::A, Engine::B];
     let graphics_types = [GraphicsType::BG, GraphicsType::OBJ];
+    let slot_ranges = [0..=3, 0..=1];
 
     let mut palettes_window = TextureWindow::new("Palettes");
+    let mut palettes_extended = false;
+    let mut palettes_slot = 0u32;
     let mut palettes_engine = 0;
     let mut palettes_graphics_type = 0;
 
@@ -64,13 +67,20 @@ fn main() {
     while !display.should_close() {
         nds.emulate_frame();
         let (palettes_pixels, palettes_width, palettes_height) =
-            nds.render_palettes(engines[palettes_engine], graphics_types[palettes_graphics_type]);
+            nds.render_palettes(palettes_extended, palettes_slot as usize,
+            engines[palettes_engine], graphics_types[palettes_graphics_type]);
         let (map_pixels, map_width, map_height) =
             nds.render_map(engines[map_engine], map_bg_i as usize);
         display.render(&mut nds, &mut imgui,
             |ui, keys_pressed, _modifiers| {
             palettes_window.render(ui, &keys_pressed, palettes_pixels, palettes_width, palettes_height, || {
                 let combo_width = ui.window_size()[0] * 0.3;
+
+                ui.checkbox(im_str!("Extended"), &mut palettes_extended);
+                if palettes_extended {
+                    Slider::new(im_str!("Slot"), slot_ranges[palettes_graphics_type].clone())
+                    .build(ui, &mut palettes_slot);
+                }
 
                 ui.set_next_item_width(combo_width);
                 ComboBox::new(im_str!("Engine"))

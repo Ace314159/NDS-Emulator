@@ -176,9 +176,23 @@ impl VRAM {
         } else { 0 }
     }
 
-    pub fn _get_engine_a_bg_ext_pal(&self, addr: usize) -> u8 {
+    pub fn get_engine_a_bg_ext_pal(&self, slot: usize, palette_num: usize) -> u16 {
+        let addr = self.calc_ext_pal_addr(slot, palette_num);
         if let Some(mapping) = self.engine_a_bg_ext_pal[addr as usize / VRAM::MAPPING_LEN] {
-            self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN]
+            u16::from_le_bytes([
+                self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN],
+                self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN + 1],
+            ])
+        } else { 0 }
+    }
+
+    pub fn get_engine_a_obj_ext_pal(&self, slot: usize, palette_num: usize) -> u16 {
+        let addr = self.calc_ext_pal_addr(slot, palette_num);
+        if let Some(mapping) = self.engine_a_obj_ext_pal[addr as usize / VRAM::MAPPING_LEN] {
+            u16::from_le_bytes([
+                self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN],
+                self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN + 1],
+            ])
         } else { 0 }
     }
 
@@ -194,6 +208,26 @@ impl VRAM {
         } else { 0 }
     }
 
+    pub fn get_engine_b_bg_ext_pal(&self, slot: usize, palette_num: usize) -> u16 {
+        let addr = self.calc_ext_pal_addr(slot, palette_num);
+        if let Some(mapping) = self.engine_b_bg_ext_pal[addr as usize / VRAM::MAPPING_LEN] {
+            u16::from_le_bytes([
+                self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN],
+                self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN + 1],
+            ])
+        } else { 0 }
+    }
+
+    pub fn get_engine_b_obj_ext_pal(&self, slot: usize, palette_num: usize) -> u16 {
+        let addr = self.calc_ext_pal_addr(slot, palette_num);
+        if let Some(mapping) = self.engine_b_obj_ext_pal[addr as usize / VRAM::MAPPING_LEN] {
+            u16::from_le_bytes([
+                self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN],
+                self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN + 1],
+            ])
+        } else { 0 }
+    }
+
     pub fn get_mem(&self, addr: u32) -> Option<(&Vec<u8>, u32)> {
         if let Some(mapping) = self.mappings.get(&(addr & !(VRAM::MAPPING_LEN as u32 - 1))) {
             Some((&self.banks[mapping.bank as usize], addr - mapping.offset))
@@ -204,6 +238,10 @@ impl VRAM {
         if let Some(mapping) = self.mappings.get(&(addr & !(VRAM::MAPPING_LEN as u32 - 1))) {
             Some((&mut self.banks[mapping.bank as usize], addr - mapping.offset))
         } else { None }
+    }
+
+    pub fn calc_ext_pal_addr(&self, slot: usize, palette_num: usize) -> usize {
+        slot * 8 * 0x400 + palette_num * 2
     }
 
     fn add_mapping(mapping_ranges: &mut [Range<u32>; 9], mappings: &mut HashMap<u32, Mapping>,

@@ -148,14 +148,28 @@ impl HW {
         self.keypad.release_key(key);
     }
 
-    pub fn render_palettes(&self, engine: Engine, graphics_type: GraphicsType) -> (Vec<u16>, usize, usize) {
-        let engine = match engine {
-            Engine::A => &self.gpu.engine_a,
-            Engine::B => &self.gpu.engine_b,
-        };
-        match graphics_type {
-            GraphicsType::BG => GPU::render_palettes(engine.bg_palettes()),
-            GraphicsType::OBJ => GPU::render_palettes(engine.obj_palettes()),
+    pub fn render_palettes(&self, extended: bool, slot: usize,
+        engine: Engine, graphics_type: GraphicsType) -> (Vec<u16>, usize, usize) {
+        if extended {
+            match (engine, graphics_type) {
+                (Engine::A, GraphicsType::BG) => GPU::render_palettes(|i|
+                    self.gpu.vram.get_engine_a_bg_ext_pal(slot, i), 16),
+                (Engine::A, GraphicsType::OBJ) => GPU::render_palettes(|i|
+                    self.gpu.vram.get_engine_a_obj_ext_pal(slot, i), 16),
+                (Engine::B, GraphicsType::BG) => GPU::render_palettes(|i|
+                    self.gpu.vram.get_engine_b_bg_ext_pal(slot, i), 16),
+                (Engine::B, GraphicsType::OBJ) => GPU::render_palettes(|i|
+                    self.gpu.vram.get_engine_b_obj_ext_pal(slot, i), 16),
+            }
+        } else {
+            let engine = match engine {
+                Engine::A => &self.gpu.engine_a,
+                Engine::B => &self.gpu.engine_b,
+            };
+            match graphics_type {
+                GraphicsType::BG => GPU::render_palettes(|i| engine.bg_palettes()[i], 16),
+                GraphicsType::OBJ => GPU::render_palettes(|i| engine.obj_palettes()[i], 16),
+            }
         }
     }
 
