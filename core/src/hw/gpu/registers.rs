@@ -100,7 +100,7 @@ impl DISPCNT {
     }
     
     pub fn windows_enabled(&self) -> bool {
-        (self.bits() >> 13) != 0
+        (self.bits >> 13) & 0x7 != 0
     }
 }
 
