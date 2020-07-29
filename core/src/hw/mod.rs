@@ -155,11 +155,11 @@ impl HW {
                 (Engine::A, GraphicsType::BG) => GPU::render_palettes(|i|
                     self.gpu.vram.get_bg_ext_pal::<EngineA>(slot, i), 16),
                 (Engine::A, GraphicsType::OBJ) => GPU::render_palettes(|i|
-                    self.gpu.vram.get_obj_ext_pal::<EngineA>(slot, i), 16),
+                    self.gpu.vram.get_obj_ext_pal::<EngineA>(i), 16),
                 (Engine::B, GraphicsType::BG) => GPU::render_palettes(|i|
                     self.gpu.vram.get_bg_ext_pal::<EngineB>(slot, i), 16),
                 (Engine::B, GraphicsType::OBJ) => GPU::render_palettes(|i|
-                    self.gpu.vram.get_obj_ext_pal::<EngineB>(slot, i), 16),
+                    self.gpu.vram.get_obj_ext_pal::<EngineB>(i), 16),
             }
         } else {
             match (engine, graphics_type) {
@@ -216,7 +216,7 @@ impl Engine {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum GraphicsType {
     BG,
     OBJ,

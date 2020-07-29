@@ -52,7 +52,6 @@ fn main() {
     
     let engines = [Engine::A, Engine::B];
     let graphics_types = [GraphicsType::BG, GraphicsType::OBJ];
-    let slot_ranges = [0..=3, 0..=1];
 
     let mut palettes_window = TextureWindow::new("Palettes");
     let mut palettes_extended = false;
@@ -77,8 +76,8 @@ fn main() {
                 let combo_width = ui.window_size()[0] * 0.3;
 
                 ui.checkbox(im_str!("Extended"), &mut palettes_extended);
-                if palettes_extended {
-                    Slider::new(im_str!("Slot"), slot_ranges[palettes_graphics_type].clone())
+                if palettes_extended && graphics_types[palettes_graphics_type] == GraphicsType::BG {
+                    Slider::new(im_str!("Slot"), 0..=3)
                     .build(ui, &mut palettes_slot);
                 }
 

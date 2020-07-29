@@ -209,8 +209,8 @@ impl VRAM {
         }
     }
 
-    pub fn get_obj_ext_pal<E: EngineType>(&self, slot: usize, palette_num: usize) -> u16 {
-        let addr = self.calc_ext_pal_addr(slot, palette_num);
+    pub fn get_obj_ext_pal<E: EngineType>(&self, palette_num: usize) -> u16 {
+        let addr = self.calc_ext_pal_addr(0, palette_num);
         if E::is_a() {
             if let Some(mapping) = self.engine_a_obj_ext_pal[addr as usize / VRAM::MAPPING_LEN] {
                 u16::from_le_bytes([
