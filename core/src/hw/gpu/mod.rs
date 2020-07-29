@@ -73,10 +73,8 @@ impl GPU {
             self.dispstat.remove(DISPSTATFlags::VBLANK);
             if self.dot == 257 {
                 // TOOD: Use POWCNT to selectively render engines
-                self.engine_a.render_line(&self.vram, &VRAM::get_engine_a_bg,
-                    &VRAM::get_engine_a_obj, self.vcount);
-                self.engine_b.render_line(&self.vram, &VRAM::get_engine_b_bg,
-                    &VRAM::get_engine_b_obj, self.vcount);
+                self.engine_a.render_line(&self.vram, self.vcount);
+                self.engine_b.render_line(&self.vram, self.vcount);
             }
         } else { // VBlank
             if self.vcount == GPU::HEIGHT as u16 && self.dot == 0 {

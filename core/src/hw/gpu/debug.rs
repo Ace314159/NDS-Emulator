@@ -20,7 +20,7 @@ impl GPU {
 }
 
 impl<E: EngineType> Engine2D<E> {
-    pub fn render_map<F: Fn(&VRAM, usize) -> u8>(&self, vram: &VRAM, get_bg: &F, bg_i: usize) -> (Vec<u16>, usize, usize) {
+    pub fn render_map(&self, vram: &VRAM, bg_i: usize) -> (Vec<u16>, usize, usize) {
         let bgcnt = self.bgcnts[bg_i];
         let affine = false; // TODO: Use correct condition
         let (width, height) = match bgcnt.screen_size {
@@ -42,10 +42,10 @@ impl<E: EngineType> Engine2D<E> {
                     let map_x = x / 8;
                     let map_y = y / 8;
                     let addr = map_start_addr + map_y * width / 8 + map_x;
-                    let tile_num = get_bg(vram, addr) as usize;
+                    let tile_num = vram.get_bg::<E>(addr) as usize;
                     
                     // Convert from tile to pixels
-                    let (_, color_num) = Engine2D::<E>::get_color_from_tile(vram, get_bg,
+                    let (_, color_num) = Engine2D::<E>::get_color_from_tile(vram, VRAM::get_bg::<E>,
                         tile_start_addr, tile_num, false, false, 8,
                         x % 8, y % 8, 0);
                     if color_num == 0 { continue }
@@ -69,7 +69,10 @@ impl<E: EngineType> Engine2D<E> {
                         _ => unreachable!(),
                     };
                     let addr = map_start_addr + map_y * 32 * 2 + map_x * 2;
-                    let screen_entry = u16::from_le_bytes([get_bg(vram, addr), get_bg(vram, addr + 1)]) as usize;
+                    let screen_entry = u16::from_le_bytes([
+                        vram.get_bg::<E>(addr),
+                        vram.get_bg::<E>(addr + 1),
+                    ]) as usize;
                     let tile_num = screen_entry & 0x3FF;
                     let flip_x = (screen_entry >> 10) & 0x1 != 0;
                     let flip_y = (screen_entry >> 11) & 0x1 != 0;
@@ -77,7 +80,7 @@ impl<E: EngineType> Engine2D<E> {
                     
                     // Convert from tile to pixels
                     let (palette_num, color_num) = Engine2D::<E>::get_color_from_tile(vram,
-                        get_bg, tile_start_addr, tile_num, flip_x, flip_y, bit_depth,
+                        VRAM::get_bg::<E>, tile_start_addr, tile_num, flip_x, flip_y, bit_depth,
                         x % 8, y % 8, palette_num);
                     if color_num == 0 { continue }
                     pixels[y * width + x] = self.bg_palettes()[palette_num * 16 + color_num] | 0x8000;

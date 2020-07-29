@@ -94,13 +94,12 @@ impl<E: EngineType> Engine2D<E> {
         [(64, 64), (64, 32), (32, 64)],
     ];
 
-    pub fn render_line<B, O>(&mut self, vram: &VRAM, get_bg: B, get_obj: O, vcount: u16)
-        where B: Fn(&VRAM, usize) -> u8, O: Fn(&VRAM, usize) -> u8 {
+    pub fn render_line(&mut self, vram: &VRAM, vcount: u16) {
         match self.dispcnt.display_mode {
             DisplayMode::Mode0 => for dot_x in 0..GPU::WIDTH {
                 self.pixels[vcount as usize * GPU::WIDTH + dot_x] = 0x7FFF;
             },
-            DisplayMode::Mode1 => self.render_normal_line(vram, vcount, get_bg, get_obj),
+            DisplayMode::Mode1 => self.render_normal_line(vram, vcount),
             DisplayMode::Mode2 => for dot_x in 0..GPU::WIDTH {
                 let index = vcount as usize * GPU::WIDTH + dot_x;
                 let color = if let Some(bank) = vram.get_lcdc_bank(self.dispcnt.vram_block) {
@@ -112,32 +111,31 @@ impl<E: EngineType> Engine2D<E> {
         }
     }
 
-    fn render_normal_line<B, O>(&mut self, vram: &VRAM ,vcount: u16, get_bg: B, get_obj: O)
-        where B: Fn(&VRAM, usize) -> u8, O: Fn(&VRAM, usize) -> u8{
+    fn render_normal_line(&mut self, vram: &VRAM, vcount: u16) {
         if self.dispcnt.contains(DISPCNTFlags::DISPLAY_WINDOW0) { self.render_window(vcount, 0) }
         if self.dispcnt.contains(DISPCNTFlags::DISPLAY_WINDOW1) { self.render_window(vcount, 1) }
-        if self.dispcnt.contains(DISPCNTFlags::DISPLAY_OBJ) { self.render_objs_line(vram, &get_obj, vcount, ) }
+        if self.dispcnt.contains(DISPCNTFlags::DISPLAY_OBJ) { self.render_objs_line(vram, vcount, ) }
 
         match self.dispcnt.bg_mode {
             BGMode::Mode0 => {
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { self.render_text_line(vram, &get_bg, vcount, 0) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { self.render_text_line(vram, &get_bg, vcount, 1) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { self.render_text_line(vram, &get_bg, vcount, 2) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { self.render_text_line(vram, &get_bg, vcount, 3) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { self.render_text_line(vram, vcount, 0) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { self.render_text_line(vram, vcount, 1) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { self.render_text_line(vram, vcount, 2) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { self.render_text_line(vram, vcount, 3) }
                 self.process_lines(vcount, 0, 3);
             },
             BGMode::Mode1 => {
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { self.render_text_line(vram, &get_bg, vcount, 0) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { self.render_text_line(vram, &get_bg, vcount, 1) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { self.render_text_line(vram, &get_bg, vcount, 2) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { self.render_affine_line(vram, 2, &get_bg) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { self.render_text_line(vram, vcount, 0) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { self.render_text_line(vram, vcount, 1) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { self.render_text_line(vram, vcount, 2) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { self.render_affine_line(vram, 2) }
                 self.process_lines(vcount, 0, 3);
             },
             BGMode::Mode2 => {
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { self.render_affine_line(vram, 3, &get_bg) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { self.render_text_line(vram, &get_bg, vcount, 3) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { self.render_affine_line(vram, 2, &get_bg) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { self.render_affine_line(vram, 3, &get_bg) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { self.render_affine_line(vram, 3) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { self.render_text_line(vram, vcount, 3) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { self.render_affine_line(vram, 2) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { self.render_affine_line(vram, 3) }
                 self.process_lines(vcount, 0, 3);
             },
             BGMode::Mode3 => todo!(),
@@ -288,7 +286,7 @@ impl<E: EngineType> Engine2D<E> {
         }
     }
 
-    fn render_objs_line<F: Fn(&VRAM, usize) -> u8>(&mut self, vram: &VRAM, get_obj: &F, vcount: u16) {
+    fn render_objs_line(&mut self, vram: &VRAM, vcount: u16) {
         let mut oam_parsed = [[0u16; 3]; 0x80];
         let mut affine_params = [[0u16; 4]; 0x20];
         self.oam.chunks(8).enumerate() // 1 OAM Entry, 1 Affine Parameter
@@ -373,7 +371,7 @@ impl<E: EngineType> Engine2D<E> {
                 let palette_num = (obj[2] >> 12 & 0xF) as usize;
                 // Flipped at tile level, so no need to flip again
                 let (palette_num, color_num) = Engine2D::<E>::get_color_from_tile(vram,
-                    get_obj, 0, tile_num, false, false,
+                    VRAM::get_obj::<E>, 0, tile_num, false, false,
                     bit_depth, tile_x as usize, tile_y as usize, palette_num);
                 if color_num == 0 { continue }
                 let mode = obj[0] >> 10 & 0x3;
@@ -394,7 +392,7 @@ impl<E: EngineType> Engine2D<E> {
         }
     }
     
-    fn render_affine_line<F: Fn(&VRAM, usize) -> u8>(&mut self, vram: &VRAM, bg_i: usize, get_bg: &F) {
+    fn render_affine_line(&mut self, vram: &VRAM, bg_i: usize) {
         let mut base_x = self.bgxs_latch[bg_i - 2];
         let mut base_y = self.bgys_latch[bg_i - 2];
         self.bgxs_latch[bg_i - 2] += self.dmxs[bg_i - 2];
@@ -425,17 +423,18 @@ impl<E: EngineType> Engine2D<E> {
             let map_x = (x / mosaic_x * mosaic_x / 8) % (map_size / 8);
             let map_y = (y / mosaic_y * mosaic_y / 8) % (map_size / 8);
             let addr = map_start_addr + map_y * map_size / 8 + map_x;
-            let tile_num = get_bg(vram, addr) as usize;
+            let tile_num = vram.get_bg::<E>(addr) as usize;
             
             // Convert from tile to pixels
-            let (_, color_num) = Engine2D::<E>::get_color_from_tile(vram, get_bg, tile_start_addr, tile_num,
-                false, false, 8, x % 8, y % 8, 0);
+            let (_, color_num) = Engine2D::<E>::get_color_from_tile(vram, VRAM::get_bg::<E>,
+                tile_start_addr, tile_num, false, false, 8,
+                x % 8, y % 8, 0);
             self.bg_lines[bg_i][dot_x] = if color_num == 0 { Engine2D::<E>::TRANSPARENT_COLOR }
             else { self.bg_palettes[color_num] };
         }
     }
 
-    fn render_text_line<F: Fn(&VRAM, usize) -> u8>(&mut self, vram: &VRAM, get_bg: &F, vcount: u16, bg_i: usize) {
+    fn render_text_line(&mut self, vram: &VRAM, vcount: u16, bg_i: usize) {
         let x_offset = self.hofs[bg_i].offset as usize;
         let y_offset = self.vofs[bg_i].offset as usize;
         let bgcnt = self.bgcnts[bg_i];
@@ -470,14 +469,14 @@ impl<E: EngineType> Engine2D<E> {
             map_x %= 32;
             map_y %= 32;
             let addr = map_start_addr + map_y * 32 * 2 + map_x * 2;
-            let screen_entry = u16::from_le_bytes([get_bg(vram, addr), get_bg(vram, addr + 1)]) as usize;
+            let screen_entry = u16::from_le_bytes([vram.get_bg::<E>(addr), vram.get_bg::<E>(addr + 1)]) as usize;
             let tile_num = screen_entry & 0x3FF;
             let flip_x = (screen_entry >> 10) & 0x1 != 0;
             let flip_y = (screen_entry >> 11) & 0x1 != 0;
             let palette_num = (screen_entry >> 12) & 0xF;
             
             // Convert from tile to pixels
-            let (palette_num, color_num) = Engine2D::<E>::get_color_from_tile(vram, get_bg,
+            let (palette_num, color_num) = Engine2D::<E>::get_color_from_tile(vram, VRAM::get_bg::<E>,
                 tile_start_addr, tile_num, flip_x, flip_y, bit_depth, x % 8, y % 8, palette_num);
             self.bg_lines[bg_i][dot_x] = if color_num == 0 { Engine2D::<E>::TRANSPARENT_COLOR }
             else { self.bg_palettes[palette_num * 16 + color_num] };

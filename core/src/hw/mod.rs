@@ -177,8 +177,8 @@ impl HW {
 
     pub fn render_map(&self, engine: Engine, bg_i: usize) -> (Vec<u16>, usize, usize) {
         match engine {
-            Engine::A => self.gpu.engine_a.render_map(&self.gpu.vram, &gpu::VRAM::get_engine_a_bg, bg_i),
-            Engine::B => self.gpu.engine_b.render_map(&self.gpu.vram, &gpu::VRAM::get_engine_b_bg, bg_i),
+            Engine::A => self.gpu.engine_a.render_map(&self.gpu.vram, bg_i),
+            Engine::B => self.gpu.engine_b.render_map(&self.gpu.vram, bg_i),
         }
     }
 

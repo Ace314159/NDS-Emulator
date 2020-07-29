@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::ops::Range;
 
+use super::EngineType;
+
 pub struct VRAM {
     cnts: [VRAMCNT; 9],
     banks: [Vec<u8>; 9],
@@ -164,16 +166,28 @@ impl VRAM {
         if self.lcdc_enabled[bank as usize] { Some(&self.banks[bank as usize]) } else { None }
     }
 
-    pub fn get_engine_a_bg(&self, addr: usize) -> u8 {
-        if let Some(mapping) = self.engine_a_bg[addr as usize / VRAM::MAPPING_LEN] {
-            self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN]
-        } else { 0 }
+    pub fn get_bg<E: EngineType>(&self, addr: usize) -> u8 {
+        if E::is_a() {
+            if let Some(mapping) = self.engine_a_bg[addr as usize / VRAM::MAPPING_LEN] {
+                self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN]
+            } else { 0 }
+        } else {
+            if let Some(mapping) = self.engine_b_bg[addr as usize / VRAM::MAPPING_LEN] {
+                self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN]
+            } else { 0 }
+        }
     }
 
-    pub fn get_engine_a_obj(&self, addr: usize) -> u8 {
-        if let Some(mapping) = self.engine_a_obj[addr as usize / VRAM::MAPPING_LEN] {
-            self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN]
-        } else { 0 }
+    pub fn get_obj<E: EngineType>(&self, addr: usize) -> u8 {
+        if E::is_a() {
+            if let Some(mapping) = self.engine_a_obj[addr as usize / VRAM::MAPPING_LEN] {
+                self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN]
+            } else { 0 }
+        } else {
+            if let Some(mapping) = self.engine_b_obj[addr as usize / VRAM::MAPPING_LEN] {
+                self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN]
+            } else { 0 }
+        }
     }
 
     pub fn get_engine_a_bg_ext_pal(&self, slot: usize, palette_num: usize) -> u16 {
@@ -193,18 +207,6 @@ impl VRAM {
                 self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN],
                 self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN + 1],
             ])
-        } else { 0 }
-    }
-
-    pub fn get_engine_b_bg(&self, addr: usize) -> u8 {
-        if let Some(mapping) = self.engine_b_bg[addr as usize / VRAM::MAPPING_LEN] {
-            self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN]
-        } else { 0 }
-    }
-
-    pub fn get_engine_b_obj(&self, addr: usize) -> u8 {
-        if let Some(mapping) = self.engine_b_obj[addr as usize / VRAM::MAPPING_LEN] {
-            self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN]
         } else { 0 }
     }
 
