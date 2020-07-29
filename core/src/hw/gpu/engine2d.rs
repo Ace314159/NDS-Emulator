@@ -1,5 +1,5 @@
 use super::registers::*;
-use super::{GPU, VRAM};
+use super::{EngineType, EngineA, GPU, VRAM};
 use crate::hw::{mmu::IORegister, Scheduler};
 
 pub struct Engine2D<E: EngineType> {
@@ -757,13 +757,3 @@ impl<E: EngineType> Engine2D<E>{
     pub fn bg_palettes(&self) -> &Vec<u16> { &self.bg_palettes }
     pub fn obj_palettes(&self) -> &Vec<u16> { &self.obj_palettes }
 }
-
-pub trait EngineType {
-    fn is_a() -> bool;
-}
-
-pub struct EngineA {}
-pub struct EngineB {}
-
-impl EngineType for EngineA { fn is_a() -> bool { true }}
-impl EngineType for EngineB { fn is_a() -> bool { false }}

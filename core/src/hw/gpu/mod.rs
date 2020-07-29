@@ -8,9 +8,8 @@ use crate::hw::{
     Event, Scheduler,
 };
 use registers::{DISPSTAT, DISPSTATFlags, POWCNT1};
-use engine2d::{EngineA, EngineB};
 
-pub use engine2d::{Engine2D, EngineType};
+pub use engine2d::Engine2D;
 pub use vram::VRAM;
 
 pub struct GPU {
@@ -124,3 +123,13 @@ impl GPU {
         }
     }
 }
+
+pub trait EngineType {
+    fn is_a() -> bool;
+}
+
+pub struct EngineA {}
+pub struct EngineB {}
+
+impl EngineType for EngineA { fn is_a() -> bool { true }}
+impl EngineType for EngineB { fn is_a() -> bool { false }}

@@ -190,44 +190,42 @@ impl VRAM {
         }
     }
 
-    pub fn get_engine_a_bg_ext_pal(&self, slot: usize, palette_num: usize) -> u16 {
+    pub fn get_bg_ext_pal<E: EngineType>(&self, slot: usize, palette_num: usize) -> u16 {
         let addr = self.calc_ext_pal_addr(slot, palette_num);
-        if let Some(mapping) = self.engine_a_bg_ext_pal[addr as usize / VRAM::MAPPING_LEN] {
-            u16::from_le_bytes([
-                self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN],
-                self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN + 1],
-            ])
-        } else { 0 }
+        if E::is_a() {
+            if let Some(mapping) = self.engine_a_bg_ext_pal[addr as usize / VRAM::MAPPING_LEN] {
+                u16::from_le_bytes([
+                    self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN],
+                    self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN + 1],
+                ])
+            } else { 0 }
+        } else {
+            if let Some(mapping) = self.engine_b_bg_ext_pal[addr as usize / VRAM::MAPPING_LEN] {
+                u16::from_le_bytes([
+                    self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN],
+                    self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN + 1],
+                ])
+            } else { 0 }
+        }
     }
 
-    pub fn get_engine_a_obj_ext_pal(&self, slot: usize, palette_num: usize) -> u16 {
+    pub fn get_obj_ext_pal<E: EngineType>(&self, slot: usize, palette_num: usize) -> u16 {
         let addr = self.calc_ext_pal_addr(slot, palette_num);
-        if let Some(mapping) = self.engine_a_obj_ext_pal[addr as usize / VRAM::MAPPING_LEN] {
-            u16::from_le_bytes([
-                self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN],
-                self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN + 1],
-            ])
-        } else { 0 }
-    }
-
-    pub fn get_engine_b_bg_ext_pal(&self, slot: usize, palette_num: usize) -> u16 {
-        let addr = self.calc_ext_pal_addr(slot, palette_num);
-        if let Some(mapping) = self.engine_b_bg_ext_pal[addr as usize / VRAM::MAPPING_LEN] {
-            u16::from_le_bytes([
-                self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN],
-                self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN + 1],
-            ])
-        } else { 0 }
-    }
-
-    pub fn get_engine_b_obj_ext_pal(&self, slot: usize, palette_num: usize) -> u16 {
-        let addr = self.calc_ext_pal_addr(slot, palette_num);
-        if let Some(mapping) = self.engine_b_obj_ext_pal[addr as usize / VRAM::MAPPING_LEN] {
-            u16::from_le_bytes([
-                self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN],
-                self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN + 1],
-            ])
-        } else { 0 }
+        if E::is_a() {
+            if let Some(mapping) = self.engine_a_obj_ext_pal[addr as usize / VRAM::MAPPING_LEN] {
+                u16::from_le_bytes([
+                    self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN],
+                    self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN + 1],
+                ])
+            } else { 0 }
+        } else {
+            if let Some(mapping) = self.engine_b_obj_ext_pal[addr as usize / VRAM::MAPPING_LEN] {
+                u16::from_le_bytes([
+                    self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN],
+                    self.banks[mapping.bank as usize][mapping.offset as usize + addr % VRAM::MAPPING_LEN + 1],
+                ])
+            } else { 0 }
+        }
     }
 
     pub fn get_mem(&self, addr: u32) -> Option<(&Vec<u8>, u32)> {

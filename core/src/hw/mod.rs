@@ -17,7 +17,7 @@ use header::Header;
 pub use mmu::{AccessType, MemoryValue};
 use mmu::{CP15, EXMEM, HALTCNT, POWCNT2, WRAMCNT};
 use scheduler::{Scheduler, Event};
-pub use gpu::GPU;
+pub use gpu::{GPU, EngineA, EngineB};
 use keypad::Keypad;
 pub use keypad::Key;
 use interrupt_controller::{InterruptController, InterruptRequest};
@@ -153,13 +153,13 @@ impl HW {
         if extended {
             match (engine, graphics_type) {
                 (Engine::A, GraphicsType::BG) => GPU::render_palettes(|i|
-                    self.gpu.vram.get_engine_a_bg_ext_pal(slot, i), 16),
+                    self.gpu.vram.get_bg_ext_pal::<EngineA>(slot, i), 16),
                 (Engine::A, GraphicsType::OBJ) => GPU::render_palettes(|i|
-                    self.gpu.vram.get_engine_a_obj_ext_pal(slot, i), 16),
+                    self.gpu.vram.get_obj_ext_pal::<EngineA>(slot, i), 16),
                 (Engine::B, GraphicsType::BG) => GPU::render_palettes(|i|
-                    self.gpu.vram.get_engine_b_bg_ext_pal(slot, i), 16),
+                    self.gpu.vram.get_bg_ext_pal::<EngineB>(slot, i), 16),
                 (Engine::B, GraphicsType::OBJ) => GPU::render_palettes(|i|
-                    self.gpu.vram.get_engine_b_obj_ext_pal(slot, i), 16),
+                    self.gpu.vram.get_obj_ext_pal::<EngineB>(slot, i), 16),
             }
         } else {
             match (engine, graphics_type) {
