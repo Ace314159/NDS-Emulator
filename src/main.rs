@@ -52,7 +52,6 @@ fn main() {
     
     let engines = [Engine::A, Engine::B];
     let graphics_types = [GraphicsType::BG, GraphicsType::OBJ];
-    let bgs = [im_str!("0"), im_str!("1"), im_str!("2"), im_str!("3")];
 
     let mut palettes_window = TextureWindow::new("Palettes");
     let mut palettes_engine = 0;
@@ -60,14 +59,14 @@ fn main() {
 
     let mut map_window = TextureWindow::new("Map");
     let mut map_engine = 0;
-    let mut map_bg_i = 0;
+    let mut map_bg_i = 0u32;
 
     while !display.should_close() {
         nds.emulate_frame();
         let (palettes_pixels, palettes_width, palettes_height) =
             nds.render_palettes(engines[palettes_engine], graphics_types[palettes_graphics_type]);
         let (map_pixels, map_width, map_height) =
-            nds.render_map(engines[map_engine], map_bg_i);
+            nds.render_map(engines[map_engine], map_bg_i as usize);
         display.render(&mut nds, &mut imgui,
             |ui, keys_pressed, _modifiers| {
             palettes_window.render(ui, &keys_pressed, palettes_pixels, palettes_width, palettes_height, || {
@@ -92,9 +91,8 @@ fn main() {
                 .build_simple(ui, &mut map_engine,
                 &engines, &(|i| Cow::from(ImString::new(i.label()))));
 
-                ui.set_next_item_width(combo_width);
-                ComboBox::new(im_str!("BG"))
-                .build_simple_string(ui, &mut map_bg_i, &bgs);
+                Slider::new(im_str!("BG"), 0..=3)
+                .build(ui, &mut map_bg_i);
             });
         });
     }
