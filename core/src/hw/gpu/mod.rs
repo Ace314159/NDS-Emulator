@@ -8,7 +8,9 @@ use crate::hw::{
     Event, Scheduler,
 };
 use registers::{DISPSTAT, DISPSTATFlags, POWCNT1};
-pub use engine2d::Engine2D;
+use engine2d::{EngineA, EngineB};
+
+pub use engine2d::{Engine2D, EngineType};
 pub use vram::VRAM;
 
 pub struct GPU {
@@ -18,8 +20,8 @@ pub struct GPU {
     dot: u16,
     rendered_frame: bool,
 
-    pub engine_a: Engine2D,
-    pub engine_b: Engine2D,
+    pub engine_a: Engine2D<EngineA>,
+    pub engine_b: Engine2D<EngineB>,
     pub vram: VRAM,
 
     pub powcnt1: POWCNT1,

@@ -1,10 +1,12 @@
 use bitflags::*;
+use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
 use crate::hw::{
     mmu::IORegister,
     scheduler::Scheduler,
 };
+use super::EngineType;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum BGMode {
@@ -56,7 +58,7 @@ impl DisplayMode {
 
 bitflags! {
     pub struct DISPCNTFlags: u32 {
-        const IS_3D = 1 << 3; // TODO: Only Engine A
+        const IS_3D = 1 << 3;
         const TILE_OBJ_1D = 1 << 4;
         const BITMAP_OBJ_SQUARE = 1 << 5;
         const BITMAP_OBJ_1D = 1 << 6;
@@ -69,33 +71,35 @@ bitflags! {
         const DISPLAY_WINDOW0 = 1 << 13;
         const DISPLAY_WINDOW1 = 1 << 14;
         const DISPLAY_OBJ_WINDOW = 1 << 15;
-        const BITMAP_OBJ_1D_BOUND = 1 << 22; // TODO: Only Engine A
+        const BITMAP_OBJ_1D_BOUND = 1 << 22;
         const OBJ_PROCESS_HBLANK = 1 << 23;
         const BG_EXTENDED_PALETTES = 1 << 30;
         const OBJ_EXTENDED_PALETTES = 1 << 31;
     }
 }
 
-pub struct DISPCNT {
+pub struct DISPCNT<E: EngineType> {
     pub flags: DISPCNTFlags,
     pub bg_mode: BGMode,
     pub display_mode: DisplayMode,
-    pub vram_block: u8, // TODO: Only Engine A
+    pub vram_block: u8,
     pub tile_obj_1d_bound: u8,
-    pub char_base: u8, // TODO: Only Engine A
-    pub screen_base: u8, // TODO: Only Engine A
+    pub char_base: u8,
+    pub screen_base: u8,
+    engine_type: PhantomData<E>,
 }
 
-impl DISPCNT {
-    pub fn new() -> DISPCNT {
+impl<E: EngineType> DISPCNT<E> {
+    pub fn new() -> DISPCNT<E> {
         DISPCNT {
             flags: DISPCNTFlags::empty(),
             bg_mode: BGMode::Mode0,
             display_mode: DisplayMode::Mode0,
-            vram_block: 0, // TODO: Only Engine A
+            vram_block: 0,
             tile_obj_1d_bound: 0,
             char_base: 0,
             screen_base: 0,
+            engine_type: PhantomData,
         }
     }
     
@@ -104,7 +108,7 @@ impl DISPCNT {
     }
 }
 
-impl Deref for DISPCNT {
+impl<E: EngineType> Deref for DISPCNT<E> {
     type Target = DISPCNTFlags;
 
     fn deref(&self) -> &DISPCNTFlags {
@@ -112,13 +116,13 @@ impl Deref for DISPCNT {
     }
 }
 
-impl DerefMut for DISPCNT {
+impl<E: EngineType> DerefMut for DISPCNT<E> {
     fn deref_mut(&mut self) -> &mut DISPCNTFlags {
         &mut self.flags
     }
 }
 
-impl IORegister for DISPCNT {
+impl<E: EngineType> IORegister for DISPCNT<E> {
     fn read(&self, byte: usize) -> u8 {
         match byte {
             0 => (self.flags.bits >> 0) as u8 | self.bg_mode as u8,
@@ -134,18 +138,33 @@ impl IORegister for DISPCNT {
             0 => {
                 self.bg_mode = BGMode::from_bits(value & 0x7);
                 self.flags.bits = self.flags.bits & !0x0000_00FF | (value as u32) & DISPCNTFlags::all().bits; 
+                // TODO: Use trait specialization instead of this
+                if !E::is_a() {
+                    self.flags.remove(DISPCNTFlags::IS_3D);
+                }
             },
             1 => self.flags.bits = self.flags.bits & !0x0000_FF00 | (value as u32) << 8 & DISPCNTFlags::all().bits,
             2 => {
                 self.display_mode = DisplayMode::from_bits(value & 0x3);
-                self.vram_block = value >> 2 & 0x3;
+                if E::is_a() {
+                    self.vram_block = value >> 2 & 0x3;
+                } else { assert_eq!(self.vram_block, 0) }
                 self.tile_obj_1d_bound = value >> 4 & 0x3;
                 self.flags.bits = self.flags.bits & !0x00FF_0000 | (value as u32) << 16 & DISPCNTFlags::all().bits;
+                // TODO: Use trait specialization instead of this
+                if !E::is_a() {
+                    self.flags.remove(DISPCNTFlags::BITMAP_OBJ_1D);
+                }
             },
             3 => {
                 self.flags.bits = self.flags.bits & !0xFF00_0000 | (value as u32) << 24 & DISPCNTFlags::all().bits;
-                self.screen_base = value >> 3 & 0x7;
-                self.char_base = value & 0x7;
+                if E::is_a() {
+                    self.screen_base = value >> 3 & 0x7;
+                    self.char_base = value & 0x7;
+                } else {
+                    assert_eq!(self.screen_base, 0);
+                    assert_eq!(self.char_base, 0);
+                }
             },
             _ => unreachable!(),
         }

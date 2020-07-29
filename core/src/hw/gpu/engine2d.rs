@@ -2,9 +2,9 @@ use super::registers::*;
 use super::{GPU, VRAM};
 use crate::hw::{mmu::IORegister, Scheduler};
 
-pub struct Engine2D {
+pub struct Engine2D<E: EngineType> {
     // Registers
-    pub(super) dispcnt: DISPCNT,
+    pub(super) dispcnt: DISPCNT<E>,
     // Backgrounds
     pub(super) bgcnts: [BGCNT; 4],
     hofs: [OFS; 4],
@@ -42,7 +42,7 @@ pub struct Engine2D {
     windows_lines: [[bool; GPU::WIDTH]; 3],
 }
 
-impl Engine2D {
+impl<E: EngineType> Engine2D<E> {
     const TRANSPARENT_COLOR: u16 = 0x8000;
 
     pub fn new() -> Self {
@@ -193,7 +193,7 @@ impl Engine2D {
             let mut i = 0;
             for (bg_i, priority) in bgs.iter() {
                 let color = self.bg_lines[*bg_i][dot_x];
-                if color != Engine2D::TRANSPARENT_COLOR && enabled[*bg_i] {
+                if color != Engine2D::<E>::TRANSPARENT_COLOR && enabled[*bg_i] {
                     colors[i] = color;
                     layers[i] = Layer::from(*bg_i);
                     priorities[i] = *priority;
@@ -202,7 +202,7 @@ impl Engine2D {
                 }
             }
             let obj_color = self.objs_line[dot_x].color;
-            if enabled[4] && obj_color != Engine2D::TRANSPARENT_COLOR {
+            if enabled[4] && obj_color != Engine2D::<E>::TRANSPARENT_COLOR {
                 if self.objs_line[dot_x].priority <= priorities[0] {
                     colors[1] = colors[0];
                     layers[1] = layers[0];
@@ -301,7 +301,7 @@ impl Engine2D {
         let mut objs = oam_parsed.iter().filter(|obj| {
             let obj_shape = (obj[0] >> 14 & 0x3) as usize;
             let obj_size = (obj[1] >> 14 & 0x3) as usize;
-            let (_, obj_height) = Engine2D::OBJ_SIZES[obj_size][obj_shape];
+            let (_, obj_height) = Engine2D::<E>::OBJ_SIZES[obj_size][obj_shape];
             let affine = obj[0] >> 8 & 0x1 != 0;
             let double_size_or_disable = obj[0] >> 9 & 0x1 != 0;
             if !affine && double_size_or_disable { return false }
@@ -323,7 +323,7 @@ impl Engine2D {
                 let obj_shape = (obj[0] >> 14 & 0x3) as usize;
                 let obj_size = (obj[1] >> 14 & 0x3) as usize;
                 let affine = obj[0] >> 8 & 0x1 != 0;
-                let (obj_width, obj_height) = Engine2D::OBJ_SIZES[obj_size][obj_shape];
+                let (obj_width, obj_height) = Engine2D::<E>::OBJ_SIZES[obj_size][obj_shape];
                 let dot_x_signed = (dot_x as i16) / self.mosaic.obj_size.h_size as i16 * self.mosaic.obj_size.h_size as i16;
                 let obj_x = (obj[1] & 0x1FF) as u16;
                 let obj_x = if obj_x & 0x100 != 0 { 0xFE00 | obj_x } else { obj_x } as i16;
@@ -372,7 +372,7 @@ impl Engine2D {
                 let tile_y = y_diff % 8;
                 let palette_num = (obj[2] >> 12 & 0xF) as usize;
                 // Flipped at tile level, so no need to flip again
-                let (palette_num, color_num) = Engine2D::get_color_from_tile(vram,
+                let (palette_num, color_num) = Engine2D::<E>::get_color_from_tile(vram,
                     get_obj, 0, tile_num, false, false,
                     bit_depth, tile_x as usize, tile_y as usize, palette_num);
                 if color_num == 0 { continue }
@@ -417,7 +417,7 @@ impl Engine2D {
             y_raw < 0 || y_raw > map_size as i32 {
                 if bgcnt.wrap { ((x_raw % map_size as i32) as usize, (y_raw % map_size as i32) as usize) }
                 else {
-                    self.bg_lines[bg_i][dot_x] = Engine2D::TRANSPARENT_COLOR;
+                    self.bg_lines[bg_i][dot_x] = Engine2D::<E>::TRANSPARENT_COLOR;
                     continue
                 }
             } else { (x_raw as usize, y_raw as usize) };
@@ -428,9 +428,9 @@ impl Engine2D {
             let tile_num = get_bg(vram, addr) as usize;
             
             // Convert from tile to pixels
-            let (_, color_num) = Engine2D::get_color_from_tile(vram, get_bg, tile_start_addr, tile_num,
+            let (_, color_num) = Engine2D::<E>::get_color_from_tile(vram, get_bg, tile_start_addr, tile_num,
                 false, false, 8, x % 8, y % 8, 0);
-            self.bg_lines[bg_i][dot_x] = if color_num == 0 { Engine2D::TRANSPARENT_COLOR }
+            self.bg_lines[bg_i][dot_x] = if color_num == 0 { Engine2D::<E>::TRANSPARENT_COLOR }
             else { self.bg_palettes[color_num] };
         }
     }
@@ -477,9 +477,9 @@ impl Engine2D {
             let palette_num = (screen_entry >> 12) & 0xF;
             
             // Convert from tile to pixels
-            let (palette_num, color_num) = Engine2D::get_color_from_tile(vram, get_bg,
+            let (palette_num, color_num) = Engine2D::<E>::get_color_from_tile(vram, get_bg,
                 tile_start_addr, tile_num, flip_x, flip_y, bit_depth, x % 8, y % 8, palette_num);
-            self.bg_lines[bg_i][dot_x] = if color_num == 0 { Engine2D::TRANSPARENT_COLOR }
+            self.bg_lines[bg_i][dot_x] = if color_num == 0 { Engine2D::<E>::TRANSPARENT_COLOR }
             else { self.bg_palettes[palette_num * 16 + color_num] };
         }
     }
@@ -547,14 +547,14 @@ struct OBJPixel {
 impl OBJPixel {
     pub fn none() -> OBJPixel {
         OBJPixel {
-            color: Engine2D::TRANSPARENT_COLOR,
+            color: Engine2D::<EngineA>::TRANSPARENT_COLOR,
             priority: 4,
             semitransparent: false,
         }
     }
 }
 
-impl Engine2D {
+impl<E: EngineType> Engine2D<E>{
     pub fn read_register(&self, addr: u32) -> u8 {
         assert_eq!((addr >> 12) & !0x1, 0x04000);
         match addr & 0xFFF {
@@ -758,3 +758,13 @@ impl Engine2D {
     pub fn bg_palettes(&self) -> &Vec<u16> { &self.bg_palettes }
     pub fn obj_palettes(&self) -> &Vec<u16> { &self.obj_palettes }
 }
+
+pub trait EngineType {
+    fn is_a() -> bool;
+}
+
+pub struct EngineA {}
+pub struct EngineB {}
+
+impl EngineType for EngineA { fn is_a() -> bool { true }}
+impl EngineType for EngineB { fn is_a() -> bool { false }}

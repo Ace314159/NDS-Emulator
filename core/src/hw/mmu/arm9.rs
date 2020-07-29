@@ -1,6 +1,6 @@
 use crate::num;
 use super::{AccessType, CP15, HW, MemoryValue, IORegister};
-use crate::hw::gpu::{GPU, Engine2D};
+use crate::hw::gpu::{GPU, Engine2D, EngineType};
 
 type MemoryRegion = ARM9MemoryRegion;
 
@@ -22,9 +22,13 @@ impl HW {
             MemoryRegion::IO if (0x0410_0000 ..= 0x0410_0003).contains(&addr) => self.ipc_fifo_recv(false, addr),
             MemoryRegion::IO if (0x0410_0010 ..= 0x0410_0013).contains(&addr) => self.read_game_card(false, addr),
             MemoryRegion::IO => HW::read_from_bytes(self, &HW::arm9_read_io_register, addr),
-            MemoryRegion::Palette => self.read_palette_ram(addr),
+            MemoryRegion::Palette if addr & 0x7FFF < 0x400 => HW::read_from_bytes(&self.gpu.engine_a,
+                &Engine2D::read_palette_ram, addr as u32),
+            MemoryRegion::Palette => HW::read_from_bytes(&self.gpu.engine_b,
+                &Engine2D::read_palette_ram, addr as u32),
             MemoryRegion::VRAM => self.read_vram(addr),
-            MemoryRegion::OAM => HW::read_mem(&self.gpu_engine(addr as usize).oam, addr & GPU::OAM_MASK as u32),
+            MemoryRegion::OAM if addr & 0x7FFF < 0x400 => HW::read_mem(&self.gpu.engine_a.oam, addr & GPU::OAM_MASK as u32),
+            MemoryRegion::OAM => HW::read_mem(&self.gpu.engine_b.oam, addr & GPU::OAM_MASK as u32),
             MemoryRegion::GBAROM => self.read_gba_rom(false, addr),
             MemoryRegion::GBARAM => todo!(),
             MemoryRegion::BIOS => HW::read_mem(&self.bios9, addr & 0xFFFF),
@@ -42,9 +46,12 @@ impl HW {
             MemoryRegion::IO if (0x0400_0188 ..= 0x0400_018B).contains(&addr) =>
                 self.ipc_fifo_send(false, addr, value),
             MemoryRegion::IO => HW::write_from_bytes(self, &HW::arm9_write_io_register, addr, value),
-            MemoryRegion::Palette => self.write_palette_ram(addr, value),
+            MemoryRegion::Palette if addr & 0x7FFF < 0x400 => HW::write_palette_ram(&mut self.gpu.engine_a, addr, value),
+            MemoryRegion::Palette => HW::write_palette_ram(&mut self.gpu.engine_b, addr, value),
             MemoryRegion::VRAM => self.write_vram(addr, value),
-            MemoryRegion::OAM => HW::write_mem(&mut self.gpu_engine_mut(addr as usize).oam, addr & GPU::OAM_MASK as u32, value),
+            MemoryRegion::OAM if addr & 0x7FFF < 0x400 => HW::write_mem(&mut self.gpu.engine_a.oam,
+                addr & GPU::OAM_MASK as u32, value),
+            MemoryRegion::OAM => HW::write_mem(&mut self.gpu.engine_b.oam, addr & GPU::OAM_MASK as u32, value),
             MemoryRegion::GBAROM => (),
             MemoryRegion::GBARAM => todo!(),
             MemoryRegion::BIOS => warn!("Writing to BIOS9 0x{:08x} = 0x{:X}", addr, value),
@@ -255,14 +262,8 @@ impl HW {
         }
     }
 
-    fn read_palette_ram<T: MemoryValue>(&mut self, addr: u32) -> T {
-        let addr = addr as usize & (GPU::PALETTE_SIZE * 4 - 1);
-        HW::read_from_bytes(self.gpu_engine_mut(addr), &Engine2D::read_palette_ram, addr as u32)
-    }
-
-    fn write_palette_ram<T: MemoryValue>(&mut self, addr: u32, value: T) {
-        let addr = addr as usize & (GPU::PALETTE_SIZE * 4 - 1);
-        let engine = self.gpu_engine_mut(addr);
+    fn write_palette_ram<E: EngineType, T: MemoryValue>(engine: &mut Engine2D<E>, addr: u32, value: T) {
+        let addr = addr as usize;
         match std::mem::size_of::<T>() {
             1 => (), // Ignore byte writes
             2 => engine.write_palette_ram(addr, num::cast::<T, u16>(value).unwrap()),
@@ -273,14 +274,6 @@ impl HW {
             },
             _ => unreachable!(),
         }
-    }
-
-    fn gpu_engine(&self, addr: usize) -> &Engine2D {
-        if addr & 0xFFF < 0x400 { &self.gpu.engine_a } else { &self.gpu.engine_b }
-    }
-
-    fn gpu_engine_mut(&mut self, addr: usize) -> &mut Engine2D {
-        if addr & 0xFFF < 0x400 { &mut self.gpu.engine_a } else { &mut self.gpu.engine_b }
     }
 
     fn read_vram<T: MemoryValue>(&self, addr: u32) -> T {

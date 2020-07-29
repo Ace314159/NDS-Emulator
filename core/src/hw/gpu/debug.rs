@@ -1,4 +1,4 @@
-use super::{Engine2D, GPU, VRAM};
+use super::{Engine2D, EngineType, GPU, VRAM};
 
 impl GPU {
     pub fn render_palettes<F: Fn(usize) -> u16>(get_color: F, palettes_size: usize) -> (Vec<u16>, usize, usize) {
@@ -19,7 +19,7 @@ impl GPU {
     }
 }
 
-impl Engine2D {
+impl<E: EngineType> Engine2D<E> {
     pub fn render_map<F: Fn(&VRAM, usize) -> u8>(&self, vram: &VRAM, get_bg: &F, bg_i: usize) -> (Vec<u16>, usize, usize) {
         let bgcnt = self.bgcnts[bg_i];
         let affine = false; // TODO: Use correct condition
@@ -45,7 +45,7 @@ impl Engine2D {
                     let tile_num = get_bg(vram, addr) as usize;
                     
                     // Convert from tile to pixels
-                    let (_, color_num) = Engine2D::get_color_from_tile(vram, get_bg,
+                    let (_, color_num) = Engine2D::<E>::get_color_from_tile(vram, get_bg,
                         tile_start_addr, tile_num, false, false, 8,
                         x % 8, y % 8, 0);
                     if color_num == 0 { continue }
@@ -76,7 +76,7 @@ impl Engine2D {
                     let palette_num = (screen_entry >> 12) & 0xF;
                     
                     // Convert from tile to pixels
-                    let (palette_num, color_num) = Engine2D::get_color_from_tile(vram,
+                    let (palette_num, color_num) = Engine2D::<E>::get_color_from_tile(vram,
                         get_bg, tile_start_addr, tile_num, flip_x, flip_y, bit_depth,
                         x % 8, y % 8, palette_num);
                     if color_num == 0 { continue }
