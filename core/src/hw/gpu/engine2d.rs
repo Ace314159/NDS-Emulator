@@ -364,11 +364,10 @@ impl Engine2D {
                     )
                 };
                 let bit_depth = if obj[0] >> 13 & 0x1 != 0 { 8 } else { 4 };
-                let boundary = 0x10 << self.dispcnt.tile_obj_1d_bound;
                 let base_tile_num = if bit_depth == 8 { base_tile_num / 2 } else { base_tile_num };
                 let tile_num = base_tile_num + if self.dispcnt.contains(DISPCNTFlags::TILE_OBJ_1D) {
-                    y_diff as i16 / 8 * boundary / (bit_depth as i16) + x_diff / 8
-                } else { (y_diff as i16 / 8 * obj_width + x_diff) / 8 } as usize;
+                    (y_diff as i16 / 8 * obj_width + x_diff) / 8
+                } else { y_diff as i16 / 8 * 0x80 / (bit_depth as i16) + x_diff / 8 } as usize;
                 let tile_x = x_diff % 8;
                 let tile_y = y_diff % 8;
                 let palette_num = (obj[2] >> 12 & 0xF) as usize;
