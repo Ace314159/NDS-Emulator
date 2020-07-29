@@ -4,9 +4,9 @@ use crate::hw::{mmu::IORegister, Scheduler};
 
 pub struct Engine2D {
     // Registers
-    dispcnt: DISPCNT,
+    pub(super) dispcnt: DISPCNT,
     // Backgrounds
-    bgcnts: [BGCNT; 4],
+    pub(super) bgcnts: [BGCNT; 4],
     hofs: [OFS; 4],
     vofs: [OFS; 4],
     dxs: [RotationScalingParameter; 2],
@@ -478,15 +478,16 @@ impl Engine2D {
             let palette_num = (screen_entry >> 12) & 0xF;
             
             // Convert from tile to pixels
-            let (palette_num, color_num) = Engine2D::get_color_from_tile(vram, get_bg, tile_start_addr,
-                tile_num, flip_x, flip_y, bit_depth, x % 8, y % 8, palette_num);
+            let (palette_num, color_num) = Engine2D::get_color_from_tile(vram, get_bg,
+                tile_start_addr, tile_num, flip_x, flip_y, bit_depth, x % 8, y % 8, palette_num);
             self.bg_lines[bg_i][dot_x] = if color_num == 0 { Engine2D::TRANSPARENT_COLOR }
             else { self.bg_palettes[palette_num * 16 + color_num] };
         }
     }
 
-    fn get_color_from_tile<F: Fn(&VRAM, usize) -> u8>(vram: &VRAM, get_vram_byte: F, tile_start_addr: usize, tile_num: usize,
-        flip_x: bool, flip_y: bool, bit_depth: usize, tile_x: usize, tile_y: usize, palette_num: usize, ) -> (usize, usize) {
+    pub(super) fn get_color_from_tile<F: Fn(&VRAM, usize) -> u8>(vram: &VRAM, get_vram_byte: F, tile_start_addr: usize,
+        tile_num: usize, flip_x: bool, flip_y: bool, bit_depth: usize, tile_x: usize, tile_y: usize,
+        palette_num: usize) -> (usize, usize) {
         let addr = tile_start_addr + 8 * bit_depth * tile_num;
         let tile_x = if flip_x { 7 - tile_x } else { tile_x };
         let tile_y = if flip_y { 7 - tile_y } else { tile_y };
@@ -503,11 +504,11 @@ impl Engine2D {
         self.bgys_latch = self.bgys.clone();
     }
 
-    fn calc_tile_start_addr(&self, bgcnt: &BGCNT) -> usize {
+    pub(super) fn calc_tile_start_addr(&self, bgcnt: &BGCNT) -> usize {
         self.dispcnt.char_base as usize * 0x1_0000 + bgcnt.tile_block as usize * 0x4000
     }
 
-    fn calc_map_start_addr(&self, bgcnt: &BGCNT) -> usize {
+    pub(super) fn calc_map_start_addr(&self, bgcnt: &BGCNT) -> usize {
         self.dispcnt.screen_base as usize * 0x1_0000 + bgcnt.map_block as usize * 0x800
     }
 }
@@ -752,7 +753,7 @@ impl Engine2D {
         let palettes = if addr < GPU::PALETTE_SIZE { &mut self.bg_palettes } else { &mut self.obj_palettes };
         let index = (addr & GPU::PALETTE_SIZE - 1) / 2;
         palettes[index] = value;
-        if value & 0x8000 != 0 { warn!("Writing to palette with 15th bit set - Reading could be inaccurate: 0x{:X} ", value) }
+        // if value & 0x8000 != 0 { warn!("Writing to palette with 15th bit set - Reading could be inaccurate: 0x{:X} ", value) }
     }
 
     pub fn bg_palettes(&self) -> &Vec<u16> { &self.bg_palettes }

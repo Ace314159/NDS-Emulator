@@ -9,7 +9,7 @@ use crate::hw::{
 };
 use registers::{DISPSTAT, DISPSTATFlags, POWCNT1};
 pub use engine2d::Engine2D;
-use vram::VRAM;
+pub use vram::VRAM;
 
 pub struct GPU {
     // Registers and Values Shared between Engines

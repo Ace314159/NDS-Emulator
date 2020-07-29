@@ -58,6 +58,10 @@ impl NDS {
     pub fn render_palettes(&self, engine: Engine, graphics_type: GraphicsType) -> (Vec<u16>, usize, usize) {
         self.hw.render_palettes(engine, graphics_type)
     }
+
+    pub fn render_map(&self, engine: Engine, bg_i: usize) -> (Vec<u16>, usize, usize) {
+        self.hw.render_map(engine, bg_i)
+    }
 }
 
 pub const WIDTH: usize = crate::hw::GPU::WIDTH;

@@ -159,6 +159,13 @@ impl HW {
         }
     }
 
+    pub fn render_map(&self, engine: Engine, bg_i: usize) -> (Vec<u16>, usize, usize) {
+        match engine {
+            Engine::A => self.gpu.engine_a.render_map(&self.gpu.vram, &gpu::VRAM::get_engine_a_bg, bg_i),
+            Engine::B => self.gpu.engine_b.render_map(&self.gpu.vram, &gpu::VRAM::get_engine_b_bg, bg_i),
+        }
+    }
+
     pub fn init_mem(mut self) -> Self {
         let addr = 0x027F_FE00 & (HW::MAIN_MEM_SIZE - 1);
         self.main_mem[addr..addr + 0x170].copy_from_slice(&self.cartridge.rom()[..0x170]);
