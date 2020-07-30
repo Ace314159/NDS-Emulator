@@ -361,7 +361,8 @@ impl<E: EngineType> Engine2D<E> {
                         if flip_y { obj_height - 1 - y_diff } else { y_diff },
                     )
                 };
-                let bit_depth = if obj[0] >> 13 & 0x1 != 0 { 8 } else { 4 };
+                let bpp8 = obj[0] >> 13 & 0x1 != 0;
+                let bit_depth = if bpp8 { 8 } else { 4 };
                 let (boundary, tile_offset) = if self.dispcnt.contains(DISPCNTFlags::TILE_OBJ_1D) {
                     (32 << self.dispcnt.tile_obj_1d_bound, (y_diff as i16 / 8 * obj_width + x_diff) / 8)
                 } else { (32, y_diff as i16 / 8 * 0x80 / (bit_depth as i16) + x_diff / 8) };
@@ -369,22 +370,21 @@ impl<E: EngineType> Engine2D<E> {
                 let boundary = boundary * 4 / bit_depth;
                 let tile_x = x_diff % 8;
                 let tile_y = y_diff % 8;
-                let palette_num = (obj[2] >> 12 & 0xF) as usize;
+                let original_palette_num = (obj[2] >> 12 & 0xF) as usize;
                 // Flipped at tile level, so no need to flip again
                 let (palette_num, color_num) = Engine2D::<E>::get_color_from_tile(vram,
                     VRAM::get_obj::<E>, 0, boundary, tile_num, false, false,
-                    bit_depth, tile_x as usize, tile_y as usize, palette_num);
+                    bit_depth, tile_x as usize, tile_y as usize, original_palette_num);
                 if color_num == 0 { continue }
                 let mode = obj[0] >> 10 & 0x3;
                 if mode == 2 {
                     self.windows_lines[2][dot_x] = obj_window_enabled;
                     if set_color { break } // Continue to look for color pixels
                 } else if !set_color {
-                    let palette_num = palette_num * 16 + color_num;
-                    let color = if self.dispcnt.contains(DISPCNTFlags::OBJ_EXTENDED_PALETTES) {
-                        vram.get_obj_ext_pal::<E>(palette_num)
+                    let color = if bpp8 && self.dispcnt.contains(DISPCNTFlags::OBJ_EXTENDED_PALETTES) {
+                        vram.get_obj_ext_pal::<E>(original_palette_num * 16 + color_num)
                     } else {
-                        self.obj_palettes[palette_num]
+                        self.obj_palettes[palette_num * 16 + color_num]
                     };
                     self.objs_line[dot_x] = OBJPixel {
                         color,
