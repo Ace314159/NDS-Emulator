@@ -190,8 +190,8 @@ impl VRAM {
         }
     }
 
-    pub fn get_bg_ext_pal<E: EngineType>(&self, slot: usize, palette_num: usize) -> u16 {
-        let addr = self.calc_ext_pal_addr(slot, palette_num);
+    pub fn get_bg_ext_pal<E: EngineType>(&self, slot: usize, color_num: usize) -> u16 {
+        let addr = self.calc_ext_pal_addr(slot, color_num);
         if E::is_a() {
             if let Some(mapping) = self.engine_a_bg_ext_pal[addr as usize / VRAM::MAPPING_LEN] {
                 u16::from_le_bytes([
@@ -209,8 +209,8 @@ impl VRAM {
         }
     }
 
-    pub fn get_obj_ext_pal<E: EngineType>(&self, palette_num: usize) -> u16 {
-        let addr = self.calc_ext_pal_addr(0, palette_num);
+    pub fn get_obj_ext_pal<E: EngineType>(&self, color_num: usize) -> u16 {
+        let addr = self.calc_ext_pal_addr(0, color_num);
         if E::is_a() {
             if let Some(mapping) = self.engine_a_obj_ext_pal[addr as usize / VRAM::MAPPING_LEN] {
                 u16::from_le_bytes([
@@ -240,8 +240,8 @@ impl VRAM {
         } else { None }
     }
 
-    pub fn calc_ext_pal_addr(&self, slot: usize, palette_num: usize) -> usize {
-        slot * 8 * 0x400 + palette_num * 2
+    pub fn calc_ext_pal_addr(&self, slot: usize, color_num: usize) -> usize {
+        slot * 8 * 0x400 + color_num * 2
     }
 
     fn add_mapping(mapping_ranges: &mut [Range<u32>; 9], mappings: &mut HashMap<u32, Mapping>,
