@@ -366,14 +366,13 @@ impl<E: EngineType> Engine2D<E> {
                 let (boundary, tile_offset) = if self.dispcnt.contains(DISPCNTFlags::TILE_OBJ_1D) {
                     (32 << self.dispcnt.tile_obj_1d_bound, (y_diff as i16 / 8 * obj_width + x_diff) / 8)
                 } else { (32, y_diff as i16 / 8 * 0x80 / (bit_depth as i16) + x_diff / 8) };
-                let tile_num = bit_depth / 4 * base_tile_num + tile_offset as usize;
-                let boundary = boundary * 4 / bit_depth;
+                let addr = boundary * base_tile_num + tile_offset as usize * bit_depth * 8;
                 let tile_x = x_diff % 8;
                 let tile_y = y_diff % 8;
                 let original_palette_num = (obj[2] >> 12 & 0xF) as usize;
                 // Flipped at tile level, so no need to flip again
                 let (palette_num, color_num) = Engine2D::<E>::get_color_from_tile(vram,
-                    VRAM::get_obj::<E>, 0, boundary, tile_num, false, false,
+                    VRAM::get_obj::<E>, addr, false, false,
                     bit_depth, tile_x as usize, tile_y as usize, original_palette_num);
                 if color_num == 0 { continue }
                 let mode = obj[0] >> 10 & 0x3;
@@ -435,7 +434,7 @@ impl<E: EngineType> Engine2D<E> {
             
             // Convert from tile to pixels
             let (_, color_num) = Engine2D::<E>::get_color_from_tile(vram, VRAM::get_bg::<E>,
-                tile_start_addr, 8 * bit_depth, tile_num, false, false, bit_depth,
+                tile_start_addr * 8 * bit_depth + tile_num, false, false, bit_depth,
                 x % 8, y % 8, 0);
             self.bg_lines[bg_i][dot_x] = if color_num == 0 { Engine2D::<E>::TRANSPARENT_COLOR }
             else { self.bg_palettes[color_num] };
@@ -485,17 +484,15 @@ impl<E: EngineType> Engine2D<E> {
             
             // Convert from tile to pixels
             let (palette_num, color_num) = Engine2D::<E>::get_color_from_tile(vram,
-                VRAM::get_bg::<E>, tile_start_addr, 8 * bit_depth, tile_num, flip_x, flip_y, bit_depth,
+                VRAM::get_bg::<E>, tile_start_addr + 8 * bit_depth * tile_num, flip_x, flip_y, bit_depth,
                 x % 8, y % 8, palette_num);
             self.bg_lines[bg_i][dot_x] = if color_num == 0 { Engine2D::<E>::TRANSPARENT_COLOR }
             else { self.bg_palettes[palette_num * 16 + color_num] };
         }
     }
 
-    pub(super) fn get_color_from_tile<F: Fn(&VRAM, usize) -> u8>(vram: &VRAM, get_vram_byte: F, tile_start_addr: usize,
-        boundary: usize, tile_num: usize, flip_x: bool, flip_y: bool, bit_depth: usize, tile_x: usize, tile_y: usize,
-        palette_num: usize) -> (usize, usize) {
-        let addr = tile_start_addr + boundary * tile_num;
+    pub(super) fn get_color_from_tile<F: Fn(&VRAM, usize) -> u8>(vram: &VRAM, get_vram_byte: F, addr: usize,
+        flip_x: bool, flip_y: bool, bit_depth: usize, tile_x: usize, tile_y: usize, palette_num: usize) -> (usize, usize) {
         let tile_x = if flip_x { 7 - tile_x } else { tile_x };
         let tile_y = if flip_y { 7 - tile_y } else { tile_y };
         let tile = get_vram_byte(vram, addr + tile_y * bit_depth + tile_x / (8 / bit_depth)) as usize;
