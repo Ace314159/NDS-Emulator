@@ -150,6 +150,7 @@ impl HW {
             0x0400_0305 => self.gpu.powcnt1.read(1),
             0x0400_0306 => self.gpu.powcnt1.read(2),
             0x0400_0307 => self.gpu.powcnt1.read(3),
+            0x0400_0320 ..= 0x0400_06A3 => 0, // TODO: 3D Engine
             0x0400_1000 ..= 0x0400_1003 => self.gpu.engine_b.read_register(addr),
             0x0400_1004 ..= 0x0400_1007 => 0,
             0x0400_1008 ..= 0x0400_105F => self.gpu.engine_b.read_register(addr),
@@ -252,6 +253,7 @@ impl HW {
             0x0400_0305 => self.gpu.powcnt1.write(&mut self.scheduler, 1, value),
             0x0400_0306 => self.gpu.powcnt1.write(&mut self.scheduler, 2, value),
             0x0400_0307 => self.gpu.powcnt1.write(&mut self.scheduler, 3, value),
+            0x0400_0320 ..= 0x0400_06A3 => (), // TODO: 3D Engine
             0x0400_1000 ..= 0x0400_1003 => self.gpu.engine_b.write_register(&mut self.scheduler, addr, value),
             0x0400_1004 ..= 0x0400_1007 => (),
             0x0400_1008 ..= 0x0400_105F => self.gpu.engine_b.write_register(&mut self.scheduler, addr, value),
