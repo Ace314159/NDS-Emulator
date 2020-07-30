@@ -182,6 +182,15 @@ impl HW {
         }
     }
 
+    pub fn render_tiles(&self, engine: Engine, graphics_type: GraphicsType, extended: bool, bpp8: bool, slot: usize,
+        palette: usize, offset: usize) -> (Vec<u16>, usize, usize) {
+        let is_bg = graphics_type == GraphicsType::BG;
+        match engine {
+            Engine::A => self.gpu.engine_a.render_tiles(&self.gpu.vram, is_bg, extended, bpp8, slot, palette, offset),
+            Engine::B => self.gpu.engine_b.render_tiles(&self.gpu.vram, is_bg, extended, bpp8, slot, palette, offset),
+        }
+    }
+
     pub fn init_mem(mut self) -> Self {
         let addr = 0x027F_FE00 & (HW::MAIN_MEM_SIZE - 1);
         self.main_mem[addr..addr + 0x170].copy_from_slice(&self.cartridge.rom()[..0x170]);
@@ -201,7 +210,7 @@ impl HW {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum Engine {
     A = 0,
     B = 1,

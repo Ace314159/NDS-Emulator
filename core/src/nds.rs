@@ -63,6 +63,11 @@ impl NDS {
     pub fn render_map(&self, engine: Engine, bg_i: usize) -> (Vec<u16>, usize, usize) {
         self.hw.render_map(engine, bg_i)
     }
+
+    pub fn render_tiles(&self, engine: Engine, graphics_type: GraphicsType, extended: bool, bpp8: bool, slot: usize,
+        palette: usize, offset: usize) -> (Vec<u16>, usize, usize) {
+        self.hw.render_tiles(engine, graphics_type, extended, bpp8, slot, palette, offset)
+    }
 }
 
 pub const WIDTH: usize = crate::hw::GPU::WIDTH;
