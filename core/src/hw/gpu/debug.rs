@@ -46,7 +46,7 @@ impl<E: EngineType> Engine2D<E> {
                     
                     // Convert from tile to pixels
                     let (_, color_num) = Engine2D::<E>::get_color_from_tile(vram, VRAM::get_bg::<E>,
-                        tile_start_addr * 8 * bit_depth + tile_num, false, false, bit_depth,
+                        tile_start_addr + 8 * bit_depth * tile_num, false, false, bit_depth,
                         x % 8, y % 8, 0);
                     if color_num == 0 { continue }
                     pixels[y * width + x] = self.bg_palettes()[color_num] | 0x8000;
