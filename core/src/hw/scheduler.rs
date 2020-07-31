@@ -102,8 +102,8 @@ impl HW {
         let transfer_32 = channel.cnt.transfer_32;
         let irq = channel.cnt.irq;
         channel.cnt.enable = channel.cnt.start_timing != DMAOccasion::Immediate && channel.cnt.repeat;
-        info!("Running DMA{}: Writing {} values to {:08X} from {:08X}, size: {}", num, count, dest_addr,
-        src_addr, if transfer_32 { 32 } else { 16 });
+        info!("Running {:?} ARM{} DMA{}: Writing {} values to {:08X} from {:08X}, size: {}", channel.cnt.start_timing,
+        if is_nds9 { 9 } else { 7 }, num, count, dest_addr, src_addr, if transfer_32 { 32 } else { 16 });
 
         let (addr_change, addr_mask) = if transfer_32 { (4, 0x3) } else { (2, 0x1) };
         src_addr &= !addr_mask;

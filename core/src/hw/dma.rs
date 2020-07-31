@@ -109,7 +109,7 @@ impl IORegister for DMAChannel {
     }
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum DMAOccasion {
     Immediate,
     VBlank,
