@@ -99,6 +99,9 @@ impl IORegister for DMAChannel {
                 self.cnt.write(scheduler, 1, value);
                 if !prev_enable && self.cnt.enable {
                     self.latch();
+                    info!("Scheduled {:?} ARM{} DMA{}: Writing {} values to {:08X} from {:08X}, size: {}",
+                    self.cnt.start_timing, if self.is_nds9 { 9 } else { 7 }, self.num, self.count.count,
+                    self.dad.addr, self.sad.addr, if self.cnt.transfer_32 { 32 } else { 16 });
                     if self.cnt.start_timing == DMAOccasion::Immediate {
                         scheduler.run_now(Event::DMA(self.is_nds9, self.num))
                     }
