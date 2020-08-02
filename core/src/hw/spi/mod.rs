@@ -90,7 +90,7 @@ impl IORegister for CNT {
     
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 enum Device {
     Powerman = 0,
     Firmware = 1,
