@@ -129,7 +129,7 @@ impl Timer {
                     }
                 }
             },
-            3 => { self.cnt.write(scheduler, 1, value); () },
+            3 => self.cnt.write(scheduler, 1, value),
             _ => unreachable!(),
         }
     }
