@@ -81,12 +81,9 @@ impl GPU {
                 if self.dispstat.contains(DISPSTATFlags::VBLANK_IRQ_ENABLE) {
                     interrupts.insert(InterruptRequest::VBLANK)
                 }
+                self.rendered_frame = true;
             }
             self.dispstat.insert(DISPSTATFlags::VBLANK);
-        }
-
-        if self.vcount == GPU::HEIGHT as u16 && self.dot == 0 {
-            self.rendered_frame = true;
         }
 
         self.dot += 1;
