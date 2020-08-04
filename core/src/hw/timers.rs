@@ -82,6 +82,8 @@ impl Timer {
         self.start_cycle = global_cycle;
         // Syncs prescaler to global cycle
         let prescaler = Timers::PRESCALERS[self.cnt.prescaler as usize];
+        trace!("Starting NDS{} {} Timer{}: {} * 0x{:X}", if self.is_nds9 { 9 } else { 7 },
+        if self.is_count_up() { "Count-Up" } else { "Regular" }, self.index, prescaler, self.reload);
         // Add 1 for 1 cycle delay in timer start
         self.time_till_first_clock = prescaler - (global_cycle + 1) % prescaler;
         self.timer_len = prescaler * (0x10000 - self.reload as usize - 1);
@@ -110,6 +112,7 @@ impl Timer {
             0 => self.reload = self.reload & !0x00FF | (value as u16) << 0,
             1 => self.reload = self.reload & !0xFF00 | (value as u16) << 8,
             2 => {
+                if self.cnt.start { trace!("Stopping NDS{} Timer{}", if self.is_nds9 { 9 } else { 7 }, self.index) }
                 scheduler.remove(Event::TimerOverflow(self.is_nds9, self.index));
                 let prev_start = self.cnt.start;
                 if !self.is_count_up() && self.cnt.start {
