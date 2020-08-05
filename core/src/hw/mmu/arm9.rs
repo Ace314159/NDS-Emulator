@@ -36,6 +36,14 @@ impl HW {
     }
 
     pub fn arm9_write<T: MemoryValue>(&mut self, addr: u32, value: T) {
+        if addr == 0x213051C {
+            //error!("{:X}", value);
+            if value == num::cast::<u32, T>(0x215DAE8).unwrap() { error!("Writing"); self.p = true }
+        } // 0x0215DB00
+        if addr == 03808190 {
+            error!("{:X}", value);
+            //if self.p { println!("HERE: {:X}", value) }
+        }
         match MemoryRegion::from_addr(addr, &self.cp15) {
             MemoryRegion::ITCM => HW::write_mem(&mut self.itcm, addr & HW::ITCM_MASK, value),
             MemoryRegion::DTCM => HW::write_mem(&mut self.dtcm, addr & HW::DTCM_MASK, value),
@@ -60,7 +68,7 @@ impl HW {
 
     pub fn arm9_get_access_time<T: MemoryValue>(&mut self, _access_type: AccessType, _addr: u32) -> usize {
         // TODO: Use accurate timings
-        3
+        5
     }
 
     pub fn init_arm9(&mut self) -> u32 {
