@@ -22,10 +22,6 @@ impl HW {
     }
 
     pub fn arm7_write<T: MemoryValue>(&mut self, addr: u32, value: T) {
-        if addr == 0x03808A83 {
-            error!("HERE: {:X} {}", value, std::mem::size_of::<T>());
-            //println!("HERE: {:X}", value)
-        }
         match MemoryRegion::from_addr(addr) {
             MemoryRegion::BIOS => warn!("Writing to BIOS7 0x{:08x} = 0x{:X}", addr, value),
             MemoryRegion::MainMem => HW::write_mem(&mut self.main_mem, addr & HW::MAIN_MEM_MASK, value),
