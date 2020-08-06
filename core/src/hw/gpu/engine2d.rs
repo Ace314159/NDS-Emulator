@@ -261,27 +261,27 @@ impl<E: EngineType> Engine2D<E> {
         let y1 = self.winvs[window_i].coord1;
         let y2 = self.winvs[window_i].coord2;
         let vcount = vcount as u8; // Only lower 8 bits compared
-        let y_in_window = if y1 > y2 {
+        let y_not_in_window = if y1 > y2 {
             vcount < y1 && vcount >= y2
         } else {
             !(y1..y2).contains(&vcount)
         };
-        if y_in_window {
-            for dot_x in 0..GPU::WIDTH as u8 {
+        if y_not_in_window {
+            for dot_x in 0..GPU::WIDTH {
                 self.windows_lines[window_i][dot_x as usize] = false;
             }
             return
         }
         
-        let x1 = self.winhs[window_i].coord1;
-        let x2 = self.winhs[window_i].coord2;
+        let x1 = self.winhs[window_i].coord1 as usize;
+        let x2 = self.winhs[window_i].coord2 as usize;
         if x1 > x2 {
-            for dot_x in 0..GPU::WIDTH as u8 {
-                self.windows_lines[window_i][dot_x as usize] = dot_x >= x1 || dot_x < x2;
+            for dot_x in 0..GPU::WIDTH {
+                self.windows_lines[window_i][dot_x] = dot_x >= x1 || dot_x < x2;
             }
         } else {
-            for dot_x in 0..GPU::WIDTH as u8 {
-                self.windows_lines[window_i][dot_x as usize] = (x1..x2).contains(&dot_x);
+            for dot_x in 0..GPU::WIDTH {
+                self.windows_lines[window_i][dot_x] = (x1..x2).contains(&dot_x);
             }
         }
     }
