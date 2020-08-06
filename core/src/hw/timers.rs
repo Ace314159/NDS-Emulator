@@ -71,7 +71,9 @@ impl Timer {
         // Counter stores the reload value
         if cycles_passed >= self.time_till_first_clock {
             let cycles_passed = cycles_passed - self.time_till_first_clock;
-            self.counter + 1 + cycles_passed as u16 / Timers::PRESCALERS[self.cnt.prescaler as usize] as u16
+            let counter_change = cycles_passed / Timers::PRESCALERS[self.cnt.prescaler as usize];
+            assert!(counter_change < 0x1_0000);
+            self.counter + 1 + counter_change as u16
         } else { self.counter }
     }
 
