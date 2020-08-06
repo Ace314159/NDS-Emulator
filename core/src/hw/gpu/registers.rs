@@ -456,8 +456,8 @@ impl WindowControl {
 impl IORegister for WindowControl {
     fn read(&self, byte: usize) -> u8 {
         match byte {
-            0 => (self.color_special_enable as u8) << 5 | (self.obj_enable as u8) << 4 |
-                (self.bg3_enable as u8) << 3 | (self.bg2_enable as u8) << 2 | (self.bg1_enable as u8) << 1,
+            0 => (self.color_special_enable as u8) << 5 | (self.obj_enable as u8) << 4 | (self.bg3_enable as u8) << 3 |
+                (self.bg2_enable as u8) << 2 | (self.bg1_enable as u8) << 1 | (self.bg0_enable as u8) << 0,
             _ => unreachable!(),
         }
     }
