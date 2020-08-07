@@ -13,6 +13,9 @@ pub struct CP15 {
     ap_instr_region: u32,
     ext_ap_data_region: u32,
     ext_ap_instr_region: u32,
+    // PU Regions
+    pu_data_regions: [u32; 8],
+    pu_instr_regions: [u32; 8],
 }
 
 impl CP15 {
@@ -28,6 +31,9 @@ impl CP15 {
             ap_instr_region: 0,
             ext_ap_data_region: 0,
             ext_ap_instr_region: 0,
+            // PU Regions
+            pu_data_regions: [0; 8],
+            pu_instr_regions: [0; 8],
         }
     }
 
@@ -37,6 +43,7 @@ impl CP15 {
             0 if (m, p) == (0, 1) => 0x0F0D2112, // Cache Type Register
             1 => self.read_control_reg(m, p),
             5 => self.read_ap_regions(m, p),
+            6 => self.read_pu_regions(m, p),
             9 => self.read_cache_control(m, p),
             _ => todo!(),
         }
@@ -79,6 +86,14 @@ impl CP15 {
         }
     }
 
+    fn read_pu_regions(&self, m: u32, p: u32) -> u32 {
+        match (m, p) {
+            (region, 0) => self.pu_data_regions[region as usize],
+            (region, 1) => self.pu_instr_regions[region as usize],
+            _ => todo!(),
+        }
+    }
+
     fn write_control_reg(&mut self, m: u32, p: u32, value: u32) {
         if m != 0 || p != 0 { warn!("m and p are not 0 for CP15 Control Register Write: {} {}", m, p); return }
         warn!("Writing to CP15 Control Register 0x{:X}", value);
@@ -110,10 +125,10 @@ impl CP15 {
     }
 
     fn write_pu_regions(&mut self, m: u32, p: u32, value: u32) {
-        match p {
-            0 => warn!("PU Data/Unified Region {}: 0x{:X}", m, value),
-            1 => warn!("PU Instruction Region {}: 0x{:X}", m, value),
-            _ => warn!("Ignoring MMU Fault Address Write : C{}, C{}, {}: 0x{:X}", 6, m, p, value),
+        match (m, p) {
+            (region, 0) => self.pu_data_regions[region as usize] = value & !(0x3F << 6),
+            (region, 1) => self.pu_instr_regions[region as usize] = value & !(0x3F << 6),
+            _ => todo!(),
         }
     }
 
