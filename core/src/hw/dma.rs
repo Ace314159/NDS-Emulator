@@ -132,20 +132,20 @@ impl DMAOccasion {
                 0 => DMAOccasion::Immediate,
                 1 => DMAOccasion::VBlank,
                 2 => DMAOccasion::HBlank,
-                3 => { warn!("Start Of Display DMA not implemented!"); DMAOccasion::StartOfDisplay },
-                4 => { warn!("Main Memory Display DMA not implemented!"); DMAOccasion::MainMemoryDisplay },
-                5 => { warn!("DS Cartridge DMA not implemented!"); DMAOccasion::DSCartridge },
-                6 => { warn!("GBA Cartridge DMA not implemented!"); DMAOccasion::GBACartridge },
-                7 => { warn!("Geometry Command FIFO DMA not implemented!"); DMAOccasion::GeometryCommandFIFO },
+                3 => { warn!("ARM9 Start Of Display DMA not implemented!"); DMAOccasion::StartOfDisplay },
+                4 => { warn!("ARM9 Main Memory Display DMA not implemented!"); DMAOccasion::MainMemoryDisplay },
+                5 => { warn!("ARM9 DS Cartridge DMA not implemented!"); DMAOccasion::DSCartridge },
+                6 => { warn!("ARM9 GBA Cartridge DMA not implemented!"); DMAOccasion::GBACartridge },
+                7 => { warn!("ARM9 Geometry Command FIFO DMA not implemented!"); DMAOccasion::GeometryCommandFIFO },
                 _ => unreachable!(),
             }
         } else {
             match start_timing & 0x3 {
                 0 => DMAOccasion::Immediate,
-                1 => { warn!("VBlank DMA not implemented!"); DMAOccasion::VBlank },
-                2 => { warn!("DS Cartridge DMA not implemented!"); DMAOccasion::DSCartridge },
-                3 if dma_num % 2 == 0 => { warn!("WirelessInterrupt DMA not implemented!"); DMAOccasion::WirelessInterrupt },
-                3 => { warn!("GBA Cartridge DMA not implemented!"); DMAOccasion::GBACartridge },
+                1 => { warn!("ARM7 VBlank DMA not implemented!"); DMAOccasion::VBlank },
+                2 => { warn!("ARM7 DS Cartridge DMA not implemented!"); DMAOccasion::DSCartridge },
+                3 if dma_num % 2 == 0 => { warn!("ARM7 WirelessInterrupt DMA not implemented!"); DMAOccasion::WirelessInterrupt },
+                3 => { warn!("ARM7 GBA Cartridge DMA not implemented!"); DMAOccasion::GBACartridge },
                 _ => unreachable!(),
             }
         }
