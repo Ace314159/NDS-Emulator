@@ -448,14 +448,14 @@ impl<E: EngineType> Engine2D<E> {
         let tile_start_addr = self.calc_tile_start_addr(&bgcnt);
         let map_start_addr = self.calc_map_start_addr(&bgcnt);
         let bit_depth = if bgcnt.bpp8 { 8 } else { 4 }; // Also bytes per row of tile
-        let (mosaic_x, mosaic_y) = if bgcnt.mosaic {
+        /*let (mosaic_x, mosaic_y) = if bgcnt.mosaic {
             (self.mosaic.bg_size.h_size as usize, self.mosaic.bg_size.v_size as usize)
-        } else { (1, 1) };
+        } else { (1, 1) };*/
 
         let dot_y = vcount as usize;
         for dot_x in 0..GPU::WIDTH {
-            let x = (dot_x + x_offset) / mosaic_x * mosaic_x;
-            let y = (dot_y + y_offset) / mosaic_y * mosaic_y;
+            let x = dot_x + x_offset;// / mosaic_x * mosaic_x;
+            let y = dot_y + y_offset;// / mosaic_y * mosaic_y;
             // Get Screen Entry
             let mut map_x = x / 8;
             let mut map_y = y / 8;
