@@ -6,7 +6,7 @@ use super::EngineType;
 pub struct VRAM {
     cnts: [VRAMCNT; 9],
     banks: [Vec<u8>; 9],
-    mappings: HashMap<u32, Mapping>, // Maps from beginning of 16KB chunk to Mapping - TODO: Switch to using array
+    mappings: HashMap<u32, Vec<Mapping>>, // Maps from beginning of 16KB chunk to Mapping - TODO: Switch to using array
     mapping_ranges: [Range<u32>; 9], // Specifies Range that each bank encompasses
     // Functions
     lcdc_enabled: [bool; 9],
@@ -85,7 +85,11 @@ impl VRAM {
 
         if self.cnts[index].enabled {
             for addr in self.mapping_ranges[index].clone().step_by(VRAM::MAPPING_LEN) {
-                self.mappings.remove(&addr);
+                if let Some(mapping_vec) = self.mappings.get_mut(&addr) {
+                    if let Some(i) = mapping_vec.iter().position(|&x| x.bank == bank) {
+                        mapping_vec.swap_remove(i);
+                    }
+                }
             }
             match (index, self.cnts[index].mst) {
                 (index, 0) => {
@@ -128,7 +132,8 @@ impl VRAM {
                 let start_addr = VRAM::LCDC_START_ADDRESSES[index];
                 self.mapping_ranges[index] = start_addr..start_addr + VRAM::BANKS_LEN[index] as u32;
                 for addr in self.mapping_ranges[index].clone().step_by(VRAM::MAPPING_LEN) {
-                    self.mappings.insert(addr, Mapping::new(bank, start_addr));
+                    self.mappings.entry(addr).or_insert_with(Vec::new)
+                    .push(Mapping::new(bank, start_addr));
                 }
                 assert!(!self.lcdc_enabled[index]);
                 self.lcdc_enabled[index] = true;
@@ -259,14 +264,20 @@ impl VRAM {
     }
 
     pub fn get_mem(&self, addr: u32) -> Option<(&Vec<u8>, u32)> {
-        if let Some(mapping) = self.mappings.get(&(addr & !(VRAM::MAPPING_LEN as u32 - 1))) {
-            Some((&self.banks[mapping.bank as usize], addr - mapping.offset))
+        if let Some(mapping_vec) = self.mappings.get(&(addr & !(VRAM::MAPPING_LEN as u32 - 1))) {
+            assert!(mapping_vec.len() < 2); // TODO: Support reading overlapping banks
+            if let Some(mapping) = mapping_vec.first() {
+                Some((&self.banks[mapping.bank as usize], addr - mapping.offset))
+            } else { None }
         } else { None }
     }
 
     pub fn get_mem_mut(&mut self, addr: u32) -> Option<(&mut Vec<u8>, u32)> {
-        if let Some(mapping) = self.mappings.get(&(addr & !(VRAM::MAPPING_LEN as u32 - 1))) {
-            Some((&mut self.banks[mapping.bank as usize], addr - mapping.offset))
+        if let Some(mapping_vec) = self.mappings.get(&(addr & !(VRAM::MAPPING_LEN as u32 - 1))) {
+            assert!(mapping_vec.len() < 2); // TODO: Support writing overlapping banks
+            if let Some(mapping) = mapping_vec.first() {
+                Some((&mut self.banks[mapping.bank as usize], addr - mapping.offset))
+            } else { None }
         } else { None }
     }
 
@@ -274,13 +285,12 @@ impl VRAM {
         slot * 8 * 0x400 + color_num * 2
     }
 
-    fn add_mapping(mapping_ranges: &mut [Range<u32>; 9], mappings: &mut HashMap<u32, Mapping>,
+    fn add_mapping(mapping_ranges: &mut [Range<u32>; 9], mappings: &mut HashMap<u32, Vec<Mapping>>,
         start_addr: u32, bank: Bank, mask: u32, arr: &mut [Option<Mapping>]) {
         mapping_ranges[bank as usize] = start_addr..start_addr + VRAM::BANKS_LEN[bank as usize] as u32;
         for (i, addr) in mapping_ranges[bank as usize].clone().step_by(VRAM::MAPPING_LEN).enumerate() {
             // TODO: Support overlapping banks
-            assert!(!mappings.contains_key(&addr));
-            mappings.insert(addr, Mapping::new(bank, start_addr));
+            mappings.entry(addr).or_insert_with(Vec::new).push(Mapping::new(bank, start_addr));
             arr[(addr & mask) as usize / VRAM::MAPPING_LEN] =
                 Some(Mapping::new(bank, (VRAM::MAPPING_LEN * i) as u32));
         }
