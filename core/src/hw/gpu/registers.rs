@@ -271,7 +271,7 @@ impl IORegister for BGCNT {
         match byte {
             0 => {
                 self.priority = value & 0x3;
-                self.tile_block = value >> 2 & 0x3;
+                self.tile_block = value >> 2 & 0xF;
                 self.mosaic = value >> 6 & 0x1 != 0;
                 self.bpp8 = value >> 7 & 0x1 != 0;
             },
