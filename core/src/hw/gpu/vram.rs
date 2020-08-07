@@ -119,7 +119,7 @@ impl VRAM {
                 (VRAM::BANK_I, 3) => VRAM::remove_no_addr_mapping(&mut self.engine_b_obj_ext_pal,
                     0, 8 * 0x400),
                 (VRAM::BANK_C ..= VRAM::BANK_D, 2) => self.remove_arm7_wram_mapping(self.cnts[index].offset),
-                (_index, 3 ..= 5) => todo!(),
+                (_index, 3 ..= 5) => warn!("Unimplemented VRAM Mapping {:?}: {}", bank, self.cnts[index].mst),
                 _ => unreachable!(),
             }
         }
@@ -166,7 +166,7 @@ impl VRAM {
             (VRAM::BANK_I, 3) => VRAM::add_no_addr_mapping(bank, &mut self.engine_b_obj_ext_pal,
                 0, 8 * 0x400),
             (VRAM::BANK_C ..= VRAM::BANK_D, 2) => self.add_arm7_wram_mapping(bank, self.cnts[index].offset),
-            (_index, 3 ..= 5) => todo!(),
+            (_index, 3 ..= 5) => warn!("Unimplemented VRAM Mapping {:?}: {}", bank, self.cnts[index].mst),
             _ => unreachable!(),
         }
     }
