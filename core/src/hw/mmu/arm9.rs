@@ -60,7 +60,7 @@ impl HW {
 
     pub fn arm9_get_access_time<T: MemoryValue>(&mut self, _access_type: AccessType, _addr: u32) -> usize {
         // TODO: Use accurate timings
-        5
+        1
     }
 
     pub fn init_arm9(&mut self) -> u32 {
