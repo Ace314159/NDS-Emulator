@@ -18,6 +18,7 @@ pub struct VRAM {
     engine_b_obj: [Option<Mapping>; 8],
     engine_b_bg_ext_pal: [Option<Mapping>; 2],
     engine_b_obj_ext_pal: [Option<Mapping>; 1],
+    arm7_wram: [Option<Bank>; 2],
 }
 
 impl VRAM {
@@ -74,6 +75,7 @@ impl VRAM {
             engine_b_obj: [None; 8],
             engine_b_bg_ext_pal: [None; 2],
             engine_b_obj_ext_pal: [None; 1],
+            arm7_wram: [None; 2],
         }
     }
 
@@ -112,6 +114,7 @@ impl VRAM {
                     0, VRAM::BANKS_LEN[index]),
                 (VRAM::BANK_I, 3) => VRAM::remove_no_addr_mapping(&mut self.engine_b_obj_ext_pal,
                     0, 8 * 0x400),
+                (VRAM::BANK_C ..= VRAM::BANK_D, 2) => self.remove_arm7_wram_mapping(self.cnts[index].offset),
                 (_index, 3 ..= 5) => todo!(),
                 _ => unreachable!(),
             }
@@ -157,6 +160,7 @@ impl VRAM {
                 0, VRAM::BANKS_LEN[index]),
             (VRAM::BANK_I, 3) => VRAM::add_no_addr_mapping(bank, &mut self.engine_b_obj_ext_pal,
                 0, 8 * 0x400),
+            (VRAM::BANK_C ..= VRAM::BANK_D, 2) => self.add_arm7_wram_mapping(bank, self.cnts[index].offset),
             (_index, 3 ..= 5) => todo!(),
             _ => unreachable!(),
         }
@@ -228,6 +232,32 @@ impl VRAM {
         }
     }
 
+    pub fn get_arm7_wram(&self, addr: u32) -> Option<(&Vec<u8>, u32)> {
+        let addr = addr - 0x0600_0000;
+        let len = VRAM::BANKS_LEN[VRAM::BANK_C] as u32;
+        // TODO: Figure out behavior
+        assert!(addr < len * 2);
+        let (bank, addr) = if addr < len {
+            (self.arm7_wram[0], addr)
+        } else {
+            (self.arm7_wram[1], addr - len)
+        };
+        if let Some(bank) = bank { Some((&self.banks[bank as usize], addr)) } else { None }
+    }
+
+    pub fn get_arm7_wram_mut(&mut self, addr: u32) -> Option<(&mut Vec<u8>, u32)> {
+        let addr = addr - 0x0600_0000;
+        let len = VRAM::BANKS_LEN[VRAM::BANK_C] as u32;
+        // TODO: Figure out behavior
+        assert!(addr < len * 2);
+        let (bank, addr) = if addr < len {
+            (self.arm7_wram[0], addr)
+        } else {
+            (self.arm7_wram[1], addr - len)
+        };
+        if let Some(bank) = bank { Some((&mut self.banks[bank as usize], addr)) } else { None }
+    }
+
     pub fn get_mem(&self, addr: u32) -> Option<(&Vec<u8>, u32)> {
         if let Some(mapping) = self.mappings.get(&(addr & !(VRAM::MAPPING_LEN as u32 - 1))) {
             Some((&self.banks[mapping.bank as usize], addr - mapping.offset))
@@ -251,7 +281,7 @@ impl VRAM {
             // TODO: Support overlapping banks
             assert!(!mappings.contains_key(&addr));
             mappings.insert(addr, Mapping::new(bank, start_addr));
-            arr[(addr & mask) as usize / VRAM::MAPPING_LEN] = 
+            arr[(addr & mask) as usize / VRAM::MAPPING_LEN] =
                 Some(Mapping::new(bank, (VRAM::MAPPING_LEN * i) as u32));
         }
     }
@@ -274,6 +304,16 @@ impl VRAM {
         for addr in (0..size).step_by(VRAM::MAPPING_LEN) {
             arr[(addr + offset) / VRAM::MAPPING_LEN] = None;
         }
+    }
+
+    fn add_arm7_wram_mapping(&mut self, bank: Bank, offset: u8) {
+        assert!(offset < 2);
+        self.arm7_wram[offset as usize] = Some(bank);
+    }
+
+    fn remove_arm7_wram_mapping(&mut self, offset: u8) {
+        assert!(offset < 2);
+        self.arm7_wram[offset as usize] = None;
     }
 }
 // Corresponds to a bank and address offset into that bank
