@@ -79,7 +79,16 @@ impl HW {
                     timers.timers[timer].create_event(&mut self.scheduler, 0);
                 }
             },
-            Event::ROMWordTransfered => self.cartridge.update_word(),
+            Event::ROMWordTransfered => {
+                self.cartridge.update_word();
+                let mut events = Vec::new();
+                for channel in self.dma9.channels.iter().chain(self.dma7.channels.iter()) {
+                    if channel.cnt.start_timing == DMAOccasion::DSCartridge {
+                        events.push(Event::DMA(channel.is_nds9, channel.num));
+                    }
+                }
+                for event in events.iter() { self.handle_event(*event) }
+            },
             Event::ROMBlockEnded(is_arm7) => if self.cartridge.end_block() {
                 let interrupts = if is_arm7 { &mut self.interrupts7 } else { &mut self.interrupts9 };
                 interrupts.request |= InterruptRequest::GAME_CARD_TRANSFER_COMPLETION;
