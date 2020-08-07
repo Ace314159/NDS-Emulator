@@ -279,6 +279,7 @@ impl HW {
     }
 }
 
+#[derive(PartialEq)]
 pub enum ARM9MemoryRegion {
     ITCM,
     DTCM,
