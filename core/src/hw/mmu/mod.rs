@@ -3,6 +3,7 @@ pub mod arm9;
 pub mod cp15;
 
 use std::mem::size_of;
+use std::ops::BitOrAssign;
 pub use cp15::CP15;
 use crate::num::{self, cast::FromPrimitive, NumCast, PrimInt, Unsigned};
 use super::{HW, Scheduler, gpu::VRAM};
@@ -77,13 +78,13 @@ impl HW {
         }
     }
 
-    fn read_mem<T: MemoryValue>(mem: &Vec<u8>, addr: u32) -> T {
+    pub(super) fn read_mem<T: MemoryValue>(mem: &Vec<u8>, addr: u32) -> T {
         unsafe {
             *(&mem[addr as usize] as *const u8 as *const T)
         }
     }
 
-    fn write_mem<T: MemoryValue>(mem: &mut Vec<u8>, addr: u32, value: T) {
+    pub(super) fn write_mem<T: MemoryValue>(mem: &mut Vec<u8>, addr: u32, value: T) {
         unsafe {
             *(&mut mem[addr as usize] as *mut u8 as *mut T) = value;
         }
@@ -116,7 +117,7 @@ impl HW {
     }
 }
 
-pub trait MemoryValue: Unsigned + PrimInt + NumCast + FromPrimitive + std::fmt::UpperHex {}
+pub trait MemoryValue: Unsigned + PrimInt + NumCast + FromPrimitive + std::fmt::UpperHex + BitOrAssign {}
 
 impl MemoryValue for u8 {}
 impl MemoryValue for u16 {}

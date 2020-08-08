@@ -1,5 +1,5 @@
 use crate::num;
-use super::{AccessType, CP15, HW, MemoryValue, IORegister, VRAM};
+use super::{AccessType, CP15, HW, MemoryValue, IORegister};
 use crate::hw::gpu::{GPU, Engine2D, EngineType};
 
 type MemoryRegion = ARM9MemoryRegion;
@@ -26,7 +26,7 @@ impl HW {
                 &Engine2D::read_palette_ram, addr as u32),
             MemoryRegion::Palette => HW::read_from_bytes(&self.gpu.engine_b,
                 &Engine2D::read_palette_ram, addr as u32),
-            MemoryRegion::VRAM => self.read_vram(VRAM::get_mem, addr),
+            MemoryRegion::VRAM => self.gpu.vram.read(addr),
             MemoryRegion::OAM if addr & 0x7FFF < 0x400 => HW::read_mem(&self.gpu.engine_a.oam, addr & GPU::OAM_MASK as u32),
             MemoryRegion::OAM => HW::read_mem(&self.gpu.engine_b.oam, addr & GPU::OAM_MASK as u32),
             MemoryRegion::GBAROM => self.read_gba_rom(false, addr),
@@ -48,7 +48,7 @@ impl HW {
             MemoryRegion::IO => HW::write_from_bytes(self, &HW::arm9_write_io_register, addr, value),
             MemoryRegion::Palette if addr & 0x7FFF < 0x400 => HW::write_palette_ram(&mut self.gpu.engine_a, addr, value),
             MemoryRegion::Palette => HW::write_palette_ram(&mut self.gpu.engine_b, addr, value),
-            MemoryRegion::VRAM => self.write_vram(VRAM::get_mem_mut, addr, value),
+            MemoryRegion::VRAM => self.gpu.vram.write(addr, value),
             MemoryRegion::OAM if addr & 0x7FFF < 0x400 => HW::write_mem(&mut self.gpu.engine_a.oam,
                 addr & GPU::OAM_MASK as u32, value),
             MemoryRegion::OAM => HW::write_mem(&mut self.gpu.engine_b.oam, addr & GPU::OAM_MASK as u32, value),
