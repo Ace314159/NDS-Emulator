@@ -478,18 +478,29 @@ impl ARM9 {
     }
 
     // THUMB.19: long branch with link
-    fn branch_with_link<H: InstructionFlag>(&mut self, hw: &mut HW, instr: u16) {
-        assert_eq!(instr >> 12, 0xF);
+    fn branch_with_link<X: InstructionFlag, H: InstructionFlag>(&mut self, hw: &mut HW, instr: u16) {
+        assert_eq!(instr >> 13, 0x7);
         let offset = (instr & 0x7FF) as u32;
         if H::bool() { // Second Instruction
             self.instruction_prefetch::<u16>(hw, AccessType::N);
             let next_instr_pc = self.regs.pc.wrapping_sub(2);
             self.regs.pc = self.regs.get_reg(Reg::R14).wrapping_add(offset << 1);
             self.regs.set_reg(Reg::R14, next_instr_pc | 0x1);
-            self.fill_thumb_instr_buffer(hw);
+            if X::bool() { // BL
+                self.fill_thumb_instr_buffer(hw);
+            } else { // BLX
+                if self.regs.pc & 0x1 != 0 {
+                    self.regs.pc = self.regs.pc & !0x1;
+                    self.fill_thumb_instr_buffer(hw);
+                } else {
+                    self.regs.pc = self.regs.pc & !0x2;
+                    self.regs.set_t(false);
+                    self.fill_arm_instr_buffer(hw);
+                }
+            }
         } else { // First Instruction
+            assert_eq!(X::bool(), true);
             let offset = if offset >> 10 & 0x1 != 0 { 0xFFFF_F800 | offset } else { offset };
-            assert_eq!(instr >> 11, 0b11110);
             self.regs.set_reg(Reg::R14, self.regs.pc.wrapping_add(offset << 12));
             self.instruction_prefetch::<u16>(hw, AccessType::S);
         }
@@ -524,7 +535,7 @@ pub(super) fn gen_lut() -> [InstructionHandler<u16>; 256] {
         else if opcode & 0b1111_1111 == 0b1101_1111 { ARM9::thumb_software_interrupt }
         else if opcode & 0b1111_0000 == 0b1101_0000 { compose_instr_handler!(cond_branch, skeleton, 11, 10, 9, 8) }
         else if opcode & 0b1111_1000 == 0b1110_0000 { ARM9::uncond_branch }
-        else if opcode & 0b1111_0000 == 0b1111_0000 { compose_instr_handler!(branch_with_link, skeleton, 11) }
+        else if opcode & 0b1110_0000 == 0b1110_0000 { compose_instr_handler!(branch_with_link, skeleton, 12, 11) }
         else { ARM9::undefined_instr_thumb };
     }
 
