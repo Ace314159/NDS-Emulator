@@ -19,7 +19,7 @@ pub struct VRAM {
     engine_b_obj: Vec<Vec<Bank>>,
     engine_b_bg_ext_pal: Vec<Vec<Bank>>,
     engine_b_obj_ext_pal: Vec<Vec<Bank>>,
-    arm7_wram: [Option<Bank>; 2],
+    arm7_wram: Vec<Vec<Bank>>,
 }
 
 impl VRAM {
@@ -78,7 +78,7 @@ impl VRAM {
             engine_b_obj: create_vecs(8),
             engine_b_bg_ext_pal: create_vecs(2),
             engine_b_obj_ext_pal: create_vecs(1),
-            arm7_wram: [None; 2],
+            arm7_wram: create_vecs(2),
         }
     }
 
@@ -113,7 +113,7 @@ impl VRAM {
                     VRAM::remove_mapping(&mut self.engine_b_bg_ext_pal, bank, 0, None),
                 (VRAM::BANK_I, 3) =>
                     VRAM::remove_mapping(&mut self.engine_b_obj_ext_pal, bank, 0, Some(8 * 0x400)),
-                (VRAM::BANK_C ..= VRAM::BANK_D, 2) => self.remove_arm7_wram_mapping(self.cnts[index].offset),
+                (VRAM::BANK_C ..= VRAM::BANK_D, 2) => self.remove_arm7_wram_mapping(bank, self.cnts[index].offset),
                 (_index, 3 ..= 5) => warn!("Unimplemented VRAM Mapping {:?}: {}", bank, self.cnts[index].mst),
                 _ => unreachable!(),
             }
@@ -155,7 +155,18 @@ impl VRAM {
         }
     }
 
-    pub fn read<T: MemoryValue>(&self, addr: u32) -> T {
+    pub fn arm7_read<T: MemoryValue>(&self, addr: u32) -> T {
+        let addr = (addr as usize) & (2 * VRAM::BANKS_LEN[VRAM::BANK_C] - 1);
+        let index = (addr as usize) / VRAM::BANKS_LEN[VRAM::BANK_C];
+        let addr = addr & (VRAM::BANKS_LEN[VRAM::BANK_C] - 1);
+        let mut value = num::zero();
+        for bank in self.arm7_wram[index].iter() {
+            value |= HW::read_mem(&self.banks[*bank as usize], addr as u32);
+        }
+        value
+    }
+
+    pub fn arm9_read<T: MemoryValue>(&self, addr: u32) -> T {
         // TODO: Optimize - Slower than previous approach
         let index = addr as usize / VRAM::MAPPING_LEN;
         let addr = addr as usize;
@@ -175,7 +186,7 @@ impl VRAM {
         }
     }
 
-    pub fn write<T: MemoryValue>(&mut self, addr: u32, value: T) {
+    pub fn arm9_write<T: MemoryValue>(&mut self, addr: u32, value: T) {
         // TODO: Optimize - Slower than previous approach
         let index = addr as usize / VRAM::MAPPING_LEN;
         let addr = addr as usize;
@@ -191,6 +202,15 @@ impl VRAM {
             VRAM::LCDC_OFFSET => VRAM::write_mapping(&mut self.banks,
             &self.lcdc[(addr & 0xF_C000) / VRAM::MAPPING_LEN], addr, value),
             _ => unreachable!(),
+        }
+    }
+
+    pub fn arm7_write<T: MemoryValue>(&mut self, addr: u32, value: T) {
+        let addr = (addr as usize) & (2 * VRAM::BANKS_LEN[VRAM::BANK_C] - 1);
+        let index = (addr as usize) / VRAM::BANKS_LEN[VRAM::BANK_C];
+        let addr = addr & (VRAM::BANKS_LEN[VRAM::BANK_C] - 1);
+        for bank in self.arm7_wram[index].iter() {
+            HW::write_mem(&mut self.banks[*bank as usize], addr as u32, value);
         }
     }
 
@@ -232,32 +252,6 @@ impl VRAM {
         }
     }
 
-    pub fn get_arm7_wram(&self, addr: u32) -> Option<(&Vec<u8>, u32)> {
-        let addr = addr - 0x0600_0000;
-        let len = VRAM::BANKS_LEN[VRAM::BANK_C] as u32;
-        // TODO: Figure out behavior
-        assert!(addr < len * 2);
-        let (bank, addr) = if addr < len {
-            (self.arm7_wram[0], addr)
-        } else {
-            (self.arm7_wram[1], addr - len)
-        };
-        if let Some(bank) = bank { Some((&self.banks[bank as usize], addr)) } else { None }
-    }
-
-    pub fn get_arm7_wram_mut(&mut self, addr: u32) -> Option<(&mut Vec<u8>, u32)> {
-        let addr = addr - 0x0600_0000;
-        let len = VRAM::BANKS_LEN[VRAM::BANK_C] as u32;
-        // TODO: Figure out behavior
-        assert!(addr < len * 2);
-        let (bank, addr) = if addr < len {
-            (self.arm7_wram[0], addr)
-        } else {
-            (self.arm7_wram[1], addr - len)
-        };
-        if let Some(bank) = bank { Some((&mut self.banks[bank as usize], addr)) } else { None }
-    }
-
     
     fn read_mapping<T: MemoryValue>(banks: &[Vec<u8>], mapping: &Vec<Bank>, addr: usize) -> T {
         let mut value = num::zero();
@@ -294,12 +288,15 @@ impl VRAM {
 
     fn add_arm7_wram_mapping(&mut self, bank: Bank, offset: u8) {
         assert!(offset < 2);
-        self.arm7_wram[offset as usize] = Some(bank);
+        self.arm7_wram[offset as usize].push(bank);
     }
 
-    fn remove_arm7_wram_mapping(&mut self, offset: u8) {
+    fn remove_arm7_wram_mapping(&mut self, bank: Bank, offset: u8) {
         assert!(offset < 2);
-        self.arm7_wram[offset as usize] = None;
+        let vec = &mut self.arm7_wram[offset as usize];
+        if let Some(pos) = vec.iter().position(|b| *b == bank) {
+            vec.swap_remove(pos);
+        }
     }
 
     fn calc_ext_pal_addr(&self, slot: usize, color_num: usize) -> usize {

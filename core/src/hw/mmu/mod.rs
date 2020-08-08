@@ -6,25 +6,11 @@ use std::mem::size_of;
 use std::ops::BitOrAssign;
 pub use cp15::CP15;
 use crate::num::{self, cast::FromPrimitive, NumCast, PrimInt, Unsigned};
-use super::{HW, Scheduler, gpu::VRAM};
+use super::{HW, Scheduler};
 
 impl HW {
     const MAIN_MEM_MASK: u32 = HW::MAIN_MEM_SIZE as u32 - 1;
     const IWRAM_MASK: u32 = HW::IWRAM_SIZE as u32 - 1;
-
-    fn read_vram<F, T: MemoryValue>(&self, mem_fn: F, addr: u32) -> T
-        where F: Fn(&VRAM, u32) -> Option<(&Vec<u8>, u32)> {
-        if let Some((mem, addr)) = mem_fn(&self.gpu.vram, addr) {
-            HW::read_mem(mem, addr)
-        } else { num::zero() }
-    }
-
-    fn write_vram<F, T: MemoryValue>(&mut self, mem_fn: F, addr: u32, value: T)
-        where F: Fn(&mut VRAM, u32) -> Option<(&mut Vec<u8>, u32)> {
-        if let Some((mem, addr)) = mem_fn(&mut self.gpu.vram, addr) {
-            HW::write_mem(mem, addr, value)
-        }
-    }
 
     // TODO: Replace with const generic
     fn ipc_fifo_recv<T: MemoryValue>(&mut self, is_arm7: bool, addr: u32) -> T {

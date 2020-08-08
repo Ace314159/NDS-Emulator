@@ -1,4 +1,4 @@
-use super::{AccessType, HW, MemoryValue, IORegister, VRAM};
+use super::{AccessType, HW, MemoryValue, IORegister};
 
 type MemoryRegion = ARM7MemoryRegion;
 
@@ -16,7 +16,7 @@ impl HW {
             MemoryRegion::IWRAM => HW::read_mem(&self.iwram, addr & HW::IWRAM_MASK),
             MemoryRegion::IO if (0x0410_0000 ..= 0x0410_0003).contains(&addr) => self.ipc_fifo_recv(true, addr),
             MemoryRegion::IO => HW::read_from_bytes(self, &HW::arm7_read_io_register, addr),
-            MemoryRegion::VRAM => self.read_vram(VRAM::get_arm7_wram, addr),
+            MemoryRegion::VRAM => self.gpu.vram.arm7_read(addr),
             MemoryRegion::GBAROM => self.read_gba_rom(true, addr),
             MemoryRegion::GBARAM => todo!(),
         }
@@ -34,7 +34,7 @@ impl HW {
             MemoryRegion::IO if (0x0400_0188 ..= 0x0400_018B).contains(&addr) =>
                 self.ipc_fifo_send(true, addr, value),
             MemoryRegion::IO => HW::write_from_bytes(self, &HW::arm7_write_io_register, addr, value),
-            MemoryRegion::VRAM => self.write_vram(VRAM::get_arm7_wram_mut, addr, value),
+            MemoryRegion::VRAM => self.gpu.vram.arm7_write(addr, value),
             MemoryRegion::GBAROM => (),
             MemoryRegion::GBARAM => todo!(),
         }
