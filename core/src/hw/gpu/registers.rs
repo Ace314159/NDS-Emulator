@@ -686,6 +686,77 @@ impl IORegister for BLDY {
     }
 }
 
+#[derive(Clone, Copy)]
+pub enum MasterBrightMode {
+    Disable = 0,
+    Up = 1,
+    Down = 2,
+}
+
+impl MasterBrightMode {
+    pub fn from_bits(value: u8) -> Self {
+        match value {
+            0 => MasterBrightMode::Disable,
+            1 => MasterBrightMode::Up,
+            2 => MasterBrightMode::Down,
+            _ => unreachable!(),
+        }
+    }
+}
+
+pub struct MasterBright {
+    factor: u8,
+    mode: MasterBrightMode,
+}
+
+impl MasterBright {
+    pub fn new() -> Self {
+        MasterBright {
+            factor: 0,
+            mode: MasterBrightMode::Disable,
+        }
+    }
+
+    pub fn apply(&self, color: u16) -> u16 {
+        let split_channels = |color: u16| [ color >> 0 & 0x1F, color >> 5 & 0x1F, color >> 10 & 0x1F];
+        let combine_channels = |channels: [u16; 3]|
+            (channels[0] << 0) | (channels[1] << 5) | (channels[2] << 10);
+        match self.mode {
+            MasterBrightMode::Disable => color,
+            MasterBrightMode::Up => {
+                let channels = split_channels(color);
+                let apply = |channel| channel + (0x1F - channel) * (self.factor as u16) / 16;
+                combine_channels([apply(channels[0]), apply(channels[1]), apply(channels[2])])
+            },
+            MasterBrightMode::Down => {
+                let channels = split_channels(color);
+                let apply = |channel| channel - channel * (self.factor as u16) / 16;
+                combine_channels([apply(channels[0]), apply(channels[1]), apply(channels[2])])
+            },
+        }
+    }
+}
+
+impl IORegister for MasterBright {
+    fn read(&self, byte: usize) -> u8 {
+        match byte {
+            0 => { warn!("Reading MASTER_BRIGHT - May be inaccurate"); self.factor },
+            1 => (self.mode as u8) << 6,
+            2 | 3 => 0,
+            _ => unreachable!(),
+        }
+    }
+
+    fn write(&mut self, __scheduler: &mut Scheduler, byte: usize, value: u8) {
+        match byte {
+            0 => self.factor = std::cmp::min(16, value & 0x1F),
+            1 => self.mode = MasterBrightMode::from_bits(value >> 6 & 0x3),
+            2 | 3 => (),
+            _ => unreachable!(),
+        }
+    }
+}
+
 bitflags! {
     pub struct POWCNT1: u32 {
         const ENABLE_LCDS = 1 << 0;

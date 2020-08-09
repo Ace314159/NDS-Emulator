@@ -18,6 +18,7 @@ pub struct Engine2D<E: EngineType> {
     bgxs_latch: [ReferencePointCoord; 2],
     bgys_latch: [ReferencePointCoord; 2],
     mosaic: MOSAIC,
+    pub master_bright: MasterBright,
     // Windows
     winhs: [WindowDimensions; 2],
     winvs: [WindowDimensions; 2],
@@ -36,7 +37,7 @@ pub struct Engine2D<E: EngineType> {
     pub oam: Vec<u8>,
 
     // Important Rendering Variables
-    pub pixels: Vec<u16>,
+    pixels: Vec<u16>,
     bg_lines: [[u16; GPU::WIDTH]; 4],
     objs_line: [OBJPixel; GPU::WIDTH],
     windows_lines: [[bool; GPU::WIDTH]; 3],
@@ -68,6 +69,7 @@ impl<E: EngineType> Engine2D<E> {
             win_out_cnt: WindowControl::new(),
             win_obj_cnt: WindowControl::new(),
             mosaic: MOSAIC::new(),
+            master_bright: MasterBright::new(),
             // Color Special Effects
             bldcnt: BLDCNT::new(),
             bldalpha: BLDALPHA::new(),
@@ -97,7 +99,7 @@ impl<E: EngineType> Engine2D<E> {
     pub fn render_line(&mut self, vram: &VRAM, vcount: u16) {
         match self.dispcnt.display_mode {
             DisplayMode::Mode0 => for dot_x in 0..GPU::WIDTH {
-                self.pixels[vcount as usize * GPU::WIDTH + dot_x] = 0x7FFF;
+                self.set_pixel(vcount, dot_x, 0x7FFF);
             },
             DisplayMode::Mode1 => self.render_normal_line(vram, vcount),
             DisplayMode::Mode2 => for dot_x in 0..GPU::WIDTH {
@@ -105,7 +107,7 @@ impl<E: EngineType> Engine2D<E> {
                 let color = if let Some(bank) = vram.get_lcdc_bank(self.dispcnt.vram_block) {
                     u16::from_le_bytes([bank[index * 2], bank[index * 2 + 1]])
                 } else { 0 };
-                self.pixels[index] = color;
+                self.set_pixel(vcount, dot_x, color);
             },
             DisplayMode::Mode3 => todo!(),
         }
@@ -146,8 +148,6 @@ impl<E: EngineType> Engine2D<E> {
     }
     
     fn process_lines(&mut self, vcount: u16, start_line: usize, end_line: usize) {
-        let start_index = vcount as usize * GPU::WIDTH;
-
         let mut bgs : Vec<(usize, u8)> = Vec::new();
         for bg_i in start_line..=end_line {
             if self.dispcnt.bits() & (1 << (8 + bg_i)) != 0 { bgs.push((bg_i, self.bgcnts[bg_i].priority)) }
@@ -160,7 +160,6 @@ impl<E: EngineType> Engine2D<E> {
             self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3),
             self.dispcnt.contains(DISPCNTFlags::DISPLAY_OBJ),
         ];
-        let pixels = &mut self.pixels;
         for dot_x in 0..GPU::WIDTH {
             let window_control = if self.windows_lines[0][dot_x] {
                 self.win_0_cnt
@@ -253,7 +252,7 @@ impl<E: EngineType> Engine2D<E> {
                     },
                 }
             } else { colors[0] };
-            pixels[start_index + dot_x] = final_color;
+            self.set_pixel(vcount, dot_x, final_color);
         }
     }
 
@@ -752,6 +751,10 @@ impl<E: EngineType> Engine2D<E>{
         }
     }
 
+    fn set_pixel(&mut self, vcount: u16, dot_x: usize, color: u16) {
+        self.pixels[vcount as usize * GPU::WIDTH + dot_x] = self.master_bright.apply(color);
+    }
+
     pub fn write_palette_ram(&mut self, addr: usize, value: u16) {
         let addr = addr as usize & (2 * GPU::PALETTE_SIZE - 1);
         let palettes = if addr < GPU::PALETTE_SIZE { &mut self.bg_palettes } else { &mut self.obj_palettes };
@@ -762,4 +765,5 @@ impl<E: EngineType> Engine2D<E>{
 
     pub fn bg_palettes(&self) -> &Vec<u16> { &self.bg_palettes }
     pub fn obj_palettes(&self) -> &Vec<u16> { &self.obj_palettes }
+    pub fn pixels(&self) -> &Vec<u16> { &self.pixels }
 }
