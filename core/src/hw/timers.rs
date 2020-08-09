@@ -80,18 +80,17 @@ impl Timer {
     pub fn reload(&mut self) { self.counter = self.reload }
 
     pub fn create_event(&mut self, scheduler: &mut Scheduler, delay: usize) {
-        let global_cycle = scheduler.cycle + delay;
-        self.start_cycle = global_cycle;
+        self.start_cycle = scheduler.cycle + delay;
         // Syncs prescaler to global cycle
         let prescaler = Timers::PRESCALERS[self.cnt.prescaler as usize];
         trace!("Starting NDS{} {} Timer{}: {} * 0x{:X}", if self.is_nds9 { 9 } else { 7 },
         if self.is_count_up() { "Count-Up" } else { "Regular" }, self.index, prescaler, self.reload);
         // Add 1 for 1 cycle delay in timer start
-        self.time_till_first_clock = prescaler - (global_cycle + 1) % prescaler;
+        self.time_till_first_clock = prescaler - (self.start_cycle + 1) % prescaler;
         self.timer_len = prescaler * (0x10000 - self.reload as usize - 1);
         scheduler.schedule(
             Event::TimerOverflow(self.is_nds9, self.index),
-            global_cycle + self.time_till_first_clock + self.timer_len
+            delay + self.time_till_first_clock + self.timer_len
         );
     }
 

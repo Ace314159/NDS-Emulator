@@ -82,10 +82,10 @@ impl Cartridge {
         // TODO: Take into account WR bit
         if self.rom_bytes_left == 0 {
             // 8 command bytes transferred
-            scheduler.schedule(Event::ROMBlockEnded(is_arm7), scheduler.cycle + self.transfer_byte_time() * 8);
+            scheduler.schedule(Event::ROMBlockEnded(is_arm7), self.transfer_byte_time() * 8);
         } else {
             // 8 command bytes + 4 bytes for word
-            scheduler.schedule(Event::ROMWordTransfered, scheduler.cycle + self.transfer_byte_time() * (8 + 4));
+            scheduler.schedule(Event::ROMWordTransfered, self.transfer_byte_time() * (8 + 4));
         }
     }
 
@@ -107,7 +107,7 @@ impl Cartridge {
 
             if self.rom_bytes_left > 0 {
                 // 1 word (4 bytes) transferred
-                scheduler.schedule(Event::ROMWordTransfered, scheduler.cycle + self.transfer_byte_time() * 4);
+                scheduler.schedule(Event::ROMWordTransfered, self.transfer_byte_time() * 4);
             } else {
                 scheduler.run_now(Event::ROMBlockEnded(is_arm7));
             }

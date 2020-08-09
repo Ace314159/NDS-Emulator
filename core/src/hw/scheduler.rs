@@ -187,8 +187,8 @@ impl Scheduler {
         } else { None }
     }
 
-    pub fn schedule(&mut self, event: Event, cycle: usize) {
-        self.event_queue.push(event, Reverse(cycle));
+    pub fn schedule(&mut self, event: Event, delay: usize) {
+        self.event_queue.push(event, Reverse(self.cycle + delay));
     }
 
     pub fn run_now(&mut self, event: Event) {
