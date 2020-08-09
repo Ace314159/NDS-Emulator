@@ -6,7 +6,8 @@ use super::{
     AccessType,
     dma::{DMAChannel, DMAOccasion},
     mmu::MemoryValue,
-    InterruptRequest,
+    interrupt_controller::{InterruptController, InterruptRequest},
+    gpu::{DISPSTAT, DISPSTATFlags},
     HW
 };
 
@@ -41,19 +42,42 @@ impl HW {
                     }
                 }
             },
+            Event::StartNextLine => {
+                let (vcount, start_vblank) = self.gpu.start_next_line(&mut self.scheduler);
+                if start_vblank {
+                    self.handle_event(Event::VBlank);
+                    self.check_dispstats(&mut |dispstat, interrupts|
+                        if dispstat.contains(DISPSTATFlags::VBLANK_IRQ_ENABLE) {
+                            interrupts.request |= InterruptRequest::VBLANK;
+                        }
+                    );
+                }
+                self.check_dispstats(&mut |dispstat, interrupts|
+                    if dispstat.contains(DISPSTATFlags::VBLANK_IRQ_ENABLE) && vcount == dispstat.vcount_setting {
+                        interrupts.request |= InterruptRequest::VCOUNTER_MATCH;
+                    }
+                );
+            },
+            Event::HBlank => {
+                if self.gpu.start_hblank(&mut self.scheduler) {
+                    let mut events = Vec::new();
+                    for channel in self.dma9.channels.iter().chain(self.dma7.channels.iter()) {
+                        if channel.cnt.start_timing == DMAOccasion::HBlank {
+                            events.push(Event::DMA(channel.is_nds9, channel.num));
+                        }
+                    }
+                    for event in events.iter() { self.handle_event(*event) }
+                }
+                self.check_dispstats(&mut |dispstat, interrupts|
+                    if dispstat.contains(DISPSTATFlags::HBLANK_IRQ_ENABLE) {
+                        interrupts.request |= InterruptRequest::HBLANK;
+                    }
+                );
+            },
             Event::VBlank => {
                 let mut events = Vec::new();
                 for channel in self.dma9.channels.iter().chain(self.dma7.channels.iter()) {
                     if channel.cnt.start_timing == DMAOccasion::VBlank {
-                        events.push(Event::DMA(channel.is_nds9, channel.num));
-                    }
-                }
-                for event in events.iter() { self.handle_event(*event) }
-            },
-            Event::HBlank => {
-                let mut events = Vec::new();
-                for channel in self.dma9.channels.iter().chain(self.dma7.channels.iter()) {
-                    if channel.cnt.start_timing == DMAOccasion::HBlank {
                         events.push(Event::DMA(channel.is_nds9, channel.num));
                     }
                 }
@@ -98,7 +122,7 @@ impl HW {
 
     fn get_channel(&mut self, is_nds9: bool, num: usize) -> &mut DMAChannel {
         if is_nds9 { &mut self.dma9.channels[num] } else { &mut self.dma7.channels[num] }
-    } 
+    }
 
     fn run_dma<A, R, W, T: MemoryValue>(&mut self, is_nds9: bool, num: usize, access_time_fn: A, read_fn: R, write_fn: W)
         where A: Fn(&mut HW, AccessType, u32) -> usize, R: Fn(&mut HW, u32) -> T, W: Fn(&mut HW, u32, T) {
@@ -163,6 +187,15 @@ impl HW {
             self.interrupts9.request |= interrupt;
         }
     }
+
+    fn check_dispstats<F>(&mut self, check: &mut F) where F: FnMut(&mut DISPSTAT, &mut InterruptController) {
+        [
+            (&mut self.gpu.dispstat7, &mut self.interrupts7),
+            (&mut self.gpu.dispstat9, &mut self.interrupts9),
+        ].iter_mut().for_each(|(dispstat, interrupts)|
+            check(dispstat, interrupts)
+        );
+    }
 }
 
 pub struct Scheduler {
@@ -180,7 +213,7 @@ impl Scheduler {
     }
 
     pub fn get_next_event(&mut self) -> Option<Event> {
-        if self.event_queue.len() == 0 { return None }
+        // There should always be at least one event in the queue
         let (_event_type, cycle) = self.event_queue.peek().unwrap();
         if Reverse(self.cycle) <= *cycle {
             Some(self.event_queue.pop().unwrap().0)
@@ -203,8 +236,9 @@ impl Scheduler {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Event {
     DMA(bool, usize),
-    VBlank,
+    StartNextLine,
     HBlank,
+    VBlank,
     TimerOverflow(bool, usize),
     ROMWordTransfered,
     ROMBlockEnded(bool),

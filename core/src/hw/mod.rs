@@ -63,7 +63,6 @@ pub struct HW {
     div: Div,
     sqrt: Sqrt,
     // Misc
-    arm7_cycles_ahead: usize,
     scheduler: Scheduler,
 }
 
@@ -75,6 +74,7 @@ impl HW {
     const SHARED_WRAM_SIZE: usize = 0x8000;
 
     pub fn new(bios7: Vec<u8>, bios9: Vec<u8>, firmware: Vec<u8>, rom: Vec<u8>) -> Self {
+        let mut scheduler = Scheduler::new();
         HW {
             // Memory
             cp15: CP15::new(),
@@ -88,7 +88,7 @@ impl HW {
             iwram: vec![0; HW::IWRAM_SIZE],
             shared_wram: vec![0; HW::SHARED_WRAM_SIZE],
             // Devices
-            gpu: GPU::new(),
+            gpu: GPU::new(&mut scheduler),
             keypad: Keypad::new(),
             interrupts7: InterruptController::new(),
             interrupts9: InterruptController::new(),
@@ -110,19 +110,11 @@ impl HW {
             div: Div::new(),
             sqrt: Sqrt::new(),
             // Misc
-            arm7_cycles_ahead: 0,
-            scheduler: Scheduler::new(),
+            scheduler,
         }.init_mem()
     }
 
     pub fn clock(&mut self, arm7_cycles: usize) {
-        self.arm7_cycles_ahead += arm7_cycles;
-        while self.arm7_cycles_ahead >= 6 {
-            self.arm7_cycles_ahead -= 6;
-            let interrupts = self.gpu.emulate_dot(&mut self.scheduler);
-            self.interrupts7.request |= interrupts;
-            self.interrupts9.request |= interrupts;
-        }
         self.handle_events(arm7_cycles);
     }
 

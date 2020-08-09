@@ -4,19 +4,19 @@ mod vram;
 pub mod debug;
 
 use crate::hw::{
-    interrupt_controller::InterruptRequest,
     Event, Scheduler,
 };
-use registers::{DISPSTAT, DISPSTATFlags, POWCNT1};
+use registers::POWCNT1;
 
 pub use engine2d::Engine2D;
 pub use vram::VRAM;
+pub use registers::{DISPSTAT, DISPSTATFlags};
 
 pub struct GPU {
     // Registers and Values Shared between Engines
-    pub dispstat: DISPSTAT,
+    pub dispstat7: DISPSTAT,
+    pub dispstat9: DISPSTAT,
     pub vcount: u16,
-    dot: u16,
     rendered_frame: bool,
 
     pub engine_a: Engine2D<EngineA>,
@@ -34,12 +34,18 @@ impl GPU {
     pub const OAM_SIZE: usize = 0x400;
     pub const OAM_MASK: usize = GPU::OAM_SIZE - 1;
 
-    pub fn new() -> GPU {
+    const CYCLES_PER_DOT: usize = 6;
+    const HBLANK_DOT: usize = 256 + 8;
+    const DOTS_PER_LINE: usize = 355;
+    const NUM_LINES: usize = 263;
+
+    pub fn new(scheduler: &mut Scheduler) -> GPU {
+        scheduler.schedule(Event::HBlank, GPU::HBLANK_DOT * GPU::CYCLES_PER_DOT);
         GPU {
             // Registers and Values Shared between Engines
-            dispstat: DISPSTAT::new(),
+            dispstat7: DISPSTAT::new(),
+            dispstat9: DISPSTAT::new(),
             vcount: 0,
-            dot: 0,
             rendered_frame: false,
 
             engine_a: Engine2D::new(),
@@ -50,60 +56,46 @@ impl GPU {
         }
     }
 
-    pub fn emulate_dot(&mut self, scheduler: &mut Scheduler) -> InterruptRequest {
-        // TODO: Optimize
-        let mut interrupts = InterruptRequest::empty();
-        if self.dot < GPU::WIDTH as u16 { // Visible
-            self.dispstat.remove(DISPSTATFlags::HBLANK);
-        } else { // HBlank
-            if self.dot == GPU::WIDTH as u16 {
-                if self.dispstat.contains(DISPSTATFlags::HBLANK_IRQ_ENABLE) {
-                    interrupts.insert(InterruptRequest::HBLANK);
-                }
-            }
-            if self.dot == 267 { // TODO: Take into account half and differentiate between ARM7 and ARM9
-                self.dispstat.insert(DISPSTATFlags::HBLANK);
-                if self.vcount < GPU::HEIGHT as u16 {
-                    scheduler.run_now(Event::HBlank);
-                }
-            }
-        }
-        if self.vcount < GPU::HEIGHT as u16 { // Visible
-            self.dispstat.remove(DISPSTATFlags::VBLANK);
-            if self.dot == 257 {
-                // TOOD: Use POWCNT to selectively render engines
-                self.engine_a.render_line(&self.vram, self.vcount);
-                self.engine_b.render_line(&self.vram, self.vcount);
-            }
-        } else { // VBlank
-            if self.vcount == GPU::HEIGHT as u16 && self.dot == 0 {
-                scheduler.run_now(Event::VBlank);
-                if self.dispstat.contains(DISPSTATFlags::VBLANK_IRQ_ENABLE) {
-                    interrupts.insert(InterruptRequest::VBLANK)
-                }
-                self.rendered_frame = true;
-            }
-            self.dispstat.insert(DISPSTATFlags::VBLANK);
-        }
+    // Dot: 0 - TODO: Check for drift
+    pub fn start_next_line(&mut self, scheduler: &mut Scheduler) -> (u16, bool) {
+        scheduler.schedule(Event::HBlank, GPU::HBLANK_DOT * GPU::CYCLES_PER_DOT);
+        self.dispstat7.remove(DISPSTATFlags::HBLANK);
+        self.dispstat9.remove(DISPSTATFlags::HBLANK);
 
-        self.dot += 1;
-        if self.dot == 355 {
-            self.dot = 0;
-            if self.vcount == 262 {
-                self.engine_a.latch_affine();
-                self.engine_a.latch_affine();
-            }
-            self.vcount = (self.vcount + 1) % 263;
-            if self.vcount == self.dispstat.vcount_setting {
-                self.dispstat.insert(DISPSTATFlags::VCOUNTER);
-                if self.dispstat.contains(DISPSTATFlags::VCOUNTER_IRQ_ENALBE) {
-                    interrupts.insert(InterruptRequest::VCOUNTER_MATCH);
-                }
-            } else {
-                self.dispstat.remove(DISPSTATFlags::VCOUNTER);
-            }
+        if self.vcount == 262 {
+            self.engine_a.latch_affine();
+            self.engine_b.latch_affine();
         }
-        interrupts
+        self.vcount += 1;
+        if self.vcount == GPU::NUM_LINES as u16 {
+            self.vcount = 0;
+        }
+        
+        let start_vblank = if self.vcount == 0 {
+            self.dispstat7.remove(DISPSTATFlags::VBLANK);
+            self.dispstat9.remove(DISPSTATFlags::VBLANK);
+            false
+        } else if self.vcount == GPU::HEIGHT as u16 {
+            self.dispstat7.insert(DISPSTATFlags::VBLANK);
+            self.dispstat9.insert(DISPSTATFlags::VBLANK);
+            self.rendered_frame = true;
+            true
+        } else { false };
+        (self.vcount, start_vblank)
+    }
+
+    // Dot: HBLANK_DOT - TODO: Check for drift
+    pub fn start_hblank(&mut self, scheduler: &mut Scheduler) -> bool {
+        scheduler.schedule(Event::StartNextLine, (GPU::DOTS_PER_LINE - GPU::HBLANK_DOT) * GPU::CYCLES_PER_DOT);
+        self.dispstat7.insert(DISPSTATFlags::HBLANK);
+        self.dispstat9.insert(DISPSTATFlags::HBLANK);
+
+        if self.vcount < GPU::HEIGHT as u16 {
+            // TOOD: Use POWCNT to selectively render engines
+            self.engine_a.render_line(&self.vram, self.vcount);
+            self.engine_b.render_line(&self.vram, self.vcount);
+            true
+        } else { false }
     }
 
     pub fn rendered_frame(&mut self) -> bool {
