@@ -486,7 +486,11 @@ impl<E: EngineType> Engine2D<E> {
                 VRAM::get_bg::<E>, tile_start_addr + 8 * bit_depth * tile_num, flip_x, flip_y, bit_depth,
                 x % 8, y % 8, palette_num);
             self.bg_lines[bg_i][dot_x] = if color_num == 0 { Engine2D::<E>::TRANSPARENT_COLOR }
-            else { self.bg_palettes[palette_num * 16 + color_num] };
+            else if bgcnt.bpp8 & self.dispcnt.contains(DISPCNTFlags::BG_EXTENDED_PALETTES) {
+                // Wrap bit is Change Ext Palette Slot for BG0/BG1
+                let slot = if bg_i < 2 && bgcnt.wrap { bg_i + 2 } else { bg_i };
+                vram.get_bg_ext_pal::<E>(slot, color_num)
+            } else { self.bg_palettes[palette_num * 16 + color_num] };
         }
     }
 

@@ -241,7 +241,7 @@ pub struct BGCNT {
     pub mosaic: bool,
     pub bpp8: bool,
     pub map_block: u8,
-    pub wrap: bool,
+    pub wrap: bool, // BG0/BG1 = Change Ext Palette Slot, BG2/BG3 = Display Area Overflow
     pub screen_size: u8,
 }
 
