@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
 use crate::hw::{
+    HW,
     mmu::IORegister,
     scheduler::Scheduler,
 };
@@ -764,21 +765,20 @@ bitflags! {
         const ENABLE_3D_RENDERING = 1 << 2;
         const ENABLE_3D_GEOMETRY = 1 << 3;
         const ENABLE_ENGINE_B = 1 << 9;
-        const SWAP_DISPLAY = 1 << 15;
+        const TOP_A = 1 << 15;
     }
 }
 
 impl IORegister for POWCNT1 {
     fn read(&self, byte: usize) -> u8 {
         assert!(byte < 4);
-        (self.bits >> (byte * 4)) as u8
+        HW::read_byte_from_value(&self.bits, byte)
     }
 
     fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8) {
         assert!(byte < 4);
-        let mask = 0xFF << byte * 4;
-        self.bits = (self.bits & !mask) | (value as u32) << byte * 4;
-        assert!(self.contains(POWCNT1::ENABLE_LCDS)) // TODO: Figure out what this does
+        HW::write_byte_to_value(&mut self.bits, byte, value);
+        self.bits &= POWCNT1::all().bits;
+        assert!(self.contains(POWCNT1::ENABLE_LCDS)); // TODO: Figure out what this does
     }
-    
 }
