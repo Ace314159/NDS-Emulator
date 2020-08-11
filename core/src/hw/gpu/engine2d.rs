@@ -134,7 +134,7 @@ impl<E: EngineType> Engine2D<E> {
                 self.process_lines(vcount, 0, 3);
             },
             BGMode::Mode2 => {
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { self.render_affine_line(vram, 3) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { self.render_text_line(vram, vcount, 3) }
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { self.render_text_line(vram, vcount, 3) }
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { self.render_affine_line(vram, 2) }
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { self.render_affine_line(vram, 3) }
