@@ -429,10 +429,10 @@ impl<E: EngineType> Engine2D<E> {
             let map_x = (x / mosaic_x * mosaic_x / 8) % (map_size / 8);
             let map_y = (y / mosaic_y * mosaic_y / 8) % (map_size / 8);
             let addr = map_start_addr + map_y * map_size / 8 + map_x;
-            let tile_num = vram.get_bg::<E>(addr) as usize;
+            let tile_num = vram.get_bg::<E, u8>(addr) as usize;
             
             // Convert from tile to pixels
-            let (_, color_num) = Engine2D::<E>::get_color_from_tile(vram, VRAM::get_bg::<E>,
+            let (_, color_num) = Engine2D::<E>::get_color_from_tile(vram, VRAM::get_bg::<E, u8>,
                 tile_start_addr + 8 * bit_depth + tile_num, false, false, bit_depth,
                 x % 8, y % 8, 0);
             self.bg_lines[bg_i][dot_x] = if color_num == 0 { Engine2D::<E>::TRANSPARENT_COLOR }
@@ -475,7 +475,7 @@ impl<E: EngineType> Engine2D<E> {
             map_x %= 32;
             map_y %= 32;
             let addr = map_start_addr + map_y * 32 * 2 + map_x * 2;
-            let screen_entry = u16::from_le_bytes([vram.get_bg::<E>(addr), vram.get_bg::<E>(addr + 1)]) as usize;
+            let screen_entry = vram.get_bg::<E, u16>(addr) as usize;
             let tile_num = screen_entry & 0x3FF;
             let flip_x = (screen_entry >> 10) & 0x1 != 0;
             let flip_y = (screen_entry >> 11) & 0x1 != 0;
@@ -483,7 +483,7 @@ impl<E: EngineType> Engine2D<E> {
             
             // Convert from tile to pixels
             let (palette_num, color_num) = Engine2D::<E>::get_color_from_tile(vram,
-                VRAM::get_bg::<E>, tile_start_addr + 8 * bit_depth * tile_num, flip_x, flip_y, bit_depth,
+                VRAM::get_bg::<E, u8>, tile_start_addr + 8 * bit_depth * tile_num, flip_x, flip_y, bit_depth,
                 x % 8, y % 8, palette_num);
             self.bg_lines[bg_i][dot_x] = if color_num == 0 { Engine2D::<E>::TRANSPARENT_COLOR }
             else if bgcnt.bpp8 & self.dispcnt.contains(DISPCNTFlags::BG_EXTENDED_PALETTES) {

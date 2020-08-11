@@ -73,10 +73,10 @@ impl<E: EngineType> Engine2D<E> {
                     let map_x = x / 8;
                     let map_y = y / 8;
                     let addr = map_start_addr + map_y * width / 8 + map_x;
-                    let tile_num = vram.get_bg::<E>(addr) as usize;
+                    let tile_num = vram.get_bg::<E, u8>(addr) as usize;
                     
                     // Convert from tile to pixels
-                    let (_, color_num) = Engine2D::<E>::get_color_from_tile(vram, VRAM::get_bg::<E>,
+                    let (_, color_num) = Engine2D::<E>::get_color_from_tile(vram, VRAM::get_bg::<E, u8>,
                         tile_start_addr + 8 * bit_depth * tile_num, false, false, bit_depth,
                         x % 8, y % 8, 0);
                     if color_num == 0 { continue }
@@ -100,10 +100,7 @@ impl<E: EngineType> Engine2D<E> {
                         _ => unreachable!(),
                     };
                     let addr = map_start_addr + map_y * 32 * 2 + map_x * 2;
-                    let screen_entry = u16::from_le_bytes([
-                        vram.get_bg::<E>(addr),
-                        vram.get_bg::<E>(addr + 1),
-                    ]) as usize;
+                    let screen_entry = vram.get_bg::<E, u16>(addr) as usize;
                     let tile_num = screen_entry & 0x3FF;
                     let flip_x = (screen_entry >> 10) & 0x1 != 0;
                     let flip_y = (screen_entry >> 11) & 0x1 != 0;
@@ -111,7 +108,7 @@ impl<E: EngineType> Engine2D<E> {
                     
                     // Convert from tile to pixels
                     let (palette_num, color_num) = Engine2D::<E>::get_color_from_tile(vram,
-                        VRAM::get_bg::<E>, tile_start_addr + 8 * bit_depth * tile_num,
+                        VRAM::get_bg::<E, u8>, tile_start_addr + 8 * bit_depth * tile_num,
                         flip_x, flip_y, bit_depth, x % 8, y % 8, palette_num);
                     if color_num == 0 { continue }
                     pixels[y * width + x] = self.bg_palettes()[palette_num * 16 + color_num] | 0x8000;
@@ -125,11 +122,11 @@ impl<E: EngineType> Engine2D<E> {
     offset: usize) -> (Vec<u16>, usize, usize) {
         if is_bg {
             if extended {
-                GPU::render_tiles::<E, _, _>(vram, &VRAM::get_bg::<E>,
+                GPU::render_tiles::<E, _, _>(vram, &VRAM::get_bg::<E, u8>,
                 &|i| vram.get_bg_ext_pal::<E>(slot, i),
                 offset, palette, extended, bpp8)
             } else {
-                GPU::render_tiles::<E, _, _>(vram, &VRAM::get_bg::<E>,
+                GPU::render_tiles::<E, _, _>(vram, &VRAM::get_bg::<E, u8>,
                 &|i| self.bg_palettes()[i], offset, palette, extended, bpp8)
             }
         } else {

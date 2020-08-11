@@ -218,7 +218,7 @@ impl VRAM {
         if self.lcdc_enabled[bank as usize] { Some(&self.banks[bank as usize]) } else { None }
     }
 
-    pub fn get_bg<E: EngineType>(&self, addr: usize) -> u8 {
+    pub fn get_bg<E: EngineType, T: MemoryValue>(&self, addr: usize) -> T {
         if E::is_a() {
             VRAM::read_mapping(&self.banks, &self.engine_a_bg[addr / VRAM::MAPPING_LEN], addr)
         } else {
