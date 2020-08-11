@@ -140,10 +140,34 @@ impl<E: EngineType> Engine2D<E> {
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { self.render_affine_line(vram, 3) }
                 self.process_lines(vcount, 0, 3);
             },
-            BGMode::Mode3 => todo!(),
-            BGMode::Mode4 => todo!(),
-            BGMode::Mode5 => todo!(),
-            BGMode::Mode6 => todo!(),
+            BGMode::Mode3 => {
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { self.render_text_line(vram, vcount, 3) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { self.render_text_line(vram, vcount, 3) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { self.render_text_line(vram, vcount, 2) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { self.render_extended_line(vram, vcount, 3) }
+                self.process_lines(vcount, 0, 3);
+            },
+            BGMode::Mode4 => {
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { self.render_text_line(vram, vcount, 3) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { self.render_text_line(vram, vcount, 3) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { self.render_affine_line(vram, 2) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { self.render_extended_line(vram, vcount, 3) }
+                self.process_lines(vcount, 0, 3);
+            },
+            BGMode::Mode5 => {
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { self.render_text_line(vram, vcount, 3) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { self.render_text_line(vram, vcount, 3) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { self.render_extended_line(vram, vcount, 2) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { self.render_extended_line(vram, vcount, 3) }
+                self.process_lines(vcount, 0, 3);
+            },
+            BGMode::Mode6 => {
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { self.render_text_line(vram, vcount, 3) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { self.render_text_line(vram, vcount, 3) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { self.render_extended_line(vram, vcount, 2) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { self.render_extended_line(vram, vcount, 3) }
+                self.process_lines(vcount, 0, 3);
+            },
         }
     }
     
@@ -394,6 +418,24 @@ impl<E: EngineType> Engine2D<E> {
                     if self.windows_lines[2][dot_x] || !obj_window_enabled { break }
                 }
             }
+        }
+    }
+
+    fn render_extended_line(&mut self, vram: &VRAM, vcount: u16, bg_i: usize) {
+        let bgcnt = self.bgcnts[bg_i];
+        if bgcnt.bpp8 {
+            if bgcnt.tile_block & 0x1 != 0 {
+                // TODO: Implement affine aspects
+                let y = vcount as usize;
+                for dot_x in 0..GPU::WIDTH {
+                    let color = vram.get_bg::<E, u16>(2 * (y * GPU::WIDTH + dot_x));
+                    self.bg_lines[bg_i][dot_x] = if color & 0x8000 != 0 { color } else { Engine2D::<E>::TRANSPARENT_COLOR };
+                }
+            } else {
+                todo!() // Affine Line with 256 color bitmap
+            }
+        } else {
+            todo!() // Affine Line with 16 bit entries
         }
     }
     
