@@ -2,10 +2,17 @@ use std::convert::TryInto;
 use std::collections::VecDeque;
 use std::ops::Range;
 
+mod header;
+mod backup;
+
 use super::scheduler::{Event, Scheduler};
+
+use header::Header;
+use backup::Backup;
 
 pub struct Cartridge {
     chip_id: u32,
+    header: Header,
     rom: Vec<u8>,
     // Registers
     pub spicnt: SPICNT,
@@ -15,12 +22,17 @@ pub struct Cartridge {
     // Data Transfer
     rom_bytes_left: usize,
     game_card_words: VecDeque<u32>,
+    // Backup
+    backup: Box<dyn Backup>
 }
 
 impl Cartridge {
     pub fn new(rom: Vec<u8>) -> Self {
+        let header = Header::new(&rom);
+        let backup = Backup::detect_type(&header);
         Cartridge {
             chip_id: 0x000_01FC2u32, // TODO: Actually Calculate
+            header,
             rom,
             // Registers
             spicnt: SPICNT::new(),
@@ -30,6 +42,7 @@ impl Cartridge {
             // Data Transfer
             rom_bytes_left: 0,
             game_card_words: VecDeque::new(),
+            backup,
         }
     }
 
@@ -115,16 +128,16 @@ impl Cartridge {
         self.cur_game_card_word
     }
 
-    pub fn read_spi_data(&self, has_access: bool) -> u8 {
+    pub fn read_spi_data(&mut self, has_access: bool) -> u8 {
         if !has_access { warn!("No Read Access to SPI DATA"); return 0 }
-        0
+        self.backup.read()
     }
 
     pub fn read_romctrl(&self, has_access: bool, byte: usize) -> u8 { self.romctrl.read(has_access, byte) }
 
-    pub fn write_spi_data(&mut self, has_access: bool, _value: u8) {
+    pub fn write_spi_data(&mut self, has_access: bool, value: u8) {
         if !has_access { warn!("No Write Access to SPI DATA"); return }
-        //println!("Writing to AUX SPI DATA: 0x{:X}", value);
+        self.backup.write(value)
     }
 
     pub fn write_command(&mut self, has_access: bool, byte: usize, value: u8) {
@@ -139,6 +152,7 @@ impl Cartridge {
 
     pub fn chip_id(&self) -> u32 { self.chip_id }
     pub fn rom(&self) -> &Vec<u8> { &self.rom }
+    pub fn header(&self) -> &Header { &self.header }
 
     fn transfer_byte_time(&self) -> usize { if self.romctrl.transfer_clk_rate { 8 } else { 5 } }
 }

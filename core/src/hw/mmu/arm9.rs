@@ -21,7 +21,7 @@ impl HW {
                 self.wramcnt.arm9_offset + (addr & self.wramcnt.arm9_mask)),
             MemoryRegion::IO if (0x0410_0000 ..= 0x0410_0003).contains(&addr) => self.ipc_fifo_recv(false, addr),
             MemoryRegion::IO if (0x0410_0010 ..= 0x0410_0013).contains(&addr) => self.read_game_card(false, addr),
-            MemoryRegion::IO => HW::read_from_bytes(self, &HW::arm9_read_io_register, addr),
+            MemoryRegion::IO => HW::read_from_bytes_mut(self, &mut HW::arm9_read_io_register, addr),
             MemoryRegion::Palette if addr & 0x7FFF < 0x400 => HW::read_from_bytes(&self.gpu.engine_a,
                 &Engine2D::read_palette_ram, addr as u32),
             MemoryRegion::Palette => HW::read_from_bytes(&self.gpu.engine_b,
@@ -64,17 +64,17 @@ impl HW {
     }
 
     pub fn init_arm9(&mut self) -> u32 {
-        let start_addr = self.rom_header.arm9_ram_addr;
-        let rom_offset = self.rom_header.arm9_rom_offset as usize;
-        let size = self.rom_header.arm9_size;
+        let start_addr = self.cartridge.header().arm9_ram_addr;
+        let rom_offset = self.cartridge.header().arm9_rom_offset as usize;
+        let size = self.cartridge.header().arm9_size;
         for (i, addr) in (start_addr..start_addr + size).enumerate() {
             self.arm9_write(addr, self.cartridge.rom()[rom_offset + i]);
         }
         self.arm9_write(0x23FFC80, 0x5u8);
-        self.rom_header.arm9_entry_addr
+        self.cartridge.header().arm9_entry_addr
     }
 
-    fn arm9_read_io_register(&self, addr: u32) -> u8 {
+    fn arm9_read_io_register(&mut self, addr: u32) -> u8 {
         match addr {
             0x0400_0000 ..= 0x0400_0003 => self.gpu.engine_a.read_register(addr),
             0x0400_0004 => self.gpu.dispstat9.read(0),

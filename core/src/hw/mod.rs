@@ -1,4 +1,3 @@
-mod header;
 pub mod mmu;
 mod scheduler;
 mod gpu;
@@ -13,7 +12,6 @@ mod cartridge;
 
 use std::convert::TryInto;
 
-use header::Header;
 pub use mmu::{AccessType, MemoryValue};
 use mmu::{CP15, EXMEM, HALTCNT, POWCNT2, WRAMCNT};
 use scheduler::{Scheduler, Event};
@@ -33,7 +31,6 @@ pub struct HW {
     pub cp15: CP15,
     bios7: Vec<u8>,
     bios9: Vec<u8>,
-    rom_header: Header,
     cartridge: Cartridge,
     itcm: Vec<u8>,
     dtcm: Vec<u8>,
@@ -80,7 +77,6 @@ impl HW {
             cp15: CP15::new(),
             bios7,
             bios9,
-            rom_header: Header::new(&rom),
             cartridge: Cartridge::new(rom),
             itcm: vec![0; HW::ITCM_SIZE],
             dtcm: vec![0; HW::DTCM_SIZE],

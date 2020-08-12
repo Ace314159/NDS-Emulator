@@ -84,6 +84,14 @@ impl HW {
         value
     }
 
+    fn read_from_bytes_mut<T: MemoryValue, F: Fn(&mut D, u32) -> u8, D>(device: &mut D, read_fn: &mut F, addr: u32) -> T {
+        let mut value: T = num::zero();
+        for i in 0..(size_of::<T>() as u32) {
+            value = num::cast::<u8, T>(read_fn(device, addr + i)).unwrap() << (8 * i as usize) | value;
+        }
+        value
+    }
+
     fn write_from_bytes<T: MemoryValue, F: Fn(&mut D, u32, u8), D>(device: &mut D, write_fn: &F, addr: u32, value: T) {
         let mask = FromPrimitive::from_u8(0xFF).unwrap();
         for i in 0..size_of::<T>() {
