@@ -78,7 +78,6 @@ impl<T: EEPROMType> Backup for EEPROM<T> {
     }
 
     fn write(&mut self, hold: bool, value: u8) {
-        //println!("{:?}: {:X} {}", self.mode, value, hold);
         self.mode = match self.mode {
             Mode::ReadCommand => self.set_command(Command::get::<T>(value)),
             Mode::HandleCommand(command) => self.handle_command(command, value),
