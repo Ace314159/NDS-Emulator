@@ -59,30 +59,14 @@ impl HW {
                 );
             },
             Event::HBlank => {
-                if self.gpu.start_hblank(&mut self.scheduler) {
-                    let mut events = Vec::new();
-                    for channel in self.dma9.channels.iter().chain(self.dma7.channels.iter()) {
-                        if channel.cnt.start_timing == DMAOccasion::HBlank {
-                            events.push(Event::DMA(channel.is_nds9, channel.num));
-                        }
-                    }
-                    for event in events.iter() { self.handle_event(*event) }
-                }
+                if self.gpu.start_hblank(&mut self.scheduler) { self.check_dmas(DMAOccasion::HBlank) }
                 self.check_dispstats(&mut |dispstat, interrupts|
                     if dispstat.contains(DISPSTATFlags::HBLANK_IRQ_ENABLE) {
                         interrupts.request |= InterruptRequest::HBLANK;
                     }
                 );
             },
-            Event::VBlank => {
-                let mut events = Vec::new();
-                for channel in self.dma9.channels.iter().chain(self.dma7.channels.iter()) {
-                    if channel.cnt.start_timing == DMAOccasion::VBlank {
-                        events.push(Event::DMA(channel.is_nds9, channel.num));
-                    }
-                }
-                for event in events.iter() { self.handle_event(*event) }
-            },
+            Event::VBlank => self.check_dmas(DMAOccasion::VBlank),
             Event::TimerOverflow(is_nds9, timer) => {
                 let (timers, interrupts) = if is_nds9 {
                     (&mut self.timers9, &mut self.interrupts9)
@@ -105,13 +89,7 @@ impl HW {
             },
             Event::ROMWordTransfered => {
                 self.cartridge.update_word();
-                let mut events = Vec::new();
-                for channel in self.dma9.channels.iter().chain(self.dma7.channels.iter()) {
-                    if channel.cnt.start_timing == DMAOccasion::DSCartridge {
-                        events.push(Event::DMA(channel.is_nds9, channel.num));
-                    }
-                }
-                for event in events.iter() { self.handle_event(*event) }
+                self.check_dmas(DMAOccasion::DSCartridge);
             },
             Event::ROMBlockEnded(is_arm7) => if self.cartridge.end_block() {
                 let interrupts = if is_arm7 { &mut self.interrupts7 } else { &mut self.interrupts9 };
@@ -186,6 +164,16 @@ impl HW {
             self.interrupts7.request |= interrupt;
             self.interrupts9.request |= interrupt;
         }
+    }
+
+    fn check_dmas(&mut self, occasion: DMAOccasion) {
+        let mut events = Vec::new();
+        for channel in self.dma9.channels.iter().chain(self.dma7.channels.iter()) {
+            if channel.cnt.start_timing == occasion {
+                events.push(Event::DMA(channel.is_nds9, channel.num));
+            }
+        }
+        for event in events.iter() { self.handle_event(*event) }
     }
 
     fn check_dispstats<F>(&mut self, check: &mut F) where F: FnMut(&mut DISPSTAT, &mut InterruptController) {
