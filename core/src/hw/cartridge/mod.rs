@@ -128,7 +128,7 @@ impl Cartridge {
         self.cur_game_card_word
     }
 
-    pub fn read_spi_data(&mut self, has_access: bool) -> u8 {
+    pub fn read_spi_data(&self, has_access: bool) -> u8 {
         if !has_access { warn!("No Read Access to SPI DATA"); return 0 }
         self.backup.read()
     }
@@ -137,7 +137,7 @@ impl Cartridge {
 
     pub fn write_spi_data(&mut self, has_access: bool, value: u8) {
         if !has_access { warn!("No Write Access to SPI DATA"); return }
-        self.backup.write(value)
+        self.backup.write(self.spicnt.hold, value);
     }
 
     pub fn write_command(&mut self, has_access: bool, byte: usize, value: u8) {
@@ -160,7 +160,7 @@ impl Cartridge {
 pub struct SPICNT {
     // Registers
     baudrate: u8,
-    hold_chipselect: bool,
+    hold: bool,
     busy: bool,
     slot_mode: bool,
     transfer_ready_irq: bool,
@@ -171,7 +171,7 @@ impl SPICNT {
     pub fn new() -> Self {
         SPICNT {
             baudrate: 0,
-            hold_chipselect: false,
+            hold: false,
             busy: false,
             slot_mode: false,
             transfer_ready_irq: false,
@@ -183,7 +183,7 @@ impl SPICNT {
         if !has_access { warn!("No Read Access to AUX SPI CNT"); return 0 }
         //println!("Reading AUXSPICNT {}", byte);
         match byte {
-            0 => (self.busy as u8) << 7 | (self.hold_chipselect as u8) << 6 | self.baudrate,
+            0 => (self.busy as u8) << 7 | (self.hold as u8) << 6 | self.baudrate,
             1 => (self.slot_enable as u8) << 7 | (self.transfer_ready_irq as u8) << 6 | (self.slot_mode as u8) << 5,
             _ => unreachable!(),
         }
@@ -195,7 +195,7 @@ impl SPICNT {
         match byte {
             0 => {
                 self.baudrate = value & 0x3;
-                self.hold_chipselect = value >> 6 & 0x1 != 0;
+                self.hold = value >> 6 & 0x1 != 0;
                 self.busy = value >> 7 & 0x1 != 0;
             },
             1 => {

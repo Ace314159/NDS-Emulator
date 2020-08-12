@@ -15,7 +15,7 @@ impl HW {
                 self.wramcnt.arm7_offset + (addr & self.wramcnt.arm7_mask)),
             MemoryRegion::IWRAM => HW::read_mem(&self.iwram, addr & HW::IWRAM_MASK),
             MemoryRegion::IO if (0x0410_0000 ..= 0x0410_0003).contains(&addr) => self.ipc_fifo_recv(true, addr),
-            MemoryRegion::IO => HW::read_from_bytes_mut(self, &mut HW::arm7_read_io_register, addr),
+            MemoryRegion::IO => HW::read_from_bytes(self, &HW::arm7_read_io_register, addr),
             MemoryRegion::VRAM => self.gpu.vram.arm7_read(addr),
             MemoryRegion::GBAROM => self.read_gba_rom(true, addr),
             MemoryRegion::GBARAM => todo!(),
@@ -40,7 +40,7 @@ impl HW {
         }
     }
 
-    fn arm7_read_io_register(&mut self, addr: u32) -> u8 {
+    fn arm7_read_io_register(&self, addr: u32) -> u8 {
         match addr {
             0x0400_0004 => self.gpu.dispstat7.read(0),
             0x0400_0005 => self.gpu.dispstat7.read(1),
