@@ -706,6 +706,7 @@ impl MasterBrightMode {
 }
 
 pub struct MasterBright {
+    factor_read: u8, // Used for memory reading which is different than factor
     factor: u8,
     mode: MasterBrightMode,
 }
@@ -713,6 +714,7 @@ pub struct MasterBright {
 impl MasterBright {
     pub fn new() -> Self {
         MasterBright {
+            factor_read: 0,
             factor: 0,
             mode: MasterBrightMode::Disable,
         }
@@ -741,16 +743,19 @@ impl MasterBright {
 impl IORegister for MasterBright {
     fn read(&self, byte: usize) -> u8 {
         match byte {
-            0 => { warn!("Reading MASTER_BRIGHT - May be inaccurate"); self.factor },
+            0 => self.factor_read,
             1 => (self.mode as u8) << 6,
             2 | 3 => 0,
             _ => unreachable!(),
         }
     }
 
-    fn write(&mut self, __scheduler: &mut Scheduler, byte: usize, value: u8) {
+    fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8) {
         match byte {
-            0 => self.factor = std::cmp::min(16, value & 0x1F),
+            0 => {
+                self.factor_read = value;
+                self.factor = std::cmp::min(16, value & 0x1F)
+            },
             1 => self.mode = MasterBrightMode::from_bits(value >> 6 & 0x3),
             2 | 3 => (),
             _ => unreachable!(),
