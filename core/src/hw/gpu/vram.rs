@@ -87,16 +87,18 @@ impl VRAM {
         let new_cnt = VRAMCNT::new(index, value);
 
         if self.cnts[index].enabled {
-            match (index, new_cnt.mst) {
+            match (index, self.cnts[index].mst) {
                 (index, 0) => {
+                    assert!(self.lcdc_enabled[index]);
                     self.lcdc_enabled[index] = false;
                     VRAM::remove_mapping(&mut self.lcdc, bank, VRAM::LCDC_OFFSETS[index], None)
                 },
-                (VRAM::BANK_A ..= VRAM::BANK_G, 1) =>
-                    VRAM::remove_mapping(&mut self.engine_a_bg, bank, bank.get_engine_a_offset(new_cnt.offset), None),
+                (VRAM::BANK_A ..= VRAM::BANK_G, 1) => VRAM::remove_mapping(&mut self.engine_a_bg,
+                    bank,bank.get_engine_a_offset(self.cnts[index].offset), None),
                 // TODO: Replace with match or syntax
                 (VRAM::BANK_A ..= VRAM::BANK_B, 2) | (VRAM::BANK_E ..= VRAM::BANK_G, 2) =>
-                    VRAM::remove_mapping(&mut self.engine_a_obj, bank, bank.get_engine_a_offset(new_cnt.offset), None),
+                    VRAM::remove_mapping(&mut self.engine_a_obj,
+                    bank,bank.get_engine_a_offset(self.cnts[index].offset), None),
                 (VRAM::BANK_E, 4) =>
                     VRAM::remove_mapping(&mut self.engine_a_bg_ext_pal, bank, 0, Some(32 * 0x400)),
                 (VRAM::BANK_F ..= VRAM::BANK_G, 4) => VRAM::remove_mapping(&mut self.engine_a_bg_ext_pal, bank,
@@ -271,7 +273,8 @@ impl VRAM {
 
     fn add_mapping(arr: &mut [Vec<Bank>], bank: Bank, offset: usize, size: Option<usize>) {
         let size = size.unwrap_or_else(|| VRAM::BANKS_LEN[bank as usize]);
-        for addr in (0..size).step_by(VRAM::MAPPING_LEN) { 
+        for addr in (0..size).step_by(VRAM::MAPPING_LEN) {
+            assert!(arr[(addr + offset) / VRAM::MAPPING_LEN].iter().position(|b| *b == bank).is_none());
             arr[(addr + offset) / VRAM::MAPPING_LEN].push(bank);
         }
     }
@@ -304,7 +307,7 @@ impl VRAM {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 struct VRAMCNT {
     mst: u8,
     offset: u8,
@@ -324,7 +327,7 @@ impl VRAMCNT {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq  )]
+#[derive(Clone, Copy, Debug, PartialEq)]
 enum Bank {
     A = 0,
     B = 1,
