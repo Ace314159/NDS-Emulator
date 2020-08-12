@@ -678,7 +678,7 @@ impl BLDY {
 impl IORegister for BLDY {
     fn read(&self, _byte: usize) -> u8 { 0 }
 
-    fn write(&mut self, __scheduler: &mut Scheduler, byte: usize, value: u8) {
+    fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8) {
         match byte {
             0 => self.evy = std::cmp::min(0x10, value & 0x1F),
             1 => (),

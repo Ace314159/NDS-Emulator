@@ -230,7 +230,7 @@ impl Address {
 impl IORegister for Address {
     fn read(&self, byte: usize) -> u8 { HW::read_byte_from_value(&self.addr, byte) }
 
-    fn write(&mut self, __scheduler: &mut Scheduler, byte: usize, value: u8) {
+    fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8) {
         HW::write_byte_to_value(&mut self.addr, byte, value);
     }
 }
