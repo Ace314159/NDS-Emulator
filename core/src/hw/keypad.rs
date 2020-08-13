@@ -48,6 +48,14 @@ impl Keypad {
         }
     }
 
+    pub fn press_screen(&mut self) {
+        self.extkeyin.remove(EXTKEYIN::PEN_DOWN);
+    }
+
+    pub fn release_screen(&mut self) {
+        self.extkeyin.insert(EXTKEYIN::PEN_DOWN);
+    }
+
     pub fn interrupt_requested(&self) -> bool {
         if self.keycnt.contains(KEYCNT::IRQ_ENABLE) {
             let irq_keys = self.keycnt - KEYCNT::IRQ_ENABLE - KEYCNT::IRQ_COND_AND;

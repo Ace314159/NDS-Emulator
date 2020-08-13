@@ -141,6 +141,14 @@ impl HW {
         self.keypad.release_key(key);
     }
 
+    pub fn press_screen(&mut self, _x: usize, _y: usize) {
+        self.keypad.press_screen();
+    }
+
+    pub fn release_screen(&mut self) {
+        self.keypad.release_screen();
+    }
+
     pub fn render_palettes(&self, extended: bool, slot: usize,
         engine: Engine, graphics_type: GraphicsType) -> (Vec<u16>, usize, usize) {
         if extended {

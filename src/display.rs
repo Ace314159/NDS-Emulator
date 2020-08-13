@@ -69,12 +69,12 @@ impl Display {
         }
 
          Display {
-             glfw,
-             window,
-             events,
-             screen_tex,
+            glfw,
+            window,
+            events,
+            screen_tex,
 
-             imgui_renderer,
+            imgui_renderer,
 
             prev_frame_time: Instant::now(),
             prev_fps_update_time: Instant::now(),
@@ -166,6 +166,11 @@ impl Display {
             (0, (height - scaled_height) / 2)
         } else { (0, 0) };
 
+        let x_start = tex_x;
+        let y_start = tex_y;
+        let x_end = width - tex_x;
+        let y_end = height - tex_y;
+
         unsafe {
             gl::ClearColor(0.0, 0.0, 0.0, 1.0);
             gl::BindTexture(gl::TEXTURE_2D, self.screen_tex);
@@ -174,8 +179,9 @@ impl Display {
                 gl::RGBA, gl::UNSIGNED_SHORT_1_5_5_5_REV, screens[0].as_ptr() as *const std::ffi::c_void);
             gl::TexSubImage2D(gl::TEXTURE_2D, 0, 0, nds::HEIGHT as i32, nds::WIDTH as i32, nds::HEIGHT as i32,
                 gl::RGBA, gl::UNSIGNED_SHORT_1_5_5_5_REV, screens[1].as_ptr() as *const std::ffi::c_void);
+            // Flip y_end and y_start because OpenGL wants the texture flipped vertically
             gl::BlitFramebuffer(0, 0, Display::WIDTH as i32, Display::HEIGHT as i32,
-                tex_x, height - tex_y, width - tex_x, tex_y, gl::COLOR_BUFFER_BIT, gl::NEAREST);
+                x_start, y_end, x_end, y_start, gl::COLOR_BUFFER_BIT, gl::NEAREST);
         }
 
         let io = imgui.io_mut();
@@ -184,6 +190,7 @@ impl Display {
 
         let mut keys_pressed = HashSet::new();
         let mut modifiers = HashSet::new();
+        let old_mouse_pressed = self.window.get_mouse_button(glfw::MouseButtonLeft) == Action::Press;
         for (_, event) in glfw::flush_messages(&self.events) {
             Display::handle_event(io, &event);
             match event {
@@ -211,6 +218,13 @@ impl Display {
                         _ => continue,
                     };
                 },
+                glfw::WindowEvent::MouseButton(glfw::MouseButtonLeft, Action::Press, _) |
+                glfw::WindowEvent::MouseButton(glfw::MouseButtonLeft, Action::Release, _) if !io.want_capture_mouse =>
+                    self.check_stylus(nds, x_start, y_start,
+                    x_end - x_start, y_end - y_start),
+                glfw::WindowEvent::CursorPos(_, _) if old_mouse_pressed && !io.want_capture_mouse =>
+                    self.check_stylus(nds, x_start, y_start,
+                    x_end - x_start, y_end - y_start),
                 _ => (),
             }
         }
@@ -265,6 +279,23 @@ impl Display {
             Char(char) => io.add_input_character(char),
             _ => (),
         }
+    }
+
+    fn check_stylus(&self, nds: &mut NDS, tex_x: i32, tex_y: i32, tex_width: i32, tex_height: i32) {
+        let pressed = self.window.get_mouse_button(glfw::MouseButtonLeft) == Action::Press;
+        if !pressed { nds.release_screen(); return }
+        let (cursor_x, cursor_y) = self.window.get_cursor_pos();
+
+        let (width_factor, height_factor) = (
+            tex_width as f64 / Display::WIDTH as f64,
+            tex_height as f64 / Display::HEIGHT as f64
+        );
+        let clamp = |val, max|
+            if val < 0.0 { 0.0 } else if val > max as f64 { max as f64 } else { val };
+
+        let touch_x = clamp((cursor_x - tex_x as f64) / width_factor, nds::WIDTH);
+        let touch_y = clamp((cursor_y - tex_y as f64 - (tex_height / 2) as f64) / height_factor, nds::HEIGHT);
+        nds.press_screen(touch_x as usize, touch_y as usize);
     }
 }
 

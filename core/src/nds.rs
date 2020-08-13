@@ -58,6 +58,14 @@ impl NDS {
         self.hw.release_key(key);
     }
 
+    pub fn press_screen(&mut self, x: usize, y: usize) {
+        self.hw.press_screen(x, y);
+    }
+
+    pub fn release_screen(&mut self) {
+        self.hw.release_screen();
+    }
+
     pub fn render_palettes(&self, extended: bool, slot: usize,
         engine: Engine, graphics_type: GraphicsType) -> (Vec<u16>, usize, usize) {
         self.hw.render_palettes(extended, slot, engine, graphics_type)
