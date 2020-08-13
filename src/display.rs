@@ -187,7 +187,8 @@ impl Display {
         for (_, event) in glfw::flush_messages(&self.events) {
             Display::handle_event(io, &event);
             match event {
-                glfw::WindowEvent::Key(key, _, action, new_modifiers) => {
+                glfw::WindowEvent::Key(key, _, action, new_modifiers)
+                if !io.want_capture_keyboard => {
                     if action != Action::Release { keys_pressed.insert(key); modifiers.insert(new_modifiers); }
                     let nds_key = match key {
                         glfw::Key::A => nds::Key::A,
