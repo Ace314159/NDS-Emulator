@@ -141,12 +141,14 @@ impl HW {
         self.keypad.release_key(key);
     }
 
-    pub fn press_screen(&mut self, _x: usize, _y: usize) {
+    pub fn press_screen(&mut self, x: usize, y: usize) {
         self.keypad.press_screen();
+        self.spi.press_screen(x, y)
     }
 
     pub fn release_screen(&mut self) {
         self.keypad.release_screen();
+        self.spi.release_screen();
     }
 
     pub fn render_palettes(&self, extended: bool, slot: usize,
