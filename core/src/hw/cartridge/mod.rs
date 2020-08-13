@@ -9,7 +9,8 @@ use std::path::PathBuf;
 use super::scheduler::{Event, Scheduler};
 
 use header::Header;
-use backup::Backup;
+
+pub(super) use backup::{Backup, Flash}; // For Firmware
 
 pub struct Cartridge {
     chip_id: u32,

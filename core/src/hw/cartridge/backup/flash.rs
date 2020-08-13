@@ -15,10 +15,23 @@ pub struct Flash {
 }
 
 impl Flash {
-    pub fn new(save_file: PathBuf, size: usize) -> Self {
+    pub fn new_backup(save_file: PathBuf, size: usize) -> Self {
         Flash {
             mem: Backup::get_initial_mem(&save_file, 0xFF, size),
             save_file,
+            dirty: false,
+
+            mode: Mode::ReadInstr,
+            value: 0,
+            // Status Reg
+            write_enable: false,
+        }
+    }
+
+    pub fn new_firmware(firmware: Vec<u8>) -> Self {
+        Flash {
+            mem: firmware,
+            save_file: PathBuf::new(),
             dirty: false,
 
             mode: Mode::ReadInstr,
@@ -68,6 +81,10 @@ impl Flash {
                 Mode::HandleInstr(Instr::PW(addr_bytes_left - 1, addr << 8 | value as usize))
             },
         }
+    }
+
+    pub fn deselect(&mut self) {
+        self.mode = Mode::ReadInstr;
     }
 }
 

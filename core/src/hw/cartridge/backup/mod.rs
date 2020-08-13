@@ -10,7 +10,7 @@ use super::Header;
 
 use no_backup::NoBackup;
 use eeprom::{EEPROM, EEPROMSmall, EEPROMNormal};
-use flash::Flash;
+pub use flash::Flash;
 
 
 pub trait Backup {
@@ -31,7 +31,7 @@ impl dyn Backup {
             match game_info.sram_type {
                 1 => Box::new(EEPROM::<EEPROMSmall>::new(save_file, sram_size)),
                 2 ..= 4 => Box::new(EEPROM::<EEPROMNormal>::new(save_file, sram_size)),
-                5 ..= 8 => Box::new(Flash::new(save_file, sram_size)),
+                5 ..= 8 => Box::new(Flash::new_backup(save_file, sram_size)),
                 _ => todo!(),
             }
         } else {

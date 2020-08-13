@@ -1,22 +1,22 @@
-mod firmware;
+mod tsc;
 
 use super::{mmu::IORegister, Scheduler};
-use firmware::Firmware;
+use crate::hw::cartridge::{Backup, Flash};
 
 pub struct SPI {
     cnt: CNT,
-    firmware: Firmware,
+    firmware: Flash,
 }
 
 impl SPI {
     pub fn new(firmware: Vec<u8>) -> Self {
         SPI {
             cnt: CNT::new(),
-            firmware: Firmware::new(firmware),
+            firmware: Flash::new_firmware(firmware),
         }
     }
 
-    pub fn read_cnt(&self, byte: usize) -> u8 { self.cnt.read(byte) }
+    pub fn read_cnt(&self, byte: usize) -> u8 { if self.cnt.enable { self.cnt.read(byte) } else { 0 } }
     pub fn read_data(&self) -> u8 {
         match self.cnt.device {
             Device::Firmware => self.firmware.read(),
@@ -25,12 +25,22 @@ impl SPI {
     }
     
     pub fn write_cnt(&mut self, scheduler: &mut Scheduler, byte: usize, value: u8) {
+        let prev_enable = self.cnt.enable;
+        let prev_device = self.cnt.device;
         self.cnt.write(scheduler, byte, value);
+        if prev_enable && !self.cnt.enable {
+            // Disabling requires device to be reset for libnds to work
+            match prev_device {
+                Device::Firmware => self.firmware.deselect(),
+                _ => (),
+            }
+        }
     }
 
     pub fn write_data(&mut self, value: u8) {
+        if !self.cnt.enable { return }
         match self.cnt.device {
-            Device::Firmware => self.firmware.write(value),
+            Device::Firmware => self.firmware.write(self.cnt.hold, value),
             _ => (),
         }
     }
@@ -41,7 +51,7 @@ pub struct CNT {
     busy: bool,
     device: Device,
     transfer16: bool,
-    chipselect_hold: bool,
+    hold: bool,
     irq: bool,
     enable: bool,
 }
@@ -53,7 +63,7 @@ impl CNT {
             busy: false,
             device: Device::Powerman,
             transfer16: false,
-            chipselect_hold: false,
+            hold: false,
             irq: false,
             enable: false,
         }
@@ -64,7 +74,7 @@ impl IORegister for CNT {
     fn read(&self, byte: usize) -> u8 {
         match byte {
             0 => (self.busy as u8) << 7 | self.baudrate,
-            1 => (self.enable as u8) << 7 | (self.irq as u8) << 6 | (self.chipselect_hold as u8) << 3 |
+            1 => (self.enable as u8) << 7 | (self.irq as u8) << 6 | (self.hold as u8) << 3 |
                 (self.transfer16 as u8) << 2 | (self.device as u8),
             _ => unreachable!(),
         }
@@ -73,13 +83,13 @@ impl IORegister for CNT {
     fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8) {
         match byte {
             0 => {
-                self.busy = value >> 7 & 0x1 != 0;
+                // TODO: Set busy flag properly
                 self.baudrate = value & 0x3;
             },
             1 => {
                 self.enable = value >> 7 & 0x1 != 0;
                 self.irq = value >> 6 & 0x1 != 0;
-                self.chipselect_hold = value >> 3 & 0x1 != 0;
+                self.hold = value >> 3 & 0x1 != 0;
                 self.transfer16 = value >> 2 & 0x1 != 0;
                 assert!(!self.transfer16);
                 self.device = Device::from_bits(value & 0x3);
