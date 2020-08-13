@@ -11,6 +11,7 @@ mod spi;
 mod cartridge;
 
 use std::convert::TryInto;
+use std::path::PathBuf;
 
 pub use mmu::{AccessType, MemoryValue};
 use mmu::{CP15, EXMEM, HALTCNT, POWCNT2, WRAMCNT};
@@ -70,14 +71,14 @@ impl HW {
     const IWRAM_SIZE: usize = 0x1_0000;
     const SHARED_WRAM_SIZE: usize = 0x8000;
 
-    pub fn new(bios7: Vec<u8>, bios9: Vec<u8>, firmware: Vec<u8>, rom: Vec<u8>) -> Self {
+    pub fn new(bios7: Vec<u8>, bios9: Vec<u8>, firmware: Vec<u8>, rom: Vec<u8>, save_file: PathBuf) -> Self {
         let mut scheduler = Scheduler::new();
         HW {
             // Memory
             cp15: CP15::new(),
             bios7,
             bios9,
-            cartridge: Cartridge::new(rom),
+            cartridge: Cartridge::new(rom, save_file),
             itcm: vec![0; HW::ITCM_SIZE],
             dtcm: vec![0; HW::DTCM_SIZE],
             main_mem: vec![0; HW::MAIN_MEM_SIZE],
@@ -126,6 +127,10 @@ impl HW {
 
     pub fn rendered_frame(&mut self) -> bool {
         self.gpu.rendered_frame()
+    }
+
+    pub fn save_backup(&mut self) {
+        self.cartridge.save_backup();
     }
 
     pub fn press_key(&mut self, key: Key) {

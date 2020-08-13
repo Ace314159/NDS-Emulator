@@ -1,10 +1,13 @@
 use std::marker::PhantomData;
+use std::path::PathBuf;
 
 use super::Backup;
 
 pub struct EEPROM<T: EEPROMType> {
     eeprom_type: PhantomData<T>,
     mem: Vec<u8>,
+    save_file: PathBuf,
+    dirty: bool,
 
     mode: Mode,
     value: u8,
@@ -15,10 +18,12 @@ pub struct EEPROM<T: EEPROMType> {
 }
 
 impl<T: EEPROMType> EEPROM<T> {
-    pub fn new(mem_size: usize) -> EEPROM<T> {
+    pub fn new(save_file: PathBuf, size: usize) -> EEPROM<T> {
         EEPROM {
             eeprom_type: PhantomData,
-            mem: vec![0xFF; mem_size],
+            mem: Backup::get_initial_mem(&save_file, 0, size),
+            save_file,
+            dirty: false,
 
             mode: Mode::ReadCommand,
             value: 0,
@@ -50,7 +55,7 @@ impl<T: EEPROMType> EEPROM<T> {
             },
 
             Command::WR(0, addr) => {
-                if self.write_enable { self.mem[addr] = value }
+                if self.write_enable { self.dirty = true; self.mem[addr] = value }
                 Mode::HandleCommand(Command::WR(0, addr + 1))
             },
             Command::WR(addr_bytes_left, addr) => {
@@ -84,6 +89,10 @@ impl<T: EEPROMType> Backup for EEPROM<T> {
         };
         if !hold { self.mode = Mode::ReadCommand }
     }
+
+    fn mem(&self) -> &Vec<u8> { &self.mem }
+    fn save_file(&self) -> &PathBuf { &self.save_file }
+    fn dirty(&mut self) -> bool { let old = self.dirty; self.dirty = false; old }
 }
 
 #[derive(Clone, Copy, Debug)]

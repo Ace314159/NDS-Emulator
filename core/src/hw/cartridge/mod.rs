@@ -1,9 +1,10 @@
+mod header;
+mod backup;
+
 use std::convert::TryInto;
 use std::collections::VecDeque;
 use std::ops::Range;
-
-mod header;
-mod backup;
+use std::path::PathBuf;
 
 use super::scheduler::{Event, Scheduler};
 
@@ -27,9 +28,9 @@ pub struct Cartridge {
 }
 
 impl Cartridge {
-    pub fn new(rom: Vec<u8>) -> Self {
+    pub fn new(rom: Vec<u8>, save_file: PathBuf) -> Self {
         let header = Header::new(&rom);
-        let backup = Backup::detect_type(&header);
+        let backup = Backup::detect_type(&header, save_file);
         Cartridge {
             chip_id: 0x000_01FC2u32, // TODO: Actually Calculate
             header,
@@ -153,6 +154,7 @@ impl Cartridge {
     pub fn chip_id(&self) -> u32 { self.chip_id }
     pub fn rom(&self) -> &Vec<u8> { &self.rom }
     pub fn header(&self) -> &Header { &self.header }
+    pub fn save_backup(&mut self) { self.backup.save() }
 
     fn transfer_byte_time(&self) -> usize { if self.romctrl.transfer_clk_rate { 8 } else { 5 } }
 }

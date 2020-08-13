@@ -1,7 +1,11 @@
+use std::path::PathBuf;
+
 use super::Backup;
 
 pub struct Flash {
+    save_file: PathBuf,
     mem: Vec<u8>,
+    dirty: bool,
 
     mode: Mode,
     value: u8,
@@ -11,9 +15,11 @@ pub struct Flash {
 }
 
 impl Flash {
-    pub fn new(mem_size: usize) -> Self {
+    pub fn new(save_file: PathBuf, size: usize) -> Self {
         Flash {
-            mem: vec![0xFF; mem_size],
+            mem: Backup::get_initial_mem(&save_file, 0xFF, size),
+            save_file,
+            dirty: false,
 
             mode: Mode::ReadInstr,
             value: 0,
@@ -53,6 +59,7 @@ impl Flash {
             Instr::WREN => unreachable!(),
 
             Instr::PW(0, addr) => {
+                self.dirty = true;
                 self.value = self.mem[addr];
                 self.mem[addr] = value;
                 Mode::HandleInstr(Instr::PW(0, addr + 1))
@@ -76,6 +83,10 @@ impl Backup for Flash {
         };
         if !hold { self.mode = Mode::ReadInstr }
     }
+
+    fn mem(&self) -> &Vec<u8> { &self.mem }
+    fn save_file(&self) -> &PathBuf { &self.save_file }
+    fn dirty(&mut self) -> bool { let old = self.dirty; self.dirty = false; old }
 }
 
 #[derive(Clone, Copy, Debug)]

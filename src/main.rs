@@ -3,6 +3,7 @@ mod debug;
 
 use std::borrow::Cow;
 use std::fs;
+use std::path::PathBuf;
 
 use nds_core::simplelog::*;
 use nds_core::nds::{NDS, Engine, GraphicsType};
@@ -15,6 +16,7 @@ fn main() {
     std::env::set_current_dir("ROMs").unwrap();
     let instructions7_filter = LevelFilter::Off;
     let instructions9_filter = LevelFilter::Off;
+    let rom_file = "IRQ.nds";
     CombinedLogger::init(vec![
         TermLogger::new(LevelFilter::Warn, Config::default(), TerminalMode::Mixed),
         WriteLogger::new(instructions7_filter,
@@ -47,8 +49,9 @@ fn main() {
     let bios7 = fs::read("bios7.bin").unwrap();
     let bios9 = fs::read("bios9.bin").unwrap();
     let firmware = fs::read("firmware.bin").unwrap();
-    let rom = fs::read("IRQ.nds").unwrap();
-    let mut nds = NDS::new(bios7, bios9, firmware, rom);
+    let rom = fs::read(rom_file).unwrap();
+    let save_file = PathBuf::from(rom_file).with_extension("sav");
+    let mut nds = NDS::new(bios7, bios9, firmware, rom, save_file);
     
     let engines = [Engine::A, Engine::B];
     let graphics_types = [GraphicsType::BG, GraphicsType::OBJ];
