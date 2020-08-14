@@ -450,11 +450,11 @@ impl<E: EngineType> Engine2D<E> {
         let bgcnt = self.bgcnts[bg_i];
         let tile_start_addr = self.calc_tile_start_addr(&bgcnt);
         let map_start_addr = self.calc_map_start_addr(&bgcnt);
-        let bit_depth = if bgcnt.bpp8 { 8 } else { 4 }; // Also bytes per row of tile
+        let bit_depth = 8; // Always 8bpp - Also bytes per row of tileper row of tile
         let map_size = 128 << bgcnt.screen_size; // In Pixels
-        let (mosaic_x, mosaic_y) = if bgcnt.mosaic {
+        /*let (mosaic_x, mosaic_y) = if bgcnt.mosaic {
             (self.mosaic.bg_size.h_size as usize, self.mosaic.bg_size.v_size as usize)
-        } else { (1, 1) };
+        } else { (1, 1) };*/
 
         for dot_x in 0..GPU::WIDTH {
             let (x_raw, y_raw) = (base_x.integer(), base_y.integer());
@@ -469,8 +469,8 @@ impl<E: EngineType> Engine2D<E> {
                 }
             } else { (x_raw as usize, y_raw as usize) };
             // Get Screen Entry
-            let map_x = (x / mosaic_x * mosaic_x / 8) % (map_size / 8);
-            let map_y = (y / mosaic_y * mosaic_y / 8) % (map_size / 8);
+            let map_x = (x /*/ mosaic_x * mosaic_x*/ / 8) % (map_size / 8);
+            let map_y = (y /*/ mosaic_y * mosaic_y*/ / 8) % (map_size / 8);
             self.bg_lines[bg_i][dot_x] = render_fn(self, vram, bg_i, map_start_addr, tile_start_addr, bit_depth,
                 map_size / 8, map_x, map_y, x, y);
         }
@@ -522,7 +522,7 @@ impl<E: EngineType> Engine2D<E> {
         
         // Convert from tile to pixels
         let (_, color_num) = Engine2D::<E>::get_color_from_tile(vram, VRAM::get_bg::<E, u8>,
-            tile_start_addr + 8 * bit_depth + tile_num, false, false, bit_depth,
+            tile_start_addr + 8 * bit_depth * tile_num, false, false, bit_depth,
             x % 8, y % 8, 0);
         if color_num == 0 { 0 } // Transparent Color
         else { self.bg_palettes[color_num] | 0x8000 }
