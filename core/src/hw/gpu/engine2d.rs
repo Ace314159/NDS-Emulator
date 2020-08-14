@@ -112,6 +112,8 @@ impl<E: EngineType> Engine2D<E> {
     }
 
     fn render_normal_line(&mut self, vram: &VRAM, vcount: u16) {
+        let affine_render_fn =
+            Engine2D::<E>::render_8bit_entry;
         if self.dispcnt.contains(DISPCNTFlags::DISPLAY_WINDOW0) { self.render_window(vcount, 0) }
         if self.dispcnt.contains(DISPCNTFlags::DISPLAY_WINDOW1) { self.render_window(vcount, 1) }
         if self.dispcnt.contains(DISPCNTFlags::DISPLAY_OBJ) { self.render_objs_line(vram, vcount, ) }
@@ -128,14 +130,14 @@ impl<E: EngineType> Engine2D<E> {
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { self.render_text_line(vram, vcount, 0) }
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { self.render_text_line(vram, vcount, 1) }
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { self.render_text_line(vram, vcount, 2) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { self.render_affine_line(vram, 3) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { self.render_affine_line(vram, 3, affine_render_fn) }
                 self.process_lines(vcount, 0, 3);
             },
             BGMode::Mode2 => {
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { self.render_text_line(vram, vcount, 0) }
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { self.render_text_line(vram, vcount, 1) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { self.render_affine_line(vram, 2) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { self.render_affine_line(vram, 3) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { self.render_affine_line(vram, 2, affine_render_fn) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { self.render_affine_line(vram, 3, affine_render_fn) }
                 self.process_lines(vcount, 0, 3);
             },
             BGMode::Mode3 => {
@@ -148,7 +150,7 @@ impl<E: EngineType> Engine2D<E> {
             BGMode::Mode4 => {
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { self.render_text_line(vram, vcount, 0) }
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { self.render_text_line(vram, vcount, 1) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { self.render_affine_line(vram, 2) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { self.render_affine_line(vram, 2, affine_render_fn) }
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { self.render_extended_line(vram, vcount, 3) }
                 self.process_lines(vcount, 0, 3);
             },
@@ -432,12 +434,13 @@ impl<E: EngineType> Engine2D<E> {
             } else {
                 todo!() // Affine Line with 256 color bitmap
             }
-        } else {
-            todo!() // Affine Line with 16 bit entries
+        } else { // Affine Line with 16 bit entries
+            self.render_affine_line(vram, bg_i, Engine2D::<E>::render_16bit_entry);
         }
     }
     
-    fn render_affine_line(&mut self, vram: &VRAM, bg_i: usize) {
+    fn render_affine_line<F>(&mut self, vram: &VRAM, bg_i: usize, render_fn: F)
+        where F: Fn(&Engine2D<E>, &VRAM, usize, usize, usize, usize, usize, usize, usize, usize, usize) -> u16 {
         let mut base_x = self.bgxs_latch[bg_i - 2];
         let mut base_y = self.bgys_latch[bg_i - 2];
         self.bgxs_latch[bg_i - 2] += self.dmxs[bg_i - 2];
@@ -468,15 +471,8 @@ impl<E: EngineType> Engine2D<E> {
             // Get Screen Entry
             let map_x = (x / mosaic_x * mosaic_x / 8) % (map_size / 8);
             let map_y = (y / mosaic_y * mosaic_y / 8) % (map_size / 8);
-            let addr = map_start_addr + map_y * map_size / 8 + map_x;
-            let tile_num = vram.get_bg::<E, u8>(addr) as usize;
-            
-            // Convert from tile to pixels
-            let (_, color_num) = Engine2D::<E>::get_color_from_tile(vram, VRAM::get_bg::<E, u8>,
-                tile_start_addr + 8 * bit_depth + tile_num, false, false, bit_depth,
-                x % 8, y % 8, 0);
-            self.bg_lines[bg_i][dot_x] = if color_num == 0 { 0 } // Transparent Color
-            else { self.bg_palettes[color_num] | 0x8000 };
+            self.bg_lines[bg_i][dot_x] = render_fn(self, vram, bg_i, map_start_addr, tile_start_addr, bit_depth,
+                map_size / 8, map_x, map_y, x, y);
         }
     }
 
@@ -514,24 +510,45 @@ impl<E: EngineType> Engine2D<E> {
             };
             map_x %= 32;
             map_y %= 32;
-            let addr = map_start_addr + map_y * 32 * 2 + map_x * 2;
-            let screen_entry = vram.get_bg::<E, u16>(addr) as usize;
-            let tile_num = screen_entry & 0x3FF;
-            let flip_x = (screen_entry >> 10) & 0x1 != 0;
-            let flip_y = (screen_entry >> 11) & 0x1 != 0;
-            let palette_num = (screen_entry >> 12) & 0xF;
-            
-            // Convert from tile to pixels
-            let (palette_num, color_num) = Engine2D::<E>::get_color_from_tile(vram,
-                VRAM::get_bg::<E, u8>, tile_start_addr + 8 * bit_depth * tile_num, flip_x, flip_y, bit_depth,
-                x % 8, y % 8, palette_num);
-            self.bg_lines[bg_i][dot_x] = if color_num == 0 { 0 } // Transparent Color
-            else if bgcnt.bpp8 & self.dispcnt.contains(DISPCNTFlags::BG_EXTENDED_PALETTES) {
-                // Wrap bit is Change Ext Palette Slot for BG0/BG1
-                let slot = if bg_i < 2 && bgcnt.wrap { bg_i + 2 } else { bg_i };
-                vram.get_bg_ext_pal::<E>(slot, color_num) | 0x8000
-            } else { self.bg_palettes[palette_num * 16 + color_num] | 0x8000 };
+            self.bg_lines[bg_i][dot_x] = self.render_16bit_entry(vram, bg_i, map_start_addr, tile_start_addr, bit_depth,
+                32, map_x, map_y, x, y);
         }
+    }
+
+    fn render_8bit_entry(&self, vram: &VRAM, _bg_i: usize, map_start_addr: usize, tile_start_addr: usize, bit_depth: usize,
+        map_size: usize, map_x: usize, map_y: usize, x: usize, y: usize) -> u16 {
+        let addr = map_start_addr + map_y * map_size + map_x;
+        let tile_num = vram.get_bg::<E, u8>(addr) as usize;
+        
+        // Convert from tile to pixels
+        let (_, color_num) = Engine2D::<E>::get_color_from_tile(vram, VRAM::get_bg::<E, u8>,
+            tile_start_addr + 8 * bit_depth + tile_num, false, false, bit_depth,
+            x % 8, y % 8, 0);
+        if color_num == 0 { 0 } // Transparent Color
+        else { self.bg_palettes[color_num] | 0x8000 }
+    }
+
+    fn render_16bit_entry(&self, vram: &VRAM, bg_i: usize, map_start_addr: usize, tile_start_addr: usize, bit_depth: usize,
+        map_size: usize, map_x: usize, map_y: usize, x: usize, y: usize) -> u16 {
+        let bgcnt = self.bgcnts[bg_i];
+
+        let addr = map_start_addr + 2 * (map_y * map_size + map_x);
+        let screen_entry = vram.get_bg::<E, u16>(addr) as usize;
+        let tile_num = screen_entry & 0x3FF;
+        let flip_x = (screen_entry >> 10) & 0x1 != 0;
+        let flip_y = (screen_entry >> 11) & 0x1 != 0;
+        let palette_num = (screen_entry >> 12) & 0xF;
+        
+        // Convert from tile to pixels
+        let (palette_num, color_num) = Engine2D::<E>::get_color_from_tile(vram,
+            VRAM::get_bg::<E, u8>, tile_start_addr + 8 * bit_depth * tile_num, flip_x, flip_y, bit_depth,
+            x % 8, y % 8, palette_num);
+        if color_num == 0 { 0 } // Transparent Color
+        else if bgcnt.bpp8 & self.dispcnt.contains(DISPCNTFlags::BG_EXTENDED_PALETTES) {
+            // Wrap bit is Change Ext Palette Slot for BG0/BG1
+            let slot = if bg_i < 2 && bgcnt.wrap { bg_i + 2 } else { bg_i };
+            vram.get_bg_ext_pal::<E>(slot, color_num) | 0x8000
+        } else { self.bg_palettes[palette_num * 16 + color_num] | 0x8000 }
     }
 
     pub(super) fn get_color_from_tile<F: Fn(&VRAM, usize) -> u8>(vram: &VRAM, get_vram_byte: F, addr: usize,
