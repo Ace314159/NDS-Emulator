@@ -144,21 +144,21 @@ impl<E: EngineType> Engine2D<E> {
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { self.render_text_line(vram, vcount, 0) }
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { self.render_text_line(vram, vcount, 1) }
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { self.render_text_line(vram, vcount, 2) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { self.render_extended_line(vram, vcount, 3) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { self.render_extended_line(vram, 3) }
                 self.process_lines(vcount, 0, 3);
             },
             BGMode::Mode4 => {
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { self.render_text_line(vram, vcount, 0) }
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { self.render_text_line(vram, vcount, 1) }
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { self.render_affine_line(vram, 2, affine_render_fn) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { self.render_extended_line(vram, vcount, 3) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { self.render_extended_line(vram, 3) }
                 self.process_lines(vcount, 0, 3);
             },
             BGMode::Mode5 => {
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { self.render_text_line(vram, vcount, 0) }
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { self.render_text_line(vram, vcount, 1) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { self.render_extended_line(vram, vcount, 2) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { self.render_extended_line(vram, vcount, 3) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { self.render_extended_line(vram, 2) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { self.render_extended_line(vram, 3) }
                 self.process_lines(vcount, 0, 3);
             },
             BGMode::Mode6 => todo!(),
@@ -415,16 +415,13 @@ impl<E: EngineType> Engine2D<E> {
         }
     }
 
-    fn render_extended_line(&mut self, vram: &VRAM, vcount: u16, bg_i: usize) {
+    fn render_extended_line(&mut self, vram: &VRAM, bg_i: usize) {
         let bgcnt = self.bgcnts[bg_i];
         if bgcnt.bpp8 {
             if bgcnt.tile_block & 0x1 != 0 { // Direct Color
-                // TODO: Implement affine aspects
-                let y = vcount as usize;
-                for dot_x in 0..GPU::WIDTH {
-                    let color = vram.get_bg::<E, u16>(2 * (y * GPU::WIDTH + dot_x));
-                    self.bg_lines[bg_i][dot_x] = color;
-                }
+                self.render_affine_line(vram, bg_i, |_, _, _, _, _, _, map_size, _, _, x, y|
+                    vram.get_bg::<E, u16>(2 * (y * map_size + x))
+                );
             } else {
                 todo!() // Affine Line with 256 color bitmap
             }
@@ -432,7 +429,7 @@ impl<E: EngineType> Engine2D<E> {
             self.render_affine_line(vram, bg_i, Engine2D::<E>::render_16bit_entry);
         }
     }
-    
+
     fn render_affine_line<F>(&mut self, vram: &VRAM, bg_i: usize, render_fn: F)
         where F: Fn(&Engine2D<E>, &VRAM, usize, usize, usize, usize, usize, usize, usize, usize, usize) -> u16 {
         let mut base_x = self.bgxs_latch[bg_i - 2];
@@ -466,7 +463,7 @@ impl<E: EngineType> Engine2D<E> {
             let map_x = (x /*/ mosaic_x * mosaic_x*/ / 8) % (map_size / 8);
             let map_y = (y /*/ mosaic_y * mosaic_y*/ / 8) % (map_size / 8);
             self.bg_lines[bg_i][dot_x] = render_fn(self, vram, bg_i, map_start_addr, tile_start_addr, bit_depth,
-                map_size / 8, map_x, map_y, x, y);
+                map_size, map_x, map_y, x, y);
         }
     }
 
@@ -505,13 +502,13 @@ impl<E: EngineType> Engine2D<E> {
             map_x %= 32;
             map_y %= 32;
             self.bg_lines[bg_i][dot_x] = self.render_16bit_entry(vram, bg_i, map_start_addr, tile_start_addr, bit_depth,
-                32, map_x, map_y, x, y);
+                32 * 8, map_x, map_y, x, y);
         }
     }
 
     fn render_8bit_entry(&self, vram: &VRAM, _bg_i: usize, map_start_addr: usize, tile_start_addr: usize, bit_depth: usize,
         map_size: usize, map_x: usize, map_y: usize, x: usize, y: usize) -> u16 {
-        let addr = map_start_addr + map_y * map_size + map_x;
+        let addr = map_start_addr + map_y * map_size / 8 + map_x;
         let tile_num = vram.get_bg::<E, u8>(addr) as usize;
         
         // Convert from tile to pixels
@@ -526,7 +523,7 @@ impl<E: EngineType> Engine2D<E> {
         map_size: usize, map_x: usize, map_y: usize, x: usize, y: usize) -> u16 {
         let bgcnt = self.bgcnts[bg_i];
 
-        let addr = map_start_addr + 2 * (map_y * map_size + map_x);
+        let addr = map_start_addr + 2 * (map_y * map_size / 8 + map_x);
         let screen_entry = vram.get_bg::<E, u16>(addr) as usize;
         let tile_num = screen_entry & 0x3FF;
         let flip_x = (screen_entry >> 10) & 0x1 != 0;
