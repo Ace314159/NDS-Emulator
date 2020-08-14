@@ -185,12 +185,12 @@ impl HW {
         }
     }
 
-    pub fn render_tiles(&self, engine: Engine, graphics_type: GraphicsType, extended: bool, bpp8: bool, slot: usize,
-        palette: usize, offset: usize) -> (Vec<u16>, usize, usize) {
+    pub fn render_tiles(&self, engine: Engine, graphics_type: GraphicsType, extended: bool, bitmap: bool, bpp8: bool,
+        slot: usize, palette: usize, offset: usize) -> (Vec<u16>, usize, usize) {
         let is_bg = graphics_type == GraphicsType::BG;
         match engine {
-            Engine::A => self.gpu.engine_a.render_tiles(&self.gpu.vram, is_bg, extended, bpp8, slot, palette, offset),
-            Engine::B => self.gpu.engine_b.render_tiles(&self.gpu.vram, is_bg, extended, bpp8, slot, palette, offset),
+            Engine::A => self.gpu.engine_a.render_tiles(&self.gpu.vram, is_bg, extended, bitmap, bpp8, slot, palette, offset),
+            Engine::B => self.gpu.engine_b.render_tiles(&self.gpu.vram, is_bg, extended, bitmap, bpp8, slot, palette, offset),
         }
     }
 

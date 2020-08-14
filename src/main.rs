@@ -71,6 +71,7 @@ fn main() {
     let mut tiles_engine = 0;
     let mut tiles_graphics_type = 0;
     let mut tiles_extended = false;
+    let mut tiles_bitmap = false;
     let mut tiles_bpp8 = false;
     let mut tiles_slot = 0;
     let mut tiles_palette = 0;
@@ -84,8 +85,8 @@ fn main() {
         let (map_pixels, map_width, map_height) =
             nds.render_map(engines[map_engine], map_bg_i as usize);
         let (tiles_pixels, tiles_width, tiles_height) =
-            nds.render_tiles(engines[tiles_engine], graphics_types[tiles_graphics_type], tiles_extended, tiles_bpp8,
-            tiles_slot as usize, tiles_palette as usize, tiles_offset as usize);
+            nds.render_tiles(engines[tiles_engine], graphics_types[tiles_graphics_type], tiles_extended, tiles_bitmap,
+                tiles_bpp8, tiles_slot as usize, tiles_palette as usize, tiles_offset as usize);
 
         display.render(&mut nds, &mut imgui,
             |ui, keys_pressed, _modifiers| {
@@ -134,19 +135,26 @@ fn main() {
                 .build_simple(ui, &mut tiles_graphics_type,
                 &graphics_types, &(|i| Cow::from(ImString::new(i.label()))));
 
-                ui.checkbox(im_str!("Extended Palettes"), &mut tiles_extended);
-                if !tiles_extended {
-                    ui.checkbox(im_str!("256 Colors"), &mut tiles_bpp8);
-                } else if graphics_types[tiles_graphics_type] == GraphicsType::BG {
-                    Slider::new(im_str!("Palette Slot"), 0..=3)
-                    .build(ui, &mut tiles_slot);
+                // TODO: Clean up UI - Dropdown with 4 options instead of checkboxes
+                if !tiles_extended && !tiles_bpp8 {
+                    ui.checkbox(im_str!("Bitmap"), &mut tiles_bitmap);
                 }
-
-                if tiles_extended || !tiles_bpp8 {
-                    Slider::new(im_str!("Palette"), 0..=15)
-                    .build(ui, &mut tiles_palette);
+                
+                if !tiles_bitmap {
+                    ui.checkbox(im_str!("Extended Palettes"), &mut tiles_extended);
+                    if !tiles_extended {
+                        ui.checkbox(im_str!("256 Colors"), &mut tiles_bpp8);
+                    } else if graphics_types[tiles_graphics_type] == GraphicsType::BG {
+                        Slider::new(im_str!("Palette Slot"), 0..=3)
+                        .build(ui, &mut tiles_slot);
+                    }
+    
+                    if tiles_extended || !tiles_bpp8 {
+                        Slider::new(im_str!("Palette"), 0..=15)
+                        .build(ui, &mut tiles_palette);
+                    }
+    
                 }
-
                 if engines[tiles_engine] == Engine::A {
                     Slider::new(im_str!("Offset"), tiles_ranges[tiles_graphics_type as usize].clone())
                     .build(ui, &mut tiles_offset);
