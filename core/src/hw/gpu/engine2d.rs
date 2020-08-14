@@ -1,5 +1,5 @@
 use super::registers::*;
-use super::{EngineType, EngineA, GPU, VRAM};
+use super::{EngineType, GPU, VRAM};
 use crate::hw::{mmu::IORegister, Scheduler};
 
 pub struct Engine2D<E: EngineType> {
@@ -44,8 +44,6 @@ pub struct Engine2D<E: EngineType> {
 }
 
 impl<E: EngineType> Engine2D<E> {
-    const TRANSPARENT_COLOR: u16 = 0x8000;
-
     pub fn new() -> Self {
         Engine2D {
             // Registers
@@ -99,7 +97,7 @@ impl<E: EngineType> Engine2D<E> {
     pub fn render_line(&mut self, vram: &VRAM, vcount: u16) {
         match self.dispcnt.display_mode {
             DisplayMode::Mode0 => for dot_x in 0..GPU::WIDTH {
-                self.set_pixel(vcount, dot_x, 0x7FFF);
+                self.set_pixel(vcount, dot_x, 0xFFFF);
             },
             DisplayMode::Mode1 => self.render_normal_line(vram, vcount),
             DisplayMode::Mode2 => for dot_x in 0..GPU::WIDTH {
@@ -214,7 +212,7 @@ impl<E: EngineType> Engine2D<E> {
             let mut i = 0;
             for (bg_i, priority) in bgs.iter() {
                 let color = self.bg_lines[*bg_i][dot_x];
-                if color != Engine2D::<E>::TRANSPARENT_COLOR && enabled[*bg_i] {
+                if color & 0x8000 != 0 && enabled[*bg_i] {
                     colors[i] = color;
                     layers[i] = Layer::from(*bg_i);
                     priorities[i] = *priority;
@@ -223,7 +221,7 @@ impl<E: EngineType> Engine2D<E> {
                 }
             }
             let obj_color = self.objs_line[dot_x].color;
-            if enabled[4] && obj_color != Engine2D::<E>::TRANSPARENT_COLOR {
+            if enabled[4] && obj_color & 0x8000 != 0 {
                 if self.objs_line[dot_x].priority <= priorities[0] {
                     colors[1] = colors[0];
                     layers[1] = layers[0];
@@ -407,7 +405,7 @@ impl<E: EngineType> Engine2D<E> {
                         vram.get_obj_ext_pal::<E>(original_palette_num * 16 + color_num)
                     } else {
                         self.obj_palettes[palette_num * 16 + color_num]
-                    };
+                    } | 0x8000;
                     self.objs_line[dot_x] = OBJPixel {
                         color,
                         priority: (obj[2] >> 10 & 0x3) as u8,
@@ -424,12 +422,12 @@ impl<E: EngineType> Engine2D<E> {
     fn render_extended_line(&mut self, vram: &VRAM, vcount: u16, bg_i: usize) {
         let bgcnt = self.bgcnts[bg_i];
         if bgcnt.bpp8 {
-            if bgcnt.tile_block & 0x1 != 0 {
+            if bgcnt.tile_block & 0x1 != 0 { // Direct Color
                 // TODO: Implement affine aspects
                 let y = vcount as usize;
                 for dot_x in 0..GPU::WIDTH {
                     let color = vram.get_bg::<E, u16>(2 * (y * GPU::WIDTH + dot_x));
-                    self.bg_lines[bg_i][dot_x] = if color & 0x8000 != 0 { color } else { Engine2D::<E>::TRANSPARENT_COLOR };
+                    self.bg_lines[bg_i][dot_x] = color;
                 }
             } else {
                 todo!() // Affine Line with 256 color bitmap
@@ -463,7 +461,7 @@ impl<E: EngineType> Engine2D<E> {
             y_raw < 0 || y_raw > map_size as i32 {
                 if bgcnt.wrap { ((x_raw % map_size as i32) as usize, (y_raw % map_size as i32) as usize) }
                 else {
-                    self.bg_lines[bg_i][dot_x] = Engine2D::<E>::TRANSPARENT_COLOR;
+                    self.bg_lines[bg_i][dot_x] = 0; // Transparent Color
                     continue
                 }
             } else { (x_raw as usize, y_raw as usize) };
@@ -477,8 +475,8 @@ impl<E: EngineType> Engine2D<E> {
             let (_, color_num) = Engine2D::<E>::get_color_from_tile(vram, VRAM::get_bg::<E, u8>,
                 tile_start_addr + 8 * bit_depth + tile_num, false, false, bit_depth,
                 x % 8, y % 8, 0);
-            self.bg_lines[bg_i][dot_x] = if color_num == 0 { Engine2D::<E>::TRANSPARENT_COLOR }
-            else { self.bg_palettes[color_num] };
+            self.bg_lines[bg_i][dot_x] = if color_num == 0 { 0 } // Transparent Color
+            else { self.bg_palettes[color_num] } | 0x8000;
         }
     }
 
@@ -527,12 +525,12 @@ impl<E: EngineType> Engine2D<E> {
             let (palette_num, color_num) = Engine2D::<E>::get_color_from_tile(vram,
                 VRAM::get_bg::<E, u8>, tile_start_addr + 8 * bit_depth * tile_num, flip_x, flip_y, bit_depth,
                 x % 8, y % 8, palette_num);
-            self.bg_lines[bg_i][dot_x] = if color_num == 0 { Engine2D::<E>::TRANSPARENT_COLOR }
+            self.bg_lines[bg_i][dot_x] = if color_num == 0 { 0 } // Transparent Color
             else if bgcnt.bpp8 & self.dispcnt.contains(DISPCNTFlags::BG_EXTENDED_PALETTES) {
                 // Wrap bit is Change Ext Palette Slot for BG0/BG1
                 let slot = if bg_i < 2 && bgcnt.wrap { bg_i + 2 } else { bg_i };
                 vram.get_bg_ext_pal::<E>(slot, color_num)
-            } else { self.bg_palettes[palette_num * 16 + color_num] };
+            } else { self.bg_palettes[palette_num * 16 + color_num] } | 0x8000;
         }
     }
 
@@ -597,7 +595,7 @@ struct OBJPixel {
 impl OBJPixel {
     pub fn none() -> OBJPixel {
         OBJPixel {
-            color: Engine2D::<EngineA>::TRANSPARENT_COLOR,
+            color: 0, // Transparent Color
             priority: 4,
             semitransparent: false,
         }
@@ -792,7 +790,6 @@ impl<E: EngineType> Engine2D<E>{
         if addr % 2 == 0 {
             (palettes[index] >> 0) as u8
         } else {
-            warn!("Reading Palette - 15th bit could be wrong: 0x{:X}", palettes[index] >> 8);
             (palettes[index] >> 8) as u8
         }
     }
@@ -806,7 +803,6 @@ impl<E: EngineType> Engine2D<E>{
         let palettes = if addr < GPU::PALETTE_SIZE { &mut self.bg_palettes } else { &mut self.obj_palettes };
         let index = (addr & GPU::PALETTE_SIZE - 1) / 2;
         palettes[index] = value;
-        // if value & 0x8000 != 0 { warn!("Writing to palette with 15th bit set - Reading could be inaccurate: 0x{:X} ", value) }
     }
 
     pub fn bg_palettes(&self) -> &Vec<u16> { &self.bg_palettes }
