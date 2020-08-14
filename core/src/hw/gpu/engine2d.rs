@@ -416,6 +416,7 @@ impl<E: EngineType> Engine2D<E> {
     }
 
     fn render_extended_line(&mut self, vram: &VRAM, bg_i: usize) {
+        // TODO: Use Screen Base
         let bgcnt = self.bgcnts[bg_i];
         if bgcnt.bpp8 {
             if bgcnt.tile_block & 0x1 != 0 { // Direct Color
@@ -423,7 +424,13 @@ impl<E: EngineType> Engine2D<E> {
                     vram.get_bg::<E, u16>(2 * (y * map_size + x))
                 );
             } else {
-                todo!() // Affine Line with 256 color bitmap
+                self.render_affine_line(vram, bg_i,
+                    |engine, _, _, _, _, _, _, _, _, x, y| {
+                        let color_num = vram.get_bg::<E, u8>(y * GPU::WIDTH + x) as usize;
+                        if color_num == 0 { 0 } // Transparent Color
+                        else { engine.bg_palettes[color_num] | 0x8000 }
+                    }
+                );
             }
         } else { // Affine Line with 16 bit entries
             self.render_affine_line(vram, bg_i, Engine2D::<E>::render_16bit_entry);
