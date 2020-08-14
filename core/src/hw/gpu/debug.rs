@@ -1,4 +1,4 @@
-use super::{Engine2D, EngineType, GPU, VRAM};
+use super::{Engine2D, EngineType, GPU, VRAM, registers::BGMode};
 
 impl GPU {
     pub fn render_palettes<F: Fn(usize) -> u16>(get_color: F, palettes_size: usize) -> (Vec<u16>, usize, usize) {
@@ -53,7 +53,14 @@ impl GPU {
 impl<E: EngineType> Engine2D<E> {
     pub fn render_map(&self, vram: &VRAM, bg_i: usize) -> (Vec<u16>, usize, usize) {
         let bgcnt = self.bgcnts[bg_i];
-        let affine = false; // TODO: Use correct condition
+        // TODO: Implement Extended BGs
+        let affine = match self.dispcnt.bg_mode {
+            BGMode::Mode0 => false,
+            BGMode::Mode1 => bg_i == 3,
+            BGMode::Mode2 => bg_i >= 2,
+            BGMode::Mode4 => bg_i == 2,
+            _ => false,
+        };
         let (width, height) = match bgcnt.screen_size {
             0 => [(256, 256), (128, 128)][affine as usize],
             1 => [(512, 256), (256, 256)][affine as usize],
@@ -64,7 +71,7 @@ impl<E: EngineType> Engine2D<E> {
         let mut pixels = vec![0u16; width * height];
         let tile_start_addr = self.calc_tile_start_addr(&bgcnt);
         let map_start_addr = self.calc_map_start_addr(&bgcnt);
-        let bit_depth = if bgcnt.bpp8 { 8 } else { 4 }; // Also bytes per row of tile
+        let bit_depth = if bgcnt.bpp8 || affine { 8 } else { 4 }; // Also bytes per row of tile
 
         for y in 0..height {
             for x in 0..width {
