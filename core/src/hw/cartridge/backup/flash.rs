@@ -43,6 +43,7 @@ impl Flash {
 
     fn set_instr(&mut self, instr: Instr) -> Mode {
         match instr {
+            Instr::IR => Mode::ReadInstr, // TODO: Actually implement IR
             Instr::WREN => {
                 self.write_enable = true;
                 Mode::ReadInstr
@@ -53,6 +54,8 @@ impl Flash {
 
     fn handle_instr(&mut self, instr: Instr, value: u8) -> Mode {
         match instr {
+            Instr::IR => unreachable!(),
+
             Instr::READ(0, addr) => {
                 assert_eq!(value, 0);
                 self.value = self.mem[addr];
@@ -114,6 +117,7 @@ enum Mode {
 
 #[derive(Clone, Copy, Debug)]
 enum Instr {
+    IR,
     READ(usize, usize),
     RDSR, // Read Status Register
     WREN, // Write Enable
@@ -123,6 +127,7 @@ enum Instr {
 impl Instr {
     fn get(value: u8) -> Self {
         match value {
+            0x00 => Instr::IR,
             0x03 => Instr::READ(3, 0),
             0x05 => Instr::RDSR,
             0x06 => Instr::WREN,
