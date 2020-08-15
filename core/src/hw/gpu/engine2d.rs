@@ -421,7 +421,7 @@ impl<E: EngineType> Engine2D<E> {
                     if set_color { break } // Continue to look for color pixels
                 } else if !set_color {
                     let color = if bpp8 && self.dispcnt.contains(DISPCNTFlags::OBJ_EXTENDED_PALETTES) {
-                        vram.get_obj_ext_pal::<E>(original_palette_num * 16 + color_num)
+                        vram.get_obj_ext_pal::<E>(original_palette_num * 256 + color_num)
                     } else {
                         self.obj_palettes[palette_num * 16 + color_num]
                     } | 0x8000;
@@ -549,8 +549,8 @@ impl<E: EngineType> Engine2D<E> {
         else { self.bg_palettes[color_num] | 0x8000 }
     }
 
-    fn render_16bit_entry(&self, vram: &VRAM, bg_i: usize, map_start_addr: usize, tile_start_addr: usize, bit_depth: usize,
-        map_size: usize, map_x: usize, map_y: usize, x: usize, y: usize) -> u16 {
+    pub(super) fn render_16bit_entry(&self, vram: &VRAM, bg_i: usize, map_start_addr: usize, tile_start_addr: usize,
+        bit_depth: usize, map_size: usize, map_x: usize, map_y: usize, x: usize, y: usize) -> u16 {
         let bgcnt = self.bgcnts[bg_i];
 
         let addr = map_start_addr + 2 * (map_y * map_size / 8 + map_x);
@@ -558,17 +558,17 @@ impl<E: EngineType> Engine2D<E> {
         let tile_num = screen_entry & 0x3FF;
         let flip_x = (screen_entry >> 10) & 0x1 != 0;
         let flip_y = (screen_entry >> 11) & 0x1 != 0;
-        let palette_num = (screen_entry >> 12) & 0xF;
+        let original_palette_num = (screen_entry >> 12) & 0xF;
         
         // Convert from tile to pixels
         let (palette_num, color_num) = Engine2D::<E>::get_color_from_tile(vram,
             VRAM::get_bg::<E, u8>, tile_start_addr + 8 * bit_depth * tile_num, flip_x, flip_y, bit_depth,
-            x % 8, y % 8, palette_num);
+            x % 8, y % 8, original_palette_num);
         if color_num == 0 { 0 } // Transparent Color
         else if bgcnt.bpp8 & self.dispcnt.contains(DISPCNTFlags::BG_EXTENDED_PALETTES) {
             // Wrap bit is Change Ext Palette Slot for BG0/BG1
             let slot = if bg_i < 2 && bgcnt.wrap { bg_i + 2 } else { bg_i };
-            vram.get_bg_ext_pal::<E>(slot, color_num) | 0x8000
+            vram.get_bg_ext_pal::<E>(slot, original_palette_num * 256 + color_num) | 0x8000
         } else { self.bg_palettes[palette_num * 16 + color_num] | 0x8000 }
     }
 
