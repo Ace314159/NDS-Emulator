@@ -7,7 +7,7 @@ use super::{
     dma::{DMAChannel, DMAOccasion},
     mmu::MemoryValue,
     interrupt_controller::{InterruptController, InterruptRequest},
-    gpu::{DISPSTAT, DISPSTATFlags},
+    gpu::{DISPSTAT, DISPSTATFlags, GeometryCommandEntry},
     HW
 };
 
@@ -94,7 +94,11 @@ impl HW {
             Event::ROMBlockEnded(is_arm7) => if self.cartridge.end_block() {
                 let interrupts = if is_arm7 { &mut self.interrupts7 } else { &mut self.interrupts9 };
                 interrupts.request |= InterruptRequest::GAME_CARD_TRANSFER_COMPLETION;
-            }
+            },
+            Event::GeometryCommand(command_entry) => {
+                self.gpu.engine3d.exec_command(command_entry);
+                self.gpu.engine3d.schedule_command(&mut self.scheduler);
+            },
         }
     }
 
@@ -230,4 +234,5 @@ pub enum Event {
     TimerOverflow(bool, usize),
     ROMWordTransfered,
     ROMBlockEnded(bool),
+    GeometryCommand(GeometryCommandEntry)
 }

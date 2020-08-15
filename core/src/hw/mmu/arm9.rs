@@ -45,6 +45,7 @@ impl HW {
                 self.wramcnt.arm9_offset + addr & self.wramcnt.arm9_mask, value),
             MemoryRegion::IO if (0x0400_0188 ..= 0x0400_018B).contains(&addr) =>
                 self.ipc_fifo_send(false, addr, value),
+            MemoryRegion::IO if (0x0400_0440 ..= 0x0400_05CB).contains(&addr) => self.write_geometry_command(addr, value),
             MemoryRegion::IO => HW::write_from_bytes(self, &HW::arm9_write_io_register, addr, value),
             MemoryRegion::Palette if addr & 0x7FFF < 0x400 => HW::write_palette_ram(&mut self.gpu.engine_a, addr, value),
             MemoryRegion::Palette => HW::write_palette_ram(&mut self.gpu.engine_b, addr, value),
@@ -270,6 +271,11 @@ impl HW {
             0x0400_106F => self.gpu.engine_b.master_bright.write(&mut self.scheduler, 3, value),
             _ => warn!("Ignoring ARM9 IO Register Write 0x{:08X} = {:02X}", addr, value),
         }
+    }
+
+    fn write_geometry_command<T: MemoryValue>(&mut self, addr: u32, value: T) {
+        assert!(addr % 4 == 0 && std::mem::size_of::<T>() == 4);
+        self.gpu.engine3d.write_geometry_command(&mut self.scheduler, addr, num::cast::<T, u32>(value).unwrap());
     }
 
     fn write_palette_ram<E: EngineType, T: MemoryValue>(engine: &mut Engine2D<E>, addr: u32, value: T) {
