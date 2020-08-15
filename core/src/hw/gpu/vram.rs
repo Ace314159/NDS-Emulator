@@ -228,7 +228,7 @@ impl VRAM {
         }
     }
 
-    pub fn get_obj<E: EngineType>(&self, addr: usize) -> u8 {
+    pub fn get_obj<E: EngineType, T: MemoryValue>(&self, addr: usize) -> T {
         if E::is_a() {
             VRAM::read_mapping(&self.banks, &self.engine_a_obj[addr / VRAM::MAPPING_LEN], addr)
         } else {

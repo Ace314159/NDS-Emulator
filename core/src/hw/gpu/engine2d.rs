@@ -378,7 +378,31 @@ impl<E: EngineType> Engine2D<E> {
                         if flip_y { obj_height - 1 - y_diff } else { y_diff },
                     )
                 };
+                let mode = obj[0] >> 10 & 0x3;
+                let priority = (obj[2] >> 10 & 0x3) as u8;
                 let bpp8 = obj[0] >> 13 & 0x1 != 0;
+                if mode == 3 { // Bitmap
+                    assert!(!bpp8);
+                    let tile_start_addr = if self.dispcnt.contains(DISPCNTFlags::BITMAP_OBJ_1D) {
+                        todo!()
+                    } else {
+                        let mask_x = if self.dispcnt.contains(DISPCNTFlags::BITMAP_OBJ_SQUARE) { 0x1F } else { 0x0F };
+                        (base_tile_num & mask_x) * 0x10 + (base_tile_num & !mask_x) * 0x80
+                    };
+                    let addr = tile_start_addr + 2 * (y_diff as i16 * obj_width + x_diff) as usize;
+                    let color = vram.get_obj::<E, u16>(addr);
+                    if color & 0x8000 != 0 {
+                        self.objs_line[dot_x] = OBJPixel {
+                            color,
+                            priority,
+                            semitransparent: false,
+                        };
+                        set_color = true;
+                        // Continue to look for OBJ window pixels if not yet found and window is enabled
+                        if self.windows_lines[2][dot_x] || !obj_window_enabled { break }
+                    }
+                    continue;
+                }
                 let bit_depth = if bpp8 { 8 } else { 4 };
                 let (boundary, tile_offset) = if self.dispcnt.contains(DISPCNTFlags::TILE_OBJ_1D) {
                     (32 << self.dispcnt.tile_obj_1d_bound, (y_diff as i16 / 8 * obj_width + x_diff) / 8)
@@ -389,10 +413,9 @@ impl<E: EngineType> Engine2D<E> {
                 let original_palette_num = (obj[2] >> 12 & 0xF) as usize;
                 // Flipped at tile level, so no need to flip again
                 let (palette_num, color_num) = Engine2D::<E>::get_color_from_tile(vram,
-                    VRAM::get_obj::<E>, addr, false, false,
+                    VRAM::get_obj::<E, u8>, addr, false, false,
                     bit_depth, tile_x as usize, tile_y as usize, original_palette_num);
                 if color_num == 0 { continue }
-                let mode = obj[0] >> 10 & 0x3;
                 if mode == 2 {
                     self.windows_lines[2][dot_x] = obj_window_enabled;
                     if set_color { break } // Continue to look for color pixels
@@ -404,7 +427,7 @@ impl<E: EngineType> Engine2D<E> {
                     } | 0x8000;
                     self.objs_line[dot_x] = OBJPixel {
                         color,
-                        priority: (obj[2] >> 10 & 0x3) as u8,
+                        priority,
                         semitransparent: mode == 1,
                     };
                     set_color = true;

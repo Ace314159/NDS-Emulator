@@ -152,11 +152,11 @@ impl<E: EngineType> Engine2D<E> {
             }
         } else {
             if extended {
-                GPU::render_tiles::<E, _, _>(vram, &VRAM::get_obj::<E>,
+                GPU::render_tiles::<E, _, _>(vram, &VRAM::get_obj::<E, u8>,
                 &|i| vram.get_obj_ext_pal::<E>(i),
                 offset, palette, extended, bitmap, bpp8)
             } else {
-                GPU::render_tiles::<E, _, _>(vram, &VRAM::get_obj::<E>,
+                GPU::render_tiles::<E, _, _>(vram, &VRAM::get_obj::<E, u8>,
                 &|i| self.obj_palettes()[i], offset, palette, extended, bitmap, bpp8)
             }
         }
