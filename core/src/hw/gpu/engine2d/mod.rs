@@ -1,4 +1,8 @@
-use super::registers::*;
+mod registers;
+
+pub use registers::BGMode;
+
+use registers::*;
 use super::{EngineType, Engine3D, GPU, VRAM};
 use crate::hw::{mmu::IORegister, Scheduler};
 

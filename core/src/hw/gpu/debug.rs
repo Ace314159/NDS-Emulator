@@ -1,4 +1,4 @@
-use super::{Engine2D, EngineType, GPU, VRAM, registers::BGMode};
+use super::{Engine2D, EngineType, GPU, VRAM, engine2d::BGMode};
 
 impl GPU {
     pub fn render_palettes<F: Fn(usize) -> u16>(get_color: F, palettes_size: usize) -> (Vec<u16>, usize, usize) {
