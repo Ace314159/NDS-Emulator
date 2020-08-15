@@ -1,5 +1,5 @@
 use super::registers::*;
-use super::{EngineType, GPU, VRAM};
+use super::{EngineType, Engine3D, GPU, VRAM};
 use crate::hw::{mmu::IORegister, Scheduler};
 
 pub struct Engine2D<E: EngineType> {
@@ -94,12 +94,12 @@ impl<E: EngineType> Engine2D<E> {
         [(64, 64), (64, 32), (32, 64)],
     ];
 
-    pub fn render_line(&mut self, vram: &VRAM, vcount: u16) {
+    pub fn render_line(&mut self, engine3d: &Engine3D, vram: &VRAM, vcount: u16) {
         match self.dispcnt.display_mode {
             DisplayMode::Mode0 => for dot_x in 0..GPU::WIDTH {
                 self.set_pixel(vcount, dot_x, 0xFFFF);
             },
-            DisplayMode::Mode1 => self.render_normal_line(vram, vcount),
+            DisplayMode::Mode1 => self.render_normal_line(engine3d, vram, vcount),
             DisplayMode::Mode2 => for dot_x in 0..GPU::WIDTH {
                 let index = vcount as usize * GPU::WIDTH + dot_x;
                 let color = if let Some(bank) = vram.get_lcdc_bank(self.dispcnt.vram_block) {
@@ -111,7 +111,7 @@ impl<E: EngineType> Engine2D<E> {
         }
     }
 
-    fn render_normal_line(&mut self, vram: &VRAM, vcount: u16) {
+    fn render_normal_line(&mut self, engine3d: &Engine3D, vram: &VRAM, vcount: u16) {
         let affine_render_fn =
             Engine2D::<E>::render_8bit_entry;
         if self.dispcnt.contains(DISPCNTFlags::DISPLAY_WINDOW0) { self.render_window(vcount, 0) }
@@ -120,7 +120,7 @@ impl<E: EngineType> Engine2D<E> {
 
         match self.dispcnt.bg_mode {
             BGMode::Mode0 => {
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { self.render_text_line(vram, vcount, 0) }
+                self.render_bg0(engine3d, vram, vcount);
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { self.render_text_line(vram, vcount, 1) }
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { self.render_text_line(vram, vcount, 2) }
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { self.render_text_line(vram, vcount, 3) }
@@ -301,6 +301,11 @@ impl<E: EngineType> Engine2D<E> {
                 self.windows_lines[window_i][dot_x] = (x1..x2).contains(&dot_x);
             }
         }
+    }
+
+    fn render_bg0(&mut self, engine3d: &Engine3D, vram: &VRAM, vcount: u16) {
+        if E::is_a() && self.dispcnt.contains(DISPCNTFlags::IS_3D) { engine3d.render_line(&mut self.bg_lines[0]) }
+        else if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { self.render_text_line(vram, vcount, 0) }
     }
 
     fn render_objs_line(&mut self, vram: &VRAM, vcount: u16) {

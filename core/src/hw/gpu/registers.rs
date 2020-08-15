@@ -59,7 +59,7 @@ impl DisplayMode {
 
 bitflags! {
     pub struct DISPCNTFlags: u32 {
-        const IS_3D = 1 << 3;
+        const IS_3D = 1 << 3; // TODO: Only Engine A
         const TILE_OBJ_1D = 1 << 4;
         const BITMAP_OBJ_SQUARE = 1 << 5;
         const BITMAP_OBJ_1D = 1 << 6;

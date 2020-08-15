@@ -1,5 +1,6 @@
 mod registers;
 mod engine2d;
+mod engine3d;
 mod vram;
 pub mod debug;
 
@@ -9,6 +10,7 @@ use crate::hw::{
 use registers::POWCNT1;
 
 pub use engine2d::Engine2D;
+pub use engine3d::Engine3D;
 pub use vram::VRAM;
 pub use registers::{DISPSTAT, DISPSTATFlags};
 
@@ -21,6 +23,7 @@ pub struct GPU {
 
     pub engine_a: Engine2D<EngineA>,
     pub engine_b: Engine2D<EngineB>,
+    pub engine3d: Engine3D,
     pub vram: VRAM,
 
     pub powcnt1: POWCNT1,
@@ -50,6 +53,7 @@ impl GPU {
 
             engine_a: Engine2D::new(),
             engine_b: Engine2D::new(),
+            engine3d: Engine3D::new(),
             vram: VRAM::new(),
 
             powcnt1: POWCNT1::ENABLE_LCDS,
@@ -92,8 +96,8 @@ impl GPU {
 
         if self.vcount < GPU::HEIGHT as u16 {
             // TOOD: Use POWCNT to selectively render engines
-            self.engine_a.render_line(&self.vram, self.vcount);
-            self.engine_b.render_line(&self.vram, self.vcount);
+            self.engine_a.render_line(&self.engine3d, &self.vram, self.vcount);
+            self.engine_b.render_line(&self.engine3d, &self.vram, self.vcount);
             true
         } else { false }
     }
