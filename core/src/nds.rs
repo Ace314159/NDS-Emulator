@@ -66,9 +66,9 @@ impl NDS {
         self.hw.release_screen();
     }
 
-    pub fn render_palettes(&self, extended: bool, slot: usize,
+    pub fn render_palettes(&self, extended: bool, slot: usize, palette: usize,
         engine: Engine, graphics_type: GraphicsType) -> (Vec<u16>, usize, usize) {
-        self.hw.render_palettes(extended, slot, engine, graphics_type)
+        self.hw.render_palettes(extended, slot, palette, engine, graphics_type)
     }
 
     pub fn render_map(&self, engine: Engine, bg_i: usize) -> (Vec<u16>, usize, usize) {
