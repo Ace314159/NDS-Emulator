@@ -67,7 +67,6 @@ impl GPU {
 impl<E: EngineType> Engine2D<E> {
     pub fn render_map(&self, vram: &VRAM, bg_i: usize) -> (Vec<u16>, usize, usize) {
         let bgcnt = self.bgcnts[bg_i];
-        // TODO: Implement Extended BGs
         let affine = match self.dispcnt.bg_mode {
             BGMode::Mode0 => false,
             BGMode::Mode1 => bg_i == 3,
@@ -120,19 +119,8 @@ impl<E: EngineType> Engine2D<E> {
                         },
                         _ => unreachable!(),
                     };
-                    let addr = map_start_addr + map_y * 32 * 2 + map_x * 2;
-                    let screen_entry = vram.get_bg::<E, u16>(addr) as usize;
-                    let tile_num = screen_entry & 0x3FF;
-                    let flip_x = (screen_entry >> 10) & 0x1 != 0;
-                    let flip_y = (screen_entry >> 11) & 0x1 != 0;
-                    let palette_num = (screen_entry >> 12) & 0xF;
-                    
-                    // Convert from tile to pixels
-                    let (palette_num, color_num) = Engine2D::<E>::get_color_from_tile(vram,
-                        VRAM::get_bg::<E, u8>, tile_start_addr + 8 * bit_depth * tile_num,
-                        flip_x, flip_y, bit_depth, x % 8, y % 8, palette_num);
-                    if color_num == 0 { continue }
-                    pixels[y * width + x] = self.bg_palettes()[palette_num * 16 + color_num] | 0x8000;
+                    pixels[y * width + x] = self.render_16bit_entry(vram, bg_i, map_start_addr, tile_start_addr, bit_depth,
+                        32 * 8, map_x, map_y, x, y);
                 }
             }
         }
