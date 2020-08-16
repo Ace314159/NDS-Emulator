@@ -33,6 +33,7 @@ pub struct Engine3D {
     tex_stack: [Matrix; 1], // Texture Stack
     // Rendering Engine
     clear_color: ClearColor,
+    clear_depth: ClearDepth,
     pixels: Vec<u16>,
     rendering: bool,
 }
@@ -63,6 +64,7 @@ impl Engine3D {
             tex_stack: [Matrix::empty(); 1], // Texture Stack
             // Rendering Engine
             clear_color: ClearColor::new(),
+            clear_depth: ClearDepth::new(),
             pixels: vec![0; GPU::WIDTH * GPU::HEIGHT],
             rendering: false,
         }
@@ -83,6 +85,7 @@ impl Engine3D {
         assert_eq!(addr >> 12, 0x04000);
         match addr & 0xFFF {
             0x350 ..= 0x353 => self.clear_color.write(scheduler, addr as usize & 0x3, value),
+            0x354 ..= 0x355 => self.clear_depth.write(scheduler, addr as usize & 0x1, value),
             0x600 ..= 0x603 => self.write_gxstat(scheduler, (addr as usize) & 0x3, value),
             _ => warn!("Ignoring Engine3D Write 0x{:08X} = {:02X}", addr, value),
         }

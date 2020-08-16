@@ -112,3 +112,27 @@ impl IORegister for ClearColor {
         }
     }
 }
+
+pub struct ClearDepth {
+    depth: u16,
+}
+
+impl ClearDepth {
+    pub fn new() -> Self {
+        ClearDepth {
+            depth: 0,
+        }
+    }
+}
+
+impl IORegister for ClearDepth {
+    fn read(&self, _byte: usize) -> u8 { 0 }
+    
+    fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8) {
+        match byte {
+            0 => self.depth = self.depth & !0xFF | value as u16,
+            1 => self.depth = self.depth & !0x7F00 | (value as u16) << 8 & 0x7F00,
+            _ => unreachable!(),
+        }
+    }
+}
