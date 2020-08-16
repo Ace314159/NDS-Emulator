@@ -18,6 +18,17 @@ pub struct Engine3D {
     gxpipe: VecDeque<GeometryCommandEntry>,
     // Matrices
     mtx_mode: MatrixMode,
+    cur_proj: Matrix,
+    cur_pos: Matrix,
+    cur_vec: Matrix,
+    cur_tex: Matrix,
+    proj_stack_sp: u8,
+    pos_vec_stack_sp: u8,
+    tex_stack_sp: u8,
+    proj_stack: [Matrix; 1], // Projection Stack
+    pos_stack: [Matrix; 31], // Coordinate Stack
+    vec_stack: [Matrix; 31], // Directional Stack
+    tex_stack: [Matrix; 1], // Texture Stack
 }
 
 impl Engine3D {
@@ -31,7 +42,19 @@ impl Engine3D {
             // Geometry Engine
             gxfifo: VecDeque::with_capacity(256),
             gxpipe: VecDeque::with_capacity(4),
+            // Matrices
             mtx_mode: MatrixMode::Proj,
+            cur_proj: Matrix::empty(),
+            cur_pos: Matrix::empty(),
+            cur_vec: Matrix::empty(),
+            cur_tex: Matrix::empty(),
+            proj_stack_sp: 0,
+            pos_vec_stack_sp: 0,
+            tex_stack_sp: 0,
+            proj_stack: [Matrix::empty(); 1], // Projection Stack
+            pos_stack: [Matrix::empty(); 31], // Coordinate Stack
+            vec_stack: [Matrix::empty(); 31], // Directional Stack
+            tex_stack: [Matrix::empty(); 1], // Texture Stack
         }
     }
 

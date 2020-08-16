@@ -12,9 +12,10 @@ impl Engine3D {
     }
 
     pub fn schedule_command(&mut self, scheduler: &mut Scheduler) {
-        if !self.gxstat.geometry_engine_busy { 
+        if !self.gxstat.geometry_engine_busy {
             if let Some(command) = self.gxpipe.pop_front() {
-                    scheduler.schedule(Event::GeometryCommand(command), command.command.exec_time());
+                self.gxstat.geometry_engine_busy = true;
+                scheduler.schedule(Event::GeometryCommand(command), command.command.exec_time());
             }
         }
     }
@@ -23,16 +24,60 @@ impl Engine3D {
         use GeometryCommand::*;
         let param = command_entry.param;
         match command_entry.command {
-            MtxMode => self.mtx_mode = MatrixMode::from(param as u8 & 0x3),
+            MtxMode => {
+                warn!("Geometry Command: MTX_MODE {:X}", param);
+                self.mtx_mode = MatrixMode::from(param as u8 & 0x3)
+            },
+            MtxPop => {
+                warn!("Geometry Command: MTX_POP {:X}", param);
+                let offset = param & 0x3F;
+                let offset = if offset & 0x20 != 0 { 0xC0 | offset } else { offset } as i8;
+                match self.mtx_mode {
+                    MatrixMode::Proj => {
+                        self.proj_stack_sp -= 1;
+                        assert!(self.proj_stack_sp < 1);
+                        self.cur_proj = self.proj_stack[self.proj_stack_sp as usize];
+                    },
+                    MatrixMode::Pos | MatrixMode::PosVec => {
+                        self.pos_vec_stack_sp = (self.pos_vec_stack_sp as i8 - offset) as u8;
+                        assert!(self.pos_vec_stack_sp < 31);
+                        self.cur_pos = self.pos_stack[self.pos_vec_stack_sp as usize];
+                        self.cur_vec = self.vec_stack[self.pos_vec_stack_sp as usize];
+                    },
+                    MatrixMode::Texture => {
+                        self.tex_stack_sp = (self.tex_stack_sp as i8 - offset) as u8;
+                        assert!(self.tex_stack_sp < 31);
+                        self.cur_tex = self.tex_stack[self.tex_stack_sp as usize];
+                    },
+                }
+            },
+            MtxIdentity => {
+                warn!("Geometry Command: MTX_IDENTITY");
+                self.set_cur_mat(Matrix::identity());
+            },
         }
+        self.gxstat.geometry_engine_busy = false;
     }
 
     pub fn write_geometry_command(&mut self, scheduler: &mut Scheduler, addr: u32, value: u32) {
         use GeometryCommand::*;
         match addr & 0xFFF {
             0x440 => self.push_geometry_command(scheduler, MtxMode, value),
-            
-            _ => warn!("Unimplemented Geometry Command Address: 0x{:X}", addr)
+            0x448 => self.push_geometry_command(scheduler, MtxPop, value),
+            0x454 => self.push_geometry_command(scheduler, MtxIdentity, value),
+            _ => warn!("Unimplemented Geometry Command Address 0x{:X}: 0x{:X}", addr, value)
+        }
+    }
+
+    fn set_cur_mat(&mut self, mat: Matrix) {
+        match self.mtx_mode {
+            MatrixMode::Proj => self.cur_proj = mat,
+            MatrixMode::Pos => self.cur_pos = mat,
+            MatrixMode::PosVec => {
+                self.cur_pos = mat;
+                self.cur_vec = mat;
+            },
+            MatrixMode::Texture => self.cur_tex = mat,
         }
     }
 }
@@ -40,6 +85,8 @@ impl Engine3D {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum GeometryCommand {
     MtxMode = 0x10,
+    MtxPop = 0x12,
+    MtxIdentity = 0x15,
 }
 
 impl GeometryCommand {
@@ -47,6 +94,8 @@ impl GeometryCommand {
         use GeometryCommand::*;
         match *self {
             MtxMode => 1,
+            MtxPop => 36,
+            MtxIdentity => 19,
         }
     }
 }
@@ -81,6 +130,54 @@ impl From<u8> for MatrixMode {
             2 => MatrixMode::PosVec,
             3 => MatrixMode::Texture,
             _ => unreachable!(),
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct Matrix {
+    elems: [FixedPoint; 16],
+}
+
+impl Matrix {
+    pub fn new(elems: [(u32, u32); 16]) -> Self {
+        Matrix {
+            elems: [
+                FixedPoint::new(elems[0].0, elems[0].1), FixedPoint::new(elems[1].0, elems[1].1),
+                FixedPoint::new(elems[2].0, elems[2].1), FixedPoint::new(elems[3].0, elems[3].1),
+                FixedPoint::new(elems[4].0, elems[4].1), FixedPoint::new(elems[5].0, elems[5].1),
+                FixedPoint::new(elems[6].0, elems[6].1), FixedPoint::new(elems[7].0, elems[7].1),
+                FixedPoint::new(elems[8].0, elems[8].1), FixedPoint::new(elems[9].0, elems[9].1),
+                FixedPoint::new(elems[10].0, elems[10].1), FixedPoint::new(elems[11].0, elems[11].1),
+                FixedPoint::new(elems[12].0, elems[12].1), FixedPoint::new(elems[13].0, elems[13].1),
+                FixedPoint::new(elems[14].0, elems[14].1), FixedPoint::new(elems[15].0, elems[15].1),
+            ],
+        }
+    }
+
+    pub fn empty() -> Self {
+        Matrix::new([(0, 0); 16])
+    }
+
+    pub fn identity() -> Self {
+        Matrix::new([
+            (1, 0), (0, 0), (0, 0), (0, 0),
+            (0, 0), (1, 0), (0, 0), (0, 0),
+            (0, 0), (0, 0), (1, 0), (0, 0),
+            (0, 0), (0, 0), (0, 0), (1, 0),
+        ])
+    }
+}
+
+#[derive(Clone, Copy)]
+struct FixedPoint {
+    val: u32,
+}
+
+impl FixedPoint {
+    pub fn new(int: u32, frac: u32) -> Self {
+        FixedPoint {
+            val: int << 12 | frac,
         }
     }
 }

@@ -3,8 +3,6 @@ use super::Engine3D;
 pub struct GXSTAT {
     pub test_busy: bool, // Box, Pos, Vector Test
     pub box_test_inside: bool,
-    pub pos_vector_mat_stack_lvl: u8,
-    pub proj_mat_stack_lvl: bool,
     pub mat_stack_busy: bool,
     pub mat_stack_error: bool, // Overflow or Underflow
     pub geometry_engine_busy: bool,
@@ -35,8 +33,6 @@ impl GXSTAT {
         GXSTAT {
             test_busy: false, // Box, Pos, Vector Test
             box_test_inside: false,
-            pos_vector_mat_stack_lvl: 0,
-            proj_mat_stack_lvl: false,
             mat_stack_busy: false,
             mat_stack_error: false, // Overflow or Underflow
             geometry_engine_busy: false,
@@ -51,7 +47,7 @@ impl Engine3D {
         match byte {
             0 => (self.gxstat.box_test_inside as u8) << 1| (self.gxstat.test_busy as u8),
             1 => (self.gxstat.mat_stack_error as u8) << 7 | (self.gxstat.mat_stack_busy as u8) << 6 |
-                (self.gxstat.proj_mat_stack_lvl as u8) << 5 | self.gxstat.pos_vector_mat_stack_lvl,
+                self.proj_stack_sp << 5 | self.pos_vec_stack_sp & 0x1F,
             2 => self.gxfifo.len() as u8,
             3 => (self.gxstat.command_fifo_irq as u8) << 6 | (self.gxstat.geometry_engine_busy as u8) << 3 |
                 ((self.gxfifo.len() == 0) as u8) << 2 | ((self.gxfifo.len() < Engine3D::FIFO_LEN / 2) as u8) << 1 |
