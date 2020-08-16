@@ -10,6 +10,9 @@ impl Engine3D {
     pub fn render(&mut self) {
         if !self.rendering { return }
         // TODO: Actually Render
+        for pixel in self.pixels.iter_mut() {
+            *pixel = self.clear_color.color()
+        }
         self.gxstat.geometry_engine_busy = false;
         self.rendering = false;
     }

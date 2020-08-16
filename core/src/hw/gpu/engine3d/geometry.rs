@@ -15,7 +15,7 @@ impl Engine3D {
         if !self.gxstat.geometry_engine_busy {
             if let Some(command) = self.gxpipe.pop_front() {
                 self.gxstat.geometry_engine_busy = true;
-                warn!("Scheduling Geometry Command: {:?}", command);
+                error!("Scheduling Geometry Command: {:?}", command);
                 scheduler.schedule(Event::GeometryCommand(command), command.command.exec_time());
             }
         }
@@ -25,7 +25,7 @@ impl Engine3D {
         use GeometryCommand::*;
         let param = command_entry.param;
         self.gxstat.geometry_engine_busy = false;
-        warn!("Executing Geometry Command {:?}", command_entry);
+        error!("Executing Geometry Command {:?}", command_entry);
         match command_entry.command {
             MtxMode => self.mtx_mode = MatrixMode::from(param as u8 & 0x3),
             MtxPop => {

@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 
+use crate::hw::mmu::IORegister;
 use super::{GPU, Scheduler, Event};
 
 mod registers;
@@ -31,6 +32,7 @@ pub struct Engine3D {
     vec_stack: [Matrix; 31], // Directional Stack
     tex_stack: [Matrix; 1], // Texture Stack
     // Rendering Engine
+    clear_color: ClearColor,
     pixels: Vec<u16>,
     rendering: bool,
 }
@@ -60,6 +62,7 @@ impl Engine3D {
             vec_stack: [Matrix::empty(); 31], // Directional Stack
             tex_stack: [Matrix::empty(); 1], // Texture Stack
             // Rendering Engine
+            clear_color: ClearColor::new(),
             pixels: vec![0; GPU::WIDTH * GPU::HEIGHT],
             rendering: false,
         }
@@ -79,6 +82,7 @@ impl Engine3D {
     pub fn write_register(&mut self, scheduler: &mut Scheduler, addr: u32, value: u8) {
         assert_eq!(addr >> 12, 0x04000);
         match addr & 0xFFF {
+            0x350 ..= 0x353 => self.clear_color.write(scheduler, addr as usize & 0x3, value),
             0x600 ..= 0x603 => self.write_gxstat(scheduler, (addr as usize) & 0x3, value),
             _ => warn!("Ignoring Engine3D Write 0x{:08X} = {:02X}", addr, value),
         }
