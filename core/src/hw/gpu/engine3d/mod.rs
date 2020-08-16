@@ -56,17 +56,17 @@ impl Engine3D {
             gxpipe: VecDeque::with_capacity(4),
             // Matrices
             mtx_mode: MatrixMode::Proj,
-            cur_proj: Matrix::empty(),
-            cur_pos: Matrix::empty(),
-            cur_vec: Matrix::empty(),
-            cur_tex: Matrix::empty(),
+            cur_proj: Matrix::from_element(FixedPoint::zero()),
+            cur_pos: Matrix::from_element(FixedPoint::zero()),
+            cur_vec: Matrix::from_element(FixedPoint::zero()),
+            cur_tex: Matrix::from_element(FixedPoint::zero()),
             proj_stack_sp: 0,
             pos_vec_stack_sp: 0,
             tex_stack_sp: 0,
-            proj_stack: [Matrix::empty(); 1], // Projection Stack
-            pos_stack: [Matrix::empty(); 31], // Coordinate Stack
-            vec_stack: [Matrix::empty(); 31], // Directional Stack
-            tex_stack: [Matrix::empty(); 1], // Texture Stack
+            proj_stack: [Matrix::from_element(FixedPoint::zero()); 1], // Projection Stack
+            pos_stack: [Matrix::from_element(FixedPoint::zero()); 31], // Coordinate Stack
+            vec_stack: [Matrix::from_element(FixedPoint::zero()); 31], // Directional Stack
+            tex_stack: [Matrix::from_element(FixedPoint::zero()); 1], // Texture Stack
             // Rendering Engine
             viewport: Viewport::new(),
             clear_color: ClearColor::new(),

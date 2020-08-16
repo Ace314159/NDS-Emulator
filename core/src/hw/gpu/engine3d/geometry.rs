@@ -1,3 +1,7 @@
+pub type FixedPoint = simba::scalar::FixedI32<fixed::types::extra::U12>;
+pub type Matrix = nalgebra::Matrix4<FixedPoint>;
+pub use num_traits::identities::Zero;
+
 use super::{Engine3D, Event, Scheduler};
 
 
@@ -144,54 +148,6 @@ impl From<u8> for MatrixMode {
             2 => MatrixMode::PosVec,
             3 => MatrixMode::Texture,
             _ => unreachable!(),
-        }
-    }
-}
-
-#[derive(Clone, Copy)]
-pub struct Matrix {
-    elems: [FixedPoint; 16],
-}
-
-impl Matrix {
-    pub fn new(elems: [(u32, u32); 16]) -> Self {
-        Matrix {
-            elems: [
-                FixedPoint::new(elems[0].0, elems[0].1), FixedPoint::new(elems[1].0, elems[1].1),
-                FixedPoint::new(elems[2].0, elems[2].1), FixedPoint::new(elems[3].0, elems[3].1),
-                FixedPoint::new(elems[4].0, elems[4].1), FixedPoint::new(elems[5].0, elems[5].1),
-                FixedPoint::new(elems[6].0, elems[6].1), FixedPoint::new(elems[7].0, elems[7].1),
-                FixedPoint::new(elems[8].0, elems[8].1), FixedPoint::new(elems[9].0, elems[9].1),
-                FixedPoint::new(elems[10].0, elems[10].1), FixedPoint::new(elems[11].0, elems[11].1),
-                FixedPoint::new(elems[12].0, elems[12].1), FixedPoint::new(elems[13].0, elems[13].1),
-                FixedPoint::new(elems[14].0, elems[14].1), FixedPoint::new(elems[15].0, elems[15].1),
-            ],
-        }
-    }
-
-    pub fn empty() -> Self {
-        Matrix::new([(0, 0); 16])
-    }
-
-    pub fn identity() -> Self {
-        Matrix::new([
-            (1, 0), (0, 0), (0, 0), (0, 0),
-            (0, 0), (1, 0), (0, 0), (0, 0),
-            (0, 0), (0, 0), (1, 0), (0, 0),
-            (0, 0), (0, 0), (0, 0), (1, 0),
-        ])
-    }
-}
-
-#[derive(Clone, Copy)]
-struct FixedPoint {
-    val: u32,
-}
-
-impl FixedPoint {
-    pub fn new(int: u32, frac: u32) -> Self {
-        FixedPoint {
-            val: int << 12 | frac,
         }
     }
 }
