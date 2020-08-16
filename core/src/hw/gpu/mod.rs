@@ -5,7 +5,7 @@ mod vram;
 pub mod debug;
 
 use crate::hw::{
-    Event, Scheduler,
+    Event, Scheduler
 };
 use registers::POWCNT1;
 

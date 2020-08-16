@@ -4,6 +4,7 @@ use super::{GPU, Scheduler, Event};
 
 mod registers;
 mod geometry;
+mod rendering;
 
 pub use geometry::GeometryCommandEntry;
 
@@ -29,6 +30,9 @@ pub struct Engine3D {
     pos_stack: [Matrix; 31], // Coordinate Stack
     vec_stack: [Matrix; 31], // Directional Stack
     tex_stack: [Matrix; 1], // Texture Stack
+    // Rendering Engine
+    pixels: Vec<u16>,
+    rendering: bool,
 }
 
 impl Engine3D {
@@ -55,11 +59,10 @@ impl Engine3D {
             pos_stack: [Matrix::empty(); 31], // Coordinate Stack
             vec_stack: [Matrix::empty(); 31], // Directional Stack
             tex_stack: [Matrix::empty(); 1], // Texture Stack
+            // Rendering Engine
+            pixels: vec![0; GPU::WIDTH * GPU::HEIGHT],
+            rendering: false,
         }
-    }
-
-    pub fn render_line(&self, line: &mut [u16; GPU::WIDTH]) {
-        for pixel in line.iter_mut() { *pixel = 0x83F5 }
     }
 }
 

@@ -15,6 +15,7 @@ impl Engine3D {
         if !self.gxstat.geometry_engine_busy {
             if let Some(command) = self.gxpipe.pop_front() {
                 self.gxstat.geometry_engine_busy = true;
+                warn!("Scheduling Geometry Command: {:?}", command);
                 scheduler.schedule(Event::GeometryCommand(command), command.command.exec_time());
             }
         }
@@ -23,13 +24,11 @@ impl Engine3D {
     pub fn exec_command(&mut self, command_entry: GeometryCommandEntry) {
         use GeometryCommand::*;
         let param = command_entry.param;
+        self.gxstat.geometry_engine_busy = false;
+        warn!("Executing Geometry Command {:?}", command_entry);
         match command_entry.command {
-            MtxMode => {
-                warn!("Geometry Command: MTX_MODE {:X}", param);
-                self.mtx_mode = MatrixMode::from(param as u8 & 0x3)
-            },
+            MtxMode => self.mtx_mode = MatrixMode::from(param as u8 & 0x3),
             MtxPop => {
-                warn!("Geometry Command: MTX_POP {:X}", param);
                 let offset = param & 0x3F;
                 let offset = if offset & 0x20 != 0 { 0xC0 | offset } else { offset } as i8;
                 match self.mtx_mode {
@@ -51,12 +50,12 @@ impl Engine3D {
                     },
                 }
             },
-            MtxIdentity => {
-                warn!("Geometry Command: MTX_IDENTITY");
-                self.set_cur_mat(Matrix::identity());
+            MtxIdentity => self.set_cur_mat(Matrix::identity()),
+            SwapBuffers => {
+                self.rendering = true;
+                self.gxstat.geometry_engine_busy = true; // Keep busy until VBlank
             },
         }
-        self.gxstat.geometry_engine_busy = false;
     }
 
     pub fn write_geometry_command(&mut self, scheduler: &mut Scheduler, addr: u32, value: u32) {
@@ -65,6 +64,7 @@ impl Engine3D {
             0x440 => self.push_geometry_command(scheduler, MtxMode, value),
             0x448 => self.push_geometry_command(scheduler, MtxPop, value),
             0x454 => self.push_geometry_command(scheduler, MtxIdentity, value),
+            0x540 => self.push_geometry_command(scheduler, SwapBuffers, value),
             _ => warn!("Unimplemented Geometry Command Address 0x{:X}: 0x{:X}", addr, value)
         }
     }
@@ -87,6 +87,7 @@ pub enum GeometryCommand {
     MtxMode = 0x10,
     MtxPop = 0x12,
     MtxIdentity = 0x15,
+    SwapBuffers = 0x50,
 }
 
 impl GeometryCommand {
@@ -96,6 +97,7 @@ impl GeometryCommand {
             MtxMode => 1,
             MtxPop => 36,
             MtxIdentity => 19,
+            SwapBuffers => 0,
         }
     }
 }

@@ -66,7 +66,10 @@ impl HW {
                     }
                 );
             },
-            Event::VBlank => self.check_dmas(DMAOccasion::VBlank),
+            Event::VBlank => {
+                self.check_dmas(DMAOccasion::VBlank);
+                self.gpu.engine3d.render();
+            },
             Event::TimerOverflow(is_nds9, timer) => {
                 let (timers, interrupts) = if is_nds9 {
                     (&mut self.timers9, &mut self.interrupts9)
