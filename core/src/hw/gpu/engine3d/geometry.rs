@@ -51,6 +51,7 @@ impl Engine3D {
                 }
             },
             MtxIdentity => self.set_cur_mat(Matrix::identity()),
+            TexImageParam => self.tex_params.write(param),
             SwapBuffers => {
                 self.rendering = true;
                 self.gxstat.geometry_engine_busy = true; // Keep busy until VBlank
@@ -64,6 +65,7 @@ impl Engine3D {
             0x440 => self.push_geometry_command(scheduler, MtxMode, value),
             0x448 => self.push_geometry_command(scheduler, MtxPop, value),
             0x454 => self.push_geometry_command(scheduler, MtxIdentity, value),
+            0x4A8 => self.push_geometry_command(scheduler, TexImageParam, value),
             0x540 => self.push_geometry_command(scheduler, SwapBuffers, value),
             _ => warn!("Unimplemented Geometry Command Address 0x{:X}: 0x{:X}", addr, value)
         }
@@ -87,6 +89,7 @@ pub enum GeometryCommand {
     MtxMode = 0x10,
     MtxPop = 0x12,
     MtxIdentity = 0x15,
+    TexImageParam = 0x2A,
     SwapBuffers = 0x50,
 }
 
@@ -97,6 +100,7 @@ impl GeometryCommand {
             MtxMode => 1,
             MtxPop => 36,
             MtxIdentity => 19,
+            TexImageParam => 1,
             SwapBuffers => 0,
         }
     }

@@ -8,6 +8,7 @@ impl Engine3D {
     }
 
     pub fn render(&mut self) {
+        // TODO: Add 392 cycle delay after VBlank starts
         if !self.rendering { return }
         // TODO: Actually Render
         for pixel in self.pixels.iter_mut() {

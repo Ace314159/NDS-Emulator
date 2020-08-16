@@ -36,6 +36,8 @@ pub struct Engine3D {
     clear_depth: ClearDepth,
     pixels: Vec<u16>,
     rendering: bool,
+    // Textures
+    tex_params: TextureParams,
 }
 
 impl Engine3D {
@@ -67,6 +69,8 @@ impl Engine3D {
             clear_depth: ClearDepth::new(),
             pixels: vec![0; GPU::WIDTH * GPU::HEIGHT],
             rendering: false,
+            // Textures
+            tex_params: TextureParams::new(),
         }
     }
 }

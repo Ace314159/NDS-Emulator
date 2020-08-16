@@ -136,3 +136,72 @@ impl IORegister for ClearDepth {
         }
     }
 }
+
+pub struct TextureParams {
+    vram_offset: usize,
+    repeat_s: bool,
+    repeat_t: bool,
+    flip_s: bool,
+    flip_t: bool,
+    size_s: usize,
+    size_t: usize,
+    format: TextureFormat,
+    color0_transparent: bool,
+    coord_transformation_mode: TexCoordTransformationMode, 
+}
+
+impl TextureParams {
+    pub fn new() -> Self {
+        TextureParams {
+            vram_offset: 0,
+            repeat_s: false,
+            repeat_t: false,
+            flip_s: false,
+            flip_t: false,
+            size_s: 0,
+            size_t: 0,
+            format: TextureFormat::NoTexture,
+            color0_transparent: false,
+            coord_transformation_mode: TexCoordTransformationMode::None, 
+        }
+    }
+
+    pub fn write(&mut self, value: u32) {
+        self.vram_offset = ((value as usize) & 0xFFFF) << 3;
+        self.repeat_s = value >> 16 & 0x1 != 0;
+        self.repeat_t = value >> 17 & 0x1 != 0;
+        self.flip_s = value >> 18 & 0x1 != 0;
+        self.flip_t = value >> 19 & 0x1 != 0;
+        self.size_s = 8 << (value >> 20 & 0x7);
+        self.size_t = 8 << (value >> 23 & 0x7); 
+        self.format = TextureFormat::from(value >> 26 & 0x7);
+        self.color0_transparent = value >> 29 & 0x1 != 0;
+        self.coord_transformation_mode = TexCoordTransformationMode::from(value >> 30 & 0x3);
+    }
+}
+
+pub enum TextureFormat {
+    NoTexture = 0,
+}
+
+impl From<u32> for TextureFormat {
+    fn from(value: u32) -> Self {
+        match value {
+            0 => TextureFormat::NoTexture,
+            _ => todo!(),
+        }
+    }
+}
+
+pub enum TexCoordTransformationMode {
+    None = 0,
+}
+
+impl From<u32> for TexCoordTransformationMode {
+    fn from(value: u32) -> Self {
+        match value {
+            0 => TexCoordTransformationMode::None,
+            _ => todo!(),
+        }
+    }
+}
