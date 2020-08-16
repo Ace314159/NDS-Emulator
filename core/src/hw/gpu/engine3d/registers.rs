@@ -1,4 +1,4 @@
-use super::{Engine3D, IORegister, Scheduler};
+use super::{GPU, Engine3D, IORegister, Scheduler};
 
 pub struct GXSTAT {
     pub test_busy: bool, // Box, Pos, Vector Test
@@ -271,5 +271,32 @@ impl From<u32> for PolygonMode {
             3 => PolygonMode::Shadow,
             _ => unreachable!(),
         }
+    }
+}
+
+pub struct Viewport {
+    x1: u8,
+    y1: u8,
+    x2: u8,
+    y2: u8,
+}
+
+impl Viewport {
+    pub fn new() -> Self {
+        Viewport {
+            x1: 0,
+            y1: 0,
+            x2: 0,
+            y2: 0,
+        }
+    }
+
+    pub fn write(&mut self, value: u32) {
+        self.x1 = value as u8;
+        self.y1 = (value >> 8) as u8;
+        self.x2 = (value >> 16) as u8;
+        self.y2 = (value >> 24) as u8;
+        assert!((self.y1 as usize) < GPU::WIDTH);
+        assert!((self.y2 as usize) < GPU::WIDTH);
     }
 }

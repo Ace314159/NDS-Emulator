@@ -57,6 +57,7 @@ impl Engine3D {
                 self.rendering = true;
                 self.gxstat.geometry_engine_busy = true; // Keep busy until VBlank
             },
+            Viewport => self.viewport.write(param),
         }
     }
 
@@ -69,6 +70,7 @@ impl Engine3D {
             0x4A4 => self.push_geometry_command(scheduler, PolygonAttr, value),
             0x4A8 => self.push_geometry_command(scheduler, TexImageParam, value),
             0x540 => self.push_geometry_command(scheduler, SwapBuffers, value),
+            0x580 => self.push_geometry_command(scheduler, Viewport, value),
             _ => warn!("Unimplemented Geometry Command Address 0x{:X}: 0x{:X}", addr, value)
         }
     }
@@ -94,6 +96,7 @@ pub enum GeometryCommand {
     PolygonAttr = 0x29,
     TexImageParam = 0x2A,
     SwapBuffers = 0x50,
+    Viewport = 0x60,
 }
 
 impl GeometryCommand {
@@ -106,6 +109,7 @@ impl GeometryCommand {
             PolygonAttr => 1,
             TexImageParam => 1,
             SwapBuffers => 0,
+            Viewport => 1,
         }
     }
 }

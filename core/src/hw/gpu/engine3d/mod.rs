@@ -32,6 +32,7 @@ pub struct Engine3D {
     vec_stack: [Matrix; 31], // Directional Stack
     tex_stack: [Matrix; 1], // Texture Stack
     // Rendering Engine
+    viewport: Viewport,
     clear_color: ClearColor,
     clear_depth: ClearDepth,
     pixels: Vec<u16>,
@@ -67,6 +68,7 @@ impl Engine3D {
             vec_stack: [Matrix::empty(); 31], // Directional Stack
             tex_stack: [Matrix::empty(); 1], // Texture Stack
             // Rendering Engine
+            viewport: Viewport::new(),
             clear_color: ClearColor::new(),
             clear_depth: ClearDepth::new(),
             pixels: vec![0; GPU::WIDTH * GPU::HEIGHT],
