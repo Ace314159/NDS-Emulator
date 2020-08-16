@@ -205,3 +205,71 @@ impl From<u32> for TexCoordTransformationMode {
         }
     }
 }
+
+pub struct PolygonAttributes {
+    lights_enabled: [bool; 4],
+    mode: PolygonMode,
+    render_back: bool,
+    render_front: bool,
+    set_depth_translucent: bool,
+    render_far_plane_intersecting: bool,
+    render_1dot_behind_depth: bool,
+    depth_test_equal: bool,
+    fog_enable: bool,
+    alpha: u8,
+    polygon_id: u8,
+}
+
+impl PolygonAttributes {
+    pub fn new() -> Self {
+        PolygonAttributes {
+            lights_enabled: [false; 4],
+            mode: PolygonMode::Modulation,
+            render_back: false,
+            render_front: false,
+            set_depth_translucent: false,
+            render_far_plane_intersecting: false,
+            render_1dot_behind_depth: false,
+            depth_test_equal: false,
+            fog_enable: false,
+            alpha: 0,
+            polygon_id: 0,
+        }
+    }
+
+    pub fn write(&mut self, value: u32) {
+        self.lights_enabled[0] = value >> 0 & 0x1 != 0;
+        self.lights_enabled[1] = value >> 1 & 0x1 != 0;
+        self.lights_enabled[2] = value >> 2 & 0x1 != 0;
+        self.lights_enabled[3] = value >> 3 & 0x1 != 0;
+        self.mode = PolygonMode::from(value >> 4 & 0x3);
+        self.render_back = value >> 6 & 0x1 != 0;
+        self.render_front = value >> 7 & 0x1 != 0;
+        self.set_depth_translucent = value >> 11 & 0x1 != 0;
+        self.render_far_plane_intersecting = value >> 12 & 0x1 != 0;
+        self.render_1dot_behind_depth = value >> 13 & 0x1 != 0;
+        self.depth_test_equal = value >> 14 & 0x1 != 0;
+        self.fog_enable = value >> 15 & 0x1 != 0;
+        self.alpha = (value >> 16 & 0x1F) as u8;
+        self.polygon_id = (value >> 24 & 0x3F) as u8;
+    }
+}
+
+pub enum PolygonMode {
+    Modulation = 0,
+    Decal = 1,
+    Toon = 2,
+    Shadow = 3,
+}
+
+impl From<u32> for PolygonMode {
+    fn from(value: u32) -> Self {
+        match value {
+            0 => PolygonMode::Modulation,
+            1 => PolygonMode::Decal,
+            2 => PolygonMode::Toon,
+            3 => PolygonMode::Shadow,
+            _ => unreachable!(),
+        }
+    }
+}
