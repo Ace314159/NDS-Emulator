@@ -2,7 +2,7 @@ pub use nalgebra::{U3, U4};
 pub type FixedPoint = simba::scalar::FixedI32::<fixed::types::extra::U12>;
 pub type Matrix4 = nalgebra::Matrix4<FixedPoint>;
 pub type Matrix<M, N> = nalgebra::MatrixMN<FixedPoint, M, N>;
-pub use num_traits::identities::Zero;
+pub use num_traits::identities::{Zero, One};
 
 use super::Engine3D;
 use super::registers::*;
@@ -85,23 +85,18 @@ impl Engine3D {
                 let mat = Matrix::<U4, U3>::from_fn(
                     |i, j| create_fixed_point(self.params[i * 3 + j])
                 );
-                self.apply_cur_mat(|old| mat * old.remove_row(3));
+                let mut mat = mat.insert_column(3, FixedPoint::zero());
+                mat[(3, 3)] = FixedPoint::one();
+                self.apply_cur_mat(|old| mat * old);
             },
             MtxMult3x3 => {
                 assert_eq!(self.params.len(), 9);
                 let mat = Matrix::<U3, U3>::from_fn(
                     |i, j| create_fixed_point(self.params[i * 3 + j])
                 );
-                self.apply_cur_mat(|old| {
-                    // TODO: Figure out faster way to do this
-                    let extra_row = old.row(3);
-                    let new_mat = mat * old.remove_row(3).remove_column(3);
-                    let mut new_mat = new_mat.fixed_resize::<U4, U4>(FixedPoint::zero());
-                    new_mat[(3, 0)] = extra_row[0];
-                    new_mat[(3, 1)] = extra_row[1];
-                    new_mat[(3, 2)] = extra_row[2];
-                    new_mat
-                });
+                let mut mat = mat.fixed_resize::<U4, U4>(FixedPoint::zero());
+                mat[(3, 3)] = FixedPoint::one();
+                self.apply_cur_mat(|old| mat * old);
             },
             MtxTrans => {
                 assert_eq!(self.params.len(), 3);
