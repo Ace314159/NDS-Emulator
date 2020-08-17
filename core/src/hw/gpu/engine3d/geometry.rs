@@ -86,6 +86,22 @@ impl Engine3D {
                 );
                 self.apply_cur_mat(|old| mat * old.remove_row(3));
             },
+            MtxMult3x3 => {
+                assert_eq!(self.params.len(), 9);
+                let mat = Matrix::<U3, U3>::from_fn(
+                    |i, j| create_fixed_point(self.params[i * 3 + j])
+                );
+                self.apply_cur_mat(|old| {
+                    // TODO: Figure out faster way to do this
+                    let extra_row = old.row(3);
+                    let new_mat = mat * old.remove_row(3).remove_column(3);
+                    let mut new_mat = new_mat.fixed_resize::<U4, U4>(FixedPoint::zero());
+                    new_mat[(3, 0)] = extra_row[0];
+                    new_mat[(3, 1)] = extra_row[1];
+                    new_mat[(3, 2)] = extra_row[2];
+                    new_mat
+                });
+            },
             MtxTrans => {
                 assert_eq!(self.params.len(), 3);
                 let mat = Matrix4::new_translation(
@@ -138,6 +154,7 @@ pub enum GeometryCommand {
     MtxIdentity = 0x15,
     MtxMult4x4 = 0x18,
     MtxMult4x3 = 0x19,
+    MtxMult3x3 = 0x1A,
     MtxTrans = 0x1C,
     PolygonAttr = 0x29,
     TexImageParam = 0x2A,
@@ -155,6 +172,7 @@ impl GeometryCommand {
             0x454 => MtxIdentity,
             0x460 => MtxMult4x4,
             0x464 => MtxMult4x3,
+            0x468 => MtxMult3x3,
             0x470 => MtxTrans,
             0x4A4 => PolygonAttr,
             0x4A8 => TexImageParam,
@@ -174,7 +192,7 @@ impl GeometryCommand {
             MtxIdentity => 18,
             MtxMult4x4 => 19, // TOOD: Add extra cycles for MTX_MODE 2
             MtxMult4x3 => 19, // TODO: Add extra cycles for MTX_MODE 2
-            MtxTrans => 22, // TODO: Add extra cycles for MTX_MODE 2
+            MtxMult3x3 => 19, // TODO: Add extra cycles for MTX_MODE 2
             MtxTrans => 19, // TODO: Add extra cycles for MTX_MODE 2
             PolygonAttr => 0,
             TexImageParam => 0,
@@ -193,6 +211,7 @@ impl GeometryCommand {
             MtxIdentity => 0,
             MtxMult4x4 => 16,
             MtxMult4x3 => 12,
+            MtxMult3x3 => 9,
             MtxTrans => 3,
             PolygonAttr => 1,
             TexImageParam => 1,
