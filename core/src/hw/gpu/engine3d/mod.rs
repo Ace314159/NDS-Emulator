@@ -41,6 +41,7 @@ pub struct Engine3D {
     // Polygons
     polygon_attrs: PolygonAttributes,
     vertex_primitive: VertexPrimitive,
+    color: u16,
     // Textures
     tex_params: TextureParams,
 }
@@ -81,6 +82,7 @@ impl Engine3D {
             // Polygons
             polygon_attrs: PolygonAttributes::new(),
             vertex_primitive: VertexPrimitive::Triangles,
+            color: 0,
             // Textures
             tex_params: TextureParams::new(),
         }

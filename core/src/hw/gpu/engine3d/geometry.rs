@@ -114,6 +114,7 @@ impl Engine3D {
                 );
                 self.apply_cur_mat(|old| mat * old);
             },
+            Color => self.color = param as u16, // TODO: Expand to 6 bit RGB
             PolygonAttr => self.polygon_attrs.write(param),
             TexImageParam => self.tex_params.write(param),
             BeginVtxs => {
@@ -160,6 +161,7 @@ pub enum GeometryCommand {
     MtxMult4x3 = 0x19,
     MtxMult3x3 = 0x1A,
     MtxTrans = 0x1C,
+    Color = 0x20,
     PolygonAttr = 0x29,
     BeginVtxs = 0x40,
     TexImageParam = 0x2A,
@@ -179,6 +181,7 @@ impl GeometryCommand {
             0x464 => MtxMult4x3,
             0x468 => MtxMult3x3,
             0x470 => MtxTrans,
+            0x480 => Color,
             0x4A4 => PolygonAttr,
             0x4A8 => TexImageParam,
             0x500 => BeginVtxs,
@@ -200,6 +203,7 @@ impl GeometryCommand {
             MtxMult4x3 => 19, // TODO: Add extra cycles for MTX_MODE 2
             MtxMult3x3 => 19, // TODO: Add extra cycles for MTX_MODE 2
             MtxTrans => 19, // TODO: Add extra cycles for MTX_MODE 2
+            Color => 0,
             PolygonAttr => 0,
             TexImageParam => 0,
             BeginVtxs => 0,
@@ -220,6 +224,7 @@ impl GeometryCommand {
             MtxMult4x3 => 12,
             MtxMult3x3 => 9,
             MtxTrans => 3,
+            Color => 1,
             PolygonAttr => 1,
             TexImageParam => 1,
             BeginVtxs => 1,
