@@ -10,7 +10,7 @@ use crate::hw::{
 use registers::POWCNT1;
 
 pub use engine2d::Engine2D;
-pub use engine3d::{Engine3D, GeometryCommandEntry};
+pub use engine3d::Engine3D;
 pub use vram::VRAM;
 pub use registers::{DISPSTAT, DISPSTATFlags};
 

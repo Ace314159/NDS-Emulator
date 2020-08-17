@@ -1,18 +1,17 @@
 use std::collections::VecDeque;
 
 use crate::hw::mmu::IORegister;
-use super::{GPU, Scheduler, Event};
+use super::{GPU, Scheduler};
 
 mod registers;
 mod geometry;
 mod rendering;
 
-pub use geometry::GeometryCommandEntry;
-
 use geometry::*;
 use registers::*;
 
 pub struct Engine3D {
+    cycles_ahead: i32,
     // Registers
     gxstat: GXSTAT,
     // Geometry Engine
@@ -49,6 +48,7 @@ impl Engine3D {
 
     pub fn new() -> Self {
         Engine3D {
+            cycles_ahead: 0,
             // Registers
             gxstat: GXSTAT::new(),
             // Geometry Engine
@@ -77,6 +77,20 @@ impl Engine3D {
             polygon_attrs: PolygonAttributes::new(),
             // Textures
             tex_params: TextureParams::new(),
+        }
+    }
+    
+    pub fn clock(&mut self, cycles: usize) {
+        self.cycles_ahead += cycles as i32;
+        while self.cycles_ahead > 0 {
+            if let Some(command_entry) = self.gxpipe.pop_front() {
+                self.exec_command(command_entry);
+                while self.gxpipe.len() < 3 {
+                    if let Some(command_entry) = self.gxfifo.pop_front() {
+                        self.gxpipe.push_back(command_entry);
+                    } else { break }
+                }
+            } else { break }
         }
     }
 }

@@ -2,27 +2,15 @@ pub type FixedPoint = simba::scalar::FixedI32<fixed::types::extra::U12>;
 pub type Matrix = nalgebra::Matrix4<FixedPoint>;
 pub use num_traits::identities::Zero;
 
-use super::{Engine3D, Event, Scheduler};
+use super::Engine3D;
 
 
 impl Engine3D {
-    fn push_geometry_command(&mut self, scheduler: &mut Scheduler, command: GeometryCommand, param: u32) {
+    fn push_geometry_command(&mut self, command: GeometryCommand, param: u32) {
         let command = GeometryCommandEntry::new(command, param);
         if self.gxfifo.len() == 0 && self.gxpipe.len() < Engine3D::PIPE_LEN { self.gxpipe.push_back(command) }
         else if self.gxfifo.len() < Engine3D::FIFO_LEN { self.gxfifo.push_back(command) }
         else { todo!() } // TODO: Stall Bus
-
-        self.schedule_command(scheduler);
-    }
-
-    pub fn schedule_command(&mut self, scheduler: &mut Scheduler) {
-        if !self.gxstat.geometry_engine_busy {
-            if let Some(command) = self.gxpipe.pop_front() {
-                self.gxstat.geometry_engine_busy = true;
-                error!("Scheduling Geometry Command: {:?}", command);
-                scheduler.schedule(Event::GeometryCommand(command), command.command.exec_time());
-            }
-        }
     }
 
     pub fn exec_command(&mut self, command_entry: GeometryCommandEntry) {
@@ -31,6 +19,7 @@ impl Engine3D {
         self.gxstat.geometry_engine_busy = false;
         error!("Executing Geometry Command {:?}", command_entry);
         match command_entry.command {
+            Unimplemented => (),
             MtxMode => self.mtx_mode = MatrixMode::from(param as u8 & 0x3),
             MtxPop => {
                 let offset = param & 0x3F;
@@ -63,19 +52,13 @@ impl Engine3D {
             },
             Viewport => self.viewport.write(param),
         }
+        self.cycles_ahead -= command_entry.command.exec_time() as i32;
     }
 
-    pub fn write_geometry_command(&mut self, scheduler: &mut Scheduler, addr: u32, value: u32) {
-        use GeometryCommand::*;
-        match addr & 0xFFF {
-            0x440 => self.push_geometry_command(scheduler, MtxMode, value),
-            0x448 => self.push_geometry_command(scheduler, MtxPop, value),
-            0x454 => self.push_geometry_command(scheduler, MtxIdentity, value),
-            0x4A4 => self.push_geometry_command(scheduler, PolygonAttr, value),
-            0x4A8 => self.push_geometry_command(scheduler, TexImageParam, value),
-            0x540 => self.push_geometry_command(scheduler, SwapBuffers, value),
-            0x580 => self.push_geometry_command(scheduler, Viewport, value),
-            _ => warn!("Unimplemented Geometry Command Address 0x{:X}: 0x{:X}", addr, value)
+    pub fn write_geometry_command(&mut self, addr: u32, value: u32) {
+        let command = GeometryCommand::from_addr(addr & 0xFFF);
+        if command != GeometryCommand::Unimplemented {
+            self.push_geometry_command(command, value);
         }
     }
 
@@ -94,6 +77,7 @@ impl Engine3D {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum GeometryCommand {
+    Unimplemented = 0x00,
     MtxMode = 0x10,
     MtxPop = 0x12,
     MtxIdentity = 0x15,
@@ -104,9 +88,24 @@ pub enum GeometryCommand {
 }
 
 impl GeometryCommand {
+    fn from_addr(addr: u32) -> Self {
+        use GeometryCommand::*;
+        match addr {
+            0x440 => MtxMode,
+            0x448 => MtxPop,
+            0x454 => MtxIdentity,
+            0x4A4 => PolygonAttr,
+            0x4A8 => TexImageParam,
+            0x540 => SwapBuffers,
+            0x580 => Viewport,
+            _ => { warn!("Unimplemented Geometry Command Address 0x{:X}", addr); Unimplemented },
+        }
+    }
+
     fn exec_time(&self) -> usize {
         use GeometryCommand::*;
         match *self {
+            Unimplemented => 0,
             MtxMode => 1,
             MtxPop => 36,
             MtxIdentity => 19,

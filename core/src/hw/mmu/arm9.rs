@@ -275,7 +275,7 @@ impl HW {
 
     fn write_geometry_command<T: MemoryValue>(&mut self, addr: u32, value: T) {
         assert!(addr % 4 == 0 && std::mem::size_of::<T>() == 4);
-        self.gpu.engine3d.write_geometry_command(&mut self.scheduler, addr, num::cast::<T, u32>(value).unwrap());
+        self.gpu.engine3d.write_geometry_command(addr, num::cast::<T, u32>(value).unwrap());
     }
 
     fn write_palette_ram<E: EngineType, T: MemoryValue>(engine: &mut Engine2D<E>, addr: u32, value: T) {

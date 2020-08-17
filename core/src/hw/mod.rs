@@ -113,6 +113,7 @@ impl HW {
 
     pub fn clock(&mut self, arm7_cycles: usize) {
         self.handle_events(arm7_cycles);
+        self.gpu.engine3d.clock(arm7_cycles);
     }
 
     pub fn arm7_interrupts_requested(&mut self) -> bool {
