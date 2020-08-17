@@ -15,6 +15,8 @@ pub struct Engine3D {
     // Registers
     gxstat: GXSTAT,
     // Geometry Engine
+    prev_command: GeometryCommand,
+    params: Vec<u32>,
     gxfifo: VecDeque<GeometryCommandEntry>,
     gxpipe: VecDeque<GeometryCommandEntry>,
     // Matrices
@@ -52,6 +54,8 @@ impl Engine3D {
             // Registers
             gxstat: GXSTAT::new(),
             // Geometry Engine
+            prev_command: GeometryCommand::Unimplemented,
+            params: Vec::new(),
             gxfifo: VecDeque::with_capacity(256),
             gxpipe: VecDeque::with_capacity(4),
             // Matrices
