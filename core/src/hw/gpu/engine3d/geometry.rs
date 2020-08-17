@@ -85,7 +85,18 @@ impl Engine3D {
                     |i, j| create_fixed_point(self.params[i * 3 + j])
                 );
                 self.apply_cur_mat(|old| mat * old.remove_row(3));
-            }
+            },
+            MtxTrans => {
+                assert_eq!(self.params.len(), 3);
+                let mat = Matrix4::new_translation(
+                    &nalgebra::Vector3::new(
+                        create_fixed_point(self.params[0]),
+                        create_fixed_point(self.params[1]),
+                        create_fixed_point(self.params[2]),
+                    ),
+                );
+                self.apply_cur_mat(|old| mat * old);
+            },
             PolygonAttr => self.polygon_attrs.write(param),
             TexImageParam => self.tex_params.write(param),
             SwapBuffers => {
@@ -127,6 +138,7 @@ pub enum GeometryCommand {
     MtxIdentity = 0x15,
     MtxMult4x4 = 0x18,
     MtxMult4x3 = 0x19,
+    MtxTrans = 0x1C,
     PolygonAttr = 0x29,
     TexImageParam = 0x2A,
     SwapBuffers = 0x50,
@@ -143,6 +155,7 @@ impl GeometryCommand {
             0x454 => MtxIdentity,
             0x460 => MtxMult4x4,
             0x464 => MtxMult4x3,
+            0x470 => MtxTrans,
             0x4A4 => PolygonAttr,
             0x4A8 => TexImageParam,
             0x540 => SwapBuffers,
@@ -161,6 +174,8 @@ impl GeometryCommand {
             MtxIdentity => 18,
             MtxMult4x4 => 19, // TOOD: Add extra cycles for MTX_MODE 2
             MtxMult4x3 => 19, // TODO: Add extra cycles for MTX_MODE 2
+            MtxTrans => 22, // TODO: Add extra cycles for MTX_MODE 2
+            MtxTrans => 19, // TODO: Add extra cycles for MTX_MODE 2
             PolygonAttr => 0,
             TexImageParam => 0,
             SwapBuffers => 0,
@@ -178,6 +193,7 @@ impl GeometryCommand {
             MtxIdentity => 0,
             MtxMult4x4 => 16,
             MtxMult4x3 => 12,
+            MtxTrans => 3,
             PolygonAttr => 1,
             TexImageParam => 1,
             SwapBuffers => 1,
