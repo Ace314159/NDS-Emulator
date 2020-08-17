@@ -100,13 +100,8 @@ impl Engine3D {
             },
             MtxTrans => {
                 assert_eq!(self.params.len(), 3);
-                let mat = Matrix4::new_translation(
-                    &nalgebra::Vector3::new(
-                        create_fixed_point(self.params[0]),
-                        create_fixed_point(self.params[1]),
-                        create_fixed_point(self.params[2]),
-                    ),
-                );
+                let mut mat = Matrix4::identity();
+                for i in 0..3 { mat[(3, i)] = create_fixed_point(self.params[i]) }
                 self.apply_cur_mat(|old| mat * old);
             },
             Color => self.color = param as u16, // TODO: Expand to 6 bit RGB
