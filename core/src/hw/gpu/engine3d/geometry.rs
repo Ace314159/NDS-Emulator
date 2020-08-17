@@ -31,6 +31,24 @@ impl Engine3D {
         match command_entry.command {
             Unimplemented => (),
             MtxMode => self.mtx_mode = MatrixMode::from(param as u8 & 0x3),
+            MtxPush => match self.mtx_mode {
+                MatrixMode::Proj => {
+                    self.proj_stack[self.proj_stack_sp as usize] = self.cur_proj;
+                    self.proj_stack_sp += 1;
+                    assert!(self.proj_stack_sp <= 1);
+                },
+                MatrixMode::Pos | MatrixMode::PosVec => {
+                    self.pos_stack[self.pos_vec_stack_sp as usize] = self.cur_pos;
+                    self.vec_stack[self.pos_vec_stack_sp as usize] = self.cur_vec;
+                    self.pos_vec_stack_sp += 1;
+                    assert!(self.pos_vec_stack_sp <= 31);
+                },
+                MatrixMode::Texture => {
+                    self.cur_tex = self.tex_stack[self.tex_stack_sp as usize];
+                    self.tex_stack_sp += 1;
+                    assert!(self.tex_stack_sp <= 31);
+                },
+            },
             MtxPop => {
                 let offset = param & 0x3F;
                 let offset = if offset & 0x20 != 0 { 0xC0 | offset } else { offset } as i8;
@@ -104,6 +122,7 @@ impl Engine3D {
 pub enum GeometryCommand {
     Unimplemented = 0x00,
     MtxMode = 0x10,
+    MtxPush = 0x11,
     MtxPop = 0x12,
     MtxIdentity = 0x15,
     MtxMult4x4 = 0x18,
@@ -119,6 +138,7 @@ impl GeometryCommand {
         use GeometryCommand::*;
         match addr {
             0x440 => MtxMode,
+            0x444 => MtxPush,
             0x448 => MtxPop,
             0x454 => MtxIdentity,
             0x460 => MtxMult4x4,
@@ -136,6 +156,7 @@ impl GeometryCommand {
         match *self {
             Unimplemented => 0,
             MtxMode => 0,
+            MtxPush => 16,
             MtxPop => 35,
             MtxIdentity => 18,
             MtxMult4x4 => 19, // TOOD: Add extra cycles for MTX_MODE 2
@@ -152,6 +173,7 @@ impl GeometryCommand {
         match *self {
             Unimplemented => 0,
             MtxMode => 1,
+            MtxPush => 0,
             MtxPop => 1,
             MtxIdentity => 0,
             MtxMult4x4 => 16,
