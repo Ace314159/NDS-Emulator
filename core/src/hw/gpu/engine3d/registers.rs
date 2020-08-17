@@ -1,4 +1,4 @@
-use super::{GPU, Engine3D, IORegister, Scheduler};
+use super::{GPU, Engine3D, FixedPoint, create_fixed_point, IORegister, Scheduler};
 
 pub struct GXSTAT {
     pub test_busy: bool, // Box, Pos, Vector Test
@@ -206,6 +206,7 @@ impl From<u32> for TexCoordTransformationMode {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct PolygonAttributes {
     lights_enabled: [bool; 4],
     mode: PolygonMode,
@@ -255,6 +256,7 @@ impl PolygonAttributes {
     }
 }
 
+#[derive(Clone, Copy)]
 pub enum PolygonMode {
     Modulation = 0,
     Decal = 1,
@@ -298,6 +300,22 @@ impl Viewport {
         self.y2 = (value >> 24) as u8;
         assert!((self.y1 as usize) < GPU::WIDTH);
         assert!((self.y2 as usize) < GPU::WIDTH);
+    }
+
+    pub fn x_start(&self) -> FixedPoint {
+        create_fixed_point(self.x1 as u32)
+    }
+
+    pub fn y_start(&self) -> FixedPoint {
+        create_fixed_point(self.y1 as u32)
+    }
+
+    pub fn width(&self) -> FixedPoint {
+        create_fixed_point((self.x2 - self.x1) as u32)
+    }
+
+    pub fn height(&self) -> FixedPoint {
+        create_fixed_point((self.y2 - self.y1) as u32)
     }
 }
 

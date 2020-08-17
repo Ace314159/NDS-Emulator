@@ -37,11 +37,14 @@ pub struct Engine3D {
     clear_color: ClearColor,
     clear_depth: ClearDepth,
     pixels: Vec<u16>,
-    rendering: bool,
+    polygons_submitted: bool,
     // Polygons
     polygon_attrs: PolygonAttributes,
+    polygon_attrs_latch: PolygonAttributes,
     vertex_primitive: VertexPrimitive,
     color: u16,
+    vertices: Vec<Vertex>,
+    polygons: Vec<Polygon>,
     // Textures
     tex_params: TextureParams,
 }
@@ -78,11 +81,14 @@ impl Engine3D {
             clear_color: ClearColor::new(),
             clear_depth: ClearDepth::new(),
             pixels: vec![0; GPU::WIDTH * GPU::HEIGHT],
-            rendering: false,
+            polygons_submitted: false,
             // Polygons
             polygon_attrs: PolygonAttributes::new(),
+            polygon_attrs_latch: PolygonAttributes::new(),
             vertex_primitive: VertexPrimitive::Triangles,
             color: 0,
+            vertices: Vec::new(),
+            polygons: Vec::new(),
             // Textures
             tex_params: TextureParams::new(),
         }

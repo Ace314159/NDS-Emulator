@@ -2,6 +2,7 @@ pub use nalgebra::{U3, U4};
 pub type FixedPoint = simba::scalar::FixedI32::<fixed::types::extra::U12>;
 pub type Matrix4 = nalgebra::Matrix4<FixedPoint>;
 pub type Matrix<M, N> = nalgebra::MatrixMN<FixedPoint, M, N>;
+pub type Vec4 = nalgebra::Vector4<FixedPoint>;
 pub use num_traits::identities::{Zero, One};
 
 use super::Engine3D;
@@ -105,14 +106,20 @@ impl Engine3D {
                 self.apply_cur_mat(|old| mat * old);
             },
             Color => self.color = param as u16, // TODO: Expand to 6 bit RGB
+            Vtx16 => self.submit_vertex(
+                create_fixed_point((self.params[0] >> 0) as u16 as i16 as u32),
+                create_fixed_point((self.params[0] >> 16) as u16 as i16 as u32),
+                create_fixed_point((self.params[1] >> 0) as u16 as i16 as u32),
+            ),
             PolygonAttr => self.polygon_attrs.write(param),
             TexImageParam => self.tex_params.write(param),
             BeginVtxs => {
+                self.polygon_attrs_latch = self.polygon_attrs_latch.clone();
                 self.vertex_primitive = VertexPrimitive::from(param & 0x3);
             },
             EndVtxs => (), // Does Nothing
             SwapBuffers => {
-                self.rendering = true;
+                self.polygons_submitted = true;
                 self.gxstat.geometry_engine_busy = true; // Keep busy until VBlank
             },
             Viewport => self.viewport.write(param),
@@ -139,6 +146,44 @@ impl Engine3D {
             MatrixMode::Texture => self.cur_tex = apply(self.cur_tex),
         }
     }
+
+    fn submit_vertex(&mut self, x: FixedPoint, y: FixedPoint, z: FixedPoint) {
+        let vertex_pos = Vec4::new(x, y, z, FixedPoint::one());
+        let clip_coords = self.cur_pos * self.cur_proj * vertex_pos;
+        let two = create_fixed_point(2);
+        println!("{:?}", (clip_coords[0] + clip_coords[3]) * self.viewport.width() /
+        (two * clip_coords[3]) + self.viewport.x_start());
+        self.vertices.push(Vertex {
+            clip_coords,
+            screen_coords: [
+                fixed_point_to_usize((clip_coords[0] + clip_coords[3]) * self.viewport.width() /
+                    (two * clip_coords[3]) + self.viewport.x_start(),
+                ),
+                fixed_point_to_usize((clip_coords[1] + clip_coords[3]) * self.viewport.height() /
+                    (two * clip_coords[3]) + self.viewport.y_start(),
+                ),
+            ],
+            color: self.color,
+        });
+        let len = self.vertices.len();
+        match self.vertex_primitive {
+            VertexPrimitive::Triangles => {
+                if len % 3 == 0 {
+                    self.submit_triangle(len - 3, len - 2, len - 1);
+                }
+            },
+            _ => todo!(),
+        }
+    }
+
+    fn submit_triangle(&mut self, v1_i: usize, v2_i: usize, v3_i: usize) {
+        // TODO: Implement clipping
+        // TODO: Reject polygon if it doesn't fit into Vertex RAM or Polygon RAM
+        self.polygons.push(Polygon {
+            vertices: [v1_i, v2_i, v3_i],
+            attrs: self.polygon_attrs_latch.clone(),
+        })
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -153,6 +198,7 @@ pub enum GeometryCommand {
     MtxMult3x3 = 0x1A,
     MtxTrans = 0x1C,
     Color = 0x20,
+    Vtx16 = 0x23,
     PolygonAttr = 0x29,
     BeginVtxs = 0x40,
     EndVtxs = 0x41,
@@ -174,6 +220,7 @@ impl GeometryCommand {
             0x468 => MtxMult3x3,
             0x470 => MtxTrans,
             0x480 => Color,
+            0x48C => Vtx16,
             0x4A4 => PolygonAttr,
             0x4A8 => TexImageParam,
             0x500 => BeginVtxs,
@@ -197,6 +244,7 @@ impl GeometryCommand {
             MtxMult3x3 => 19, // TODO: Add extra cycles for MTX_MODE 2
             MtxTrans => 19, // TODO: Add extra cycles for MTX_MODE 2
             Color => 0,
+            Vtx16 => 7,
             PolygonAttr => 0,
             TexImageParam => 0,
             BeginVtxs => 0,
@@ -219,6 +267,7 @@ impl GeometryCommand {
             MtxMult3x3 => 9,
             MtxTrans => 3,
             Color => 1,
+            Vtx16 => 2,
             PolygonAttr => 1,
             TexImageParam => 1,
             BeginVtxs => 1,
@@ -263,8 +312,24 @@ impl From<u8> for MatrixMode {
     }
 }
 
-fn create_fixed_point(val: u32) -> simba::scalar::FixedI32::<fixed::types::extra::U12>{
+pub fn create_fixed_point(val: u32) -> FixedPoint {
     simba::scalar::FixedI32::<fixed::types::extra::U12>(
         fixed::FixedI32::<fixed::types::extra::U12>::from_bits(val as i32)
     )
+}
+
+pub fn fixed_point_to_usize(val: FixedPoint) -> usize {
+    val.0.to_num()
+}
+
+#[derive(Debug)]
+pub struct Vertex {
+    clip_coords: Vec4,
+    pub screen_coords: [usize; 2],
+    pub color: u16,
+}
+
+pub struct Polygon {
+    pub vertices: [usize; 3], // TODO: Support quads
+    pub attrs: PolygonAttributes,
 }
