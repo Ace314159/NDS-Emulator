@@ -1,5 +1,7 @@
+pub use nalgebra::{U3, U4};
 pub type FixedPoint = simba::scalar::FixedI32::<fixed::types::extra::U12>;
-pub type Matrix = nalgebra::Matrix4<FixedPoint>;
+pub type Matrix4 = nalgebra::Matrix4<FixedPoint>;
+pub type Matrix<M, N> = nalgebra::MatrixMN<FixedPoint, M, N>;
 pub use num_traits::identities::Zero;
 
 use super::Engine3D;
@@ -51,14 +53,21 @@ impl Engine3D {
                     },
                 }
             },
-            MtxIdentity => self.apply_cur_mat(|_| Matrix::identity()),
+            MtxIdentity => self.apply_cur_mat(|_| Matrix4::identity()),
             MtxMult4x4 => {
                 assert_eq!(self.params.len(), 16);
-                let mat = Matrix::from_fn(
+                let mat = Matrix4::from_fn(
                     |i, j| create_fixed_point(self.params[i * 4 + j])
                 );
                 self.apply_cur_mat(|old| mat * old);
             },
+            MtxMult4x3 => {
+                assert_eq!(self.params.len(), 12);
+                let mat = Matrix::<U4, U3>::from_fn(
+                    |i, j| create_fixed_point(self.params[i * 3 + j])
+                );
+                self.apply_cur_mat(|old| mat * old.remove_row(3));
+            }
             PolygonAttr => self.polygon_attrs.write(param),
             TexImageParam => self.tex_params.write(param),
             SwapBuffers => {
@@ -78,7 +87,7 @@ impl Engine3D {
         }
     }
 
-    fn apply_cur_mat<F: Fn(Matrix) -> Matrix>(&mut self, apply: F) {
+    fn apply_cur_mat<F: Fn(Matrix4) -> Matrix4>(&mut self, apply: F) {
         match self.mtx_mode {
             MatrixMode::Proj => self.cur_proj = apply(self.cur_proj),
             MatrixMode::Pos => self.cur_pos = apply(self.cur_pos),
@@ -98,6 +107,7 @@ pub enum GeometryCommand {
     MtxPop = 0x12,
     MtxIdentity = 0x15,
     MtxMult4x4 = 0x18,
+    MtxMult4x3 = 0x19,
     PolygonAttr = 0x29,
     TexImageParam = 0x2A,
     SwapBuffers = 0x50,
@@ -112,6 +122,7 @@ impl GeometryCommand {
             0x448 => MtxPop,
             0x454 => MtxIdentity,
             0x460 => MtxMult4x4,
+            0x464 => MtxMult4x3,
             0x4A4 => PolygonAttr,
             0x4A8 => TexImageParam,
             0x540 => SwapBuffers,
@@ -127,7 +138,8 @@ impl GeometryCommand {
             MtxMode => 0,
             MtxPop => 35,
             MtxIdentity => 18,
-            MtxMult4x4 => 19,
+            MtxMult4x4 => 19, // TOOD: Add extra cycles for MTX_MODE 2
+            MtxMult4x3 => 19, // TODO: Add extra cycles for MTX_MODE 2
             PolygonAttr => 0,
             TexImageParam => 0,
             SwapBuffers => 0,
@@ -143,6 +155,7 @@ impl GeometryCommand {
             MtxPop => 1,
             MtxIdentity => 0,
             MtxMult4x4 => 16,
+            MtxMult4x3 => 12,
             PolygonAttr => 1,
             TexImageParam => 1,
             SwapBuffers => 1,

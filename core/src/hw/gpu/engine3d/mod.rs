@@ -21,17 +21,17 @@ pub struct Engine3D {
     gxpipe: VecDeque<GeometryCommandEntry>,
     // Matrices
     mtx_mode: MatrixMode,
-    cur_proj: Matrix,
-    cur_pos: Matrix,
-    cur_vec: Matrix,
-    cur_tex: Matrix,
+    cur_proj: Matrix4,
+    cur_pos: Matrix4,
+    cur_vec: Matrix4,
+    cur_tex: Matrix4,
     proj_stack_sp: u8,
     pos_vec_stack_sp: u8,
     tex_stack_sp: u8,
-    proj_stack: [Matrix; 1], // Projection Stack
-    pos_stack: [Matrix; 31], // Coordinate Stack
-    vec_stack: [Matrix; 31], // Directional Stack
-    tex_stack: [Matrix; 1], // Texture Stack
+    proj_stack: [Matrix4; 1], // Projection Stack
+    pos_stack: [Matrix4; 31], // Coordinate Stack
+    vec_stack: [Matrix4; 31], // Directional Stack
+    tex_stack: [Matrix4; 1], // Texture Stack
     // Rendering Engine
     viewport: Viewport,
     clear_color: ClearColor,
@@ -60,17 +60,17 @@ impl Engine3D {
             gxpipe: VecDeque::with_capacity(4),
             // Matrices
             mtx_mode: MatrixMode::Proj,
-            cur_proj: Matrix::from_element(FixedPoint::zero()),
-            cur_pos: Matrix::from_element(FixedPoint::zero()),
-            cur_vec: Matrix::from_element(FixedPoint::zero()),
-            cur_tex: Matrix::from_element(FixedPoint::zero()),
+            cur_proj: Matrix4::from_element(FixedPoint::zero()),
+            cur_pos: Matrix4::from_element(FixedPoint::zero()),
+            cur_vec: Matrix4::from_element(FixedPoint::zero()),
+            cur_tex: Matrix4::from_element(FixedPoint::zero()),
             proj_stack_sp: 0,
             pos_vec_stack_sp: 0,
             tex_stack_sp: 0,
-            proj_stack: [Matrix::from_element(FixedPoint::zero()); 1], // Projection Stack
-            pos_stack: [Matrix::from_element(FixedPoint::zero()); 31], // Coordinate Stack
-            vec_stack: [Matrix::from_element(FixedPoint::zero()); 31], // Directional Stack
-            tex_stack: [Matrix::from_element(FixedPoint::zero()); 1], // Texture Stack
+            proj_stack: [Matrix4::from_element(FixedPoint::zero()); 1], // Projection Stack
+            pos_stack: [Matrix4::from_element(FixedPoint::zero()); 31], // Coordinate Stack
+            vec_stack: [Matrix4::from_element(FixedPoint::zero()); 31], // Directional Stack
+            tex_stack: [Matrix4::from_element(FixedPoint::zero()); 1], // Texture Stack
             // Rendering Engine
             viewport: Viewport::new(),
             clear_color: ClearColor::new(),
