@@ -40,6 +40,7 @@ pub struct Engine3D {
     rendering: bool,
     // Polygons
     polygon_attrs: PolygonAttributes,
+    vertex_primitive: VertexPrimitive,
     // Textures
     tex_params: TextureParams,
 }
@@ -79,6 +80,7 @@ impl Engine3D {
             rendering: false,
             // Polygons
             polygon_attrs: PolygonAttributes::new(),
+            vertex_primitive: VertexPrimitive::Triangles,
             // Textures
             tex_params: TextureParams::new(),
         }

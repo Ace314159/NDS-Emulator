@@ -300,3 +300,22 @@ impl Viewport {
         assert!((self.y2 as usize) < GPU::WIDTH);
     }
 }
+
+pub enum VertexPrimitive {
+    Triangles = 0,
+    Quad = 1,
+    TriangleStrips = 2,
+    QuadStrips = 3,
+}
+
+impl From<u32> for VertexPrimitive {
+    fn from(value: u32) -> Self {
+        match value {
+            0 => VertexPrimitive::Triangles,
+            1 => VertexPrimitive::Quad,
+            2 => VertexPrimitive::TriangleStrips,
+            3 => VertexPrimitive::QuadStrips,
+            _ => unreachable!(),
+        }
+    }
+}

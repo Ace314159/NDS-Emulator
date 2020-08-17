@@ -5,6 +5,7 @@ pub type Matrix<M, N> = nalgebra::MatrixMN<FixedPoint, M, N>;
 pub use num_traits::identities::Zero;
 
 use super::Engine3D;
+use super::registers::*;
 
 
 impl Engine3D {
@@ -115,6 +116,9 @@ impl Engine3D {
             },
             PolygonAttr => self.polygon_attrs.write(param),
             TexImageParam => self.tex_params.write(param),
+            BeginVtxs => {
+                self.vertex_primitive = VertexPrimitive::from(param & 0x3);
+            },
             SwapBuffers => {
                 self.rendering = true;
                 self.gxstat.geometry_engine_busy = true; // Keep busy until VBlank
@@ -157,6 +161,7 @@ pub enum GeometryCommand {
     MtxMult3x3 = 0x1A,
     MtxTrans = 0x1C,
     PolygonAttr = 0x29,
+    BeginVtxs = 0x40,
     TexImageParam = 0x2A,
     SwapBuffers = 0x50,
     Viewport = 0x60,
@@ -176,6 +181,7 @@ impl GeometryCommand {
             0x470 => MtxTrans,
             0x4A4 => PolygonAttr,
             0x4A8 => TexImageParam,
+            0x500 => BeginVtxs,
             0x540 => SwapBuffers,
             0x580 => Viewport,
             _ => { warn!("Unimplemented Geometry Command Address 0x{:X}", addr); Unimplemented },
@@ -196,6 +202,7 @@ impl GeometryCommand {
             MtxTrans => 19, // TODO: Add extra cycles for MTX_MODE 2
             PolygonAttr => 0,
             TexImageParam => 0,
+            BeginVtxs => 0,
             SwapBuffers => 0,
             Viewport => 0,
         }
@@ -215,6 +222,7 @@ impl GeometryCommand {
             MtxTrans => 3,
             PolygonAttr => 1,
             TexImageParam => 1,
+            BeginVtxs => 1,
             SwapBuffers => 1,
             Viewport => 1,
         }
