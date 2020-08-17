@@ -120,6 +120,7 @@ impl Engine3D {
             BeginVtxs => {
                 self.vertex_primitive = VertexPrimitive::from(param & 0x3);
             },
+            EndVtxs => (), // Does Nothing
             SwapBuffers => {
                 self.rendering = true;
                 self.gxstat.geometry_engine_busy = true; // Keep busy until VBlank
@@ -164,6 +165,7 @@ pub enum GeometryCommand {
     Color = 0x20,
     PolygonAttr = 0x29,
     BeginVtxs = 0x40,
+    EndVtxs = 0x41,
     TexImageParam = 0x2A,
     SwapBuffers = 0x50,
     Viewport = 0x60,
@@ -185,6 +187,7 @@ impl GeometryCommand {
             0x4A4 => PolygonAttr,
             0x4A8 => TexImageParam,
             0x500 => BeginVtxs,
+            0x504 => EndVtxs,
             0x540 => SwapBuffers,
             0x580 => Viewport,
             _ => { warn!("Unimplemented Geometry Command Address 0x{:X}", addr); Unimplemented },
@@ -207,6 +210,7 @@ impl GeometryCommand {
             PolygonAttr => 0,
             TexImageParam => 0,
             BeginVtxs => 0,
+            EndVtxs => 0,
             SwapBuffers => 0,
             Viewport => 0,
         }
@@ -228,6 +232,7 @@ impl GeometryCommand {
             PolygonAttr => 1,
             TexImageParam => 1,
             BeginVtxs => 1,
+            EndVtxs => 0,
             SwapBuffers => 1,
             Viewport => 1,
         }
