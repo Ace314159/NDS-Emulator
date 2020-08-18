@@ -4,9 +4,11 @@ use crate::hw::mmu::IORegister;
 use super::{GPU, Scheduler};
 
 mod registers;
+mod math;
 mod geometry;
 mod rendering;
 
+use math::Matrix;
 use geometry::*;
 use registers::*;
 
@@ -21,17 +23,17 @@ pub struct Engine3D {
     gxpipe: VecDeque<GeometryCommandEntry>,
     // Matrices
     mtx_mode: MatrixMode,
-    cur_proj: Matrix4,
-    cur_pos: Matrix4,
-    cur_vec: Matrix4,
-    cur_tex: Matrix4,
+    cur_proj: Matrix,
+    cur_pos: Matrix,
+    cur_vec: Matrix,
+    cur_tex: Matrix,
     proj_stack_sp: u8,
     pos_vec_stack_sp: u8,
     tex_stack_sp: u8,
-    proj_stack: [Matrix4; 1], // Projection Stack
-    pos_stack: [Matrix4; 31], // Coordinate Stack
-    vec_stack: [Matrix4; 31], // Directional Stack
-    tex_stack: [Matrix4; 1], // Texture Stack
+    proj_stack: [Matrix; 1], // Projection Stack
+    pos_stack: [Matrix; 31], // Coordinate Stack
+    vec_stack: [Matrix; 31], // Directional Stack
+    tex_stack: [Matrix; 1], // Texture Stack
     // Rendering Engine
     viewport: Viewport,
     clear_color: ClearColor,
@@ -65,17 +67,17 @@ impl Engine3D {
             gxpipe: VecDeque::with_capacity(4),
             // Matrices
             mtx_mode: MatrixMode::Proj,
-            cur_proj: Matrix4::from_element(FixedPoint::zero()),
-            cur_pos: Matrix4::from_element(FixedPoint::zero()),
-            cur_vec: Matrix4::from_element(FixedPoint::zero()),
-            cur_tex: Matrix4::from_element(FixedPoint::zero()),
+            cur_proj: Matrix::identity(),
+            cur_pos: Matrix::identity(),
+            cur_vec: Matrix::identity(),
+            cur_tex: Matrix::identity(),
             proj_stack_sp: 0,
             pos_vec_stack_sp: 0,
             tex_stack_sp: 0,
-            proj_stack: [Matrix4::from_element(FixedPoint::zero()); 1], // Projection Stack
-            pos_stack: [Matrix4::from_element(FixedPoint::zero()); 31], // Coordinate Stack
-            vec_stack: [Matrix4::from_element(FixedPoint::zero()); 31], // Directional Stack
-            tex_stack: [Matrix4::from_element(FixedPoint::zero()); 1], // Texture Stack
+            proj_stack: [Matrix::identity(); 1], // Projection Stack
+            pos_stack: [Matrix::identity(); 31], // Coordinate Stack
+            vec_stack: [Matrix::identity(); 31], // Directional Stack
+            tex_stack: [Matrix::identity(); 1], // Texture Stack
             // Rendering Engine
             viewport: Viewport::new(),
             clear_color: ClearColor::new(),

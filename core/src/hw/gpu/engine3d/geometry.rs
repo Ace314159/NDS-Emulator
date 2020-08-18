@@ -1,11 +1,5 @@
-pub use nalgebra::{U3, U4};
-pub type FixedPoint = simba::scalar::FixedI32::<fixed::types::extra::U12>;
-pub type Matrix4 = nalgebra::Matrix4<FixedPoint>;
-pub type Matrix<M, N> = nalgebra::MatrixMN<FixedPoint, M, N>;
-pub type Vec4 = nalgebra::Vector4<FixedPoint>;
-pub use num_traits::identities::{Zero, One};
-
 use super::Engine3D;
+use super::math::{FixedPoint, Vec4, Matrix};
 use super::registers::*;
 
 
@@ -73,43 +67,16 @@ impl Engine3D {
                     },
                 }
             },
-            MtxIdentity => self.apply_cur_mat(|_| Matrix4::identity()),
-            MtxMult4x4 => {
-                assert_eq!(self.params.len(), 16);
-                let mat = Matrix4::from_fn(
-                    |i, j| create_fixed_point(self.params[i * 4 + j])
-                );
-                self.apply_cur_mat(|old| mat * old);
-            },
-            MtxMult4x3 => {
-                assert_eq!(self.params.len(), 12);
-                let mat = Matrix::<U4, U3>::from_fn(
-                    |i, j| create_fixed_point(self.params[i * 3 + j])
-                );
-                let mut mat = mat.insert_column(3, FixedPoint::zero());
-                mat[(3, 3)] = FixedPoint::one();
-                self.apply_cur_mat(|old| mat * old);
-            },
-            MtxMult3x3 => {
-                assert_eq!(self.params.len(), 9);
-                let mat = Matrix::<U3, U3>::from_fn(
-                    |i, j| create_fixed_point(self.params[i * 3 + j])
-                );
-                let mut mat = mat.fixed_resize::<U4, U4>(FixedPoint::zero());
-                mat[(3, 3)] = FixedPoint::one();
-                self.apply_cur_mat(|old| mat * old);
-            },
-            MtxTrans => {
-                assert_eq!(self.params.len(), 3);
-                let mut mat = Matrix4::identity();
-                for i in 0..3 { mat[(3, i)] = create_fixed_point(self.params[i]) }
-                self.apply_cur_mat(|old| mat * old);
-            },
+            MtxIdentity => self.apply_cur_mat(Matrix::set_identity),
+            MtxMult4x4 => self.apply_cur_mat(Matrix::mul4x4),
+            MtxMult4x3 => self.apply_cur_mat(Matrix::mul4x3),
+            MtxMult3x3 => self.apply_cur_mat(Matrix::mul3x3),
+            MtxTrans => self.apply_cur_mat(Matrix::translate),
             Color => self.color = param as u16, // TODO: Expand to 6 bit RGB
             Vtx16 => self.submit_vertex(
-                create_fixed_point((self.params[0] >> 0) as u16 as i16 as u32),
-                create_fixed_point((self.params[0] >> 16) as u16 as i16 as u32),
-                create_fixed_point((self.params[1] >> 0) as u16 as i16 as u32),
+                FixedPoint::from_frac12((self.params[0] >> 0) as u16 as i16 as i32),
+                FixedPoint::from_frac12((self.params[0] >> 16) as u16 as i16 as i32),
+                FixedPoint::from_frac12((self.params[1] >> 0) as u16 as i16 as i32),
             ),
             PolygonAttr => self.polygon_attrs.write(param),
             TexImageParam => self.tex_params.write(param),
@@ -135,34 +102,24 @@ impl Engine3D {
         }
     }
 
-    fn apply_cur_mat<F: Fn(Matrix4) -> Matrix4>(&mut self, apply: F) {
+    fn apply_cur_mat<F: Fn(&mut Matrix, &Vec<u32>)>(&mut self, apply: F) {
         match self.mtx_mode {
-            MatrixMode::Proj => self.cur_proj = apply(self.cur_proj),
-            MatrixMode::Pos => self.cur_pos = apply(self.cur_pos),
+            MatrixMode::Proj => apply(&mut self.cur_proj, &self.params),
+            MatrixMode::Pos => apply(&mut self.cur_pos, &self.params),
             MatrixMode::PosVec => {
-                self.cur_pos = apply(self.cur_pos);
-                self.cur_vec = apply(self.cur_vec);
+                apply(&mut self.cur_pos, &self.params);
+                apply(&mut self.cur_vec, &self.params);
             },
-            MatrixMode::Texture => self.cur_tex = apply(self.cur_tex),
+            MatrixMode::Texture => apply(&mut self.cur_tex, &self.params),
         }
     }
 
     fn submit_vertex(&mut self, x: FixedPoint, y: FixedPoint, z: FixedPoint) {
         let vertex_pos = Vec4::new(x, y, z, FixedPoint::one());
         let clip_coords = self.cur_pos * self.cur_proj * vertex_pos;
-        let two = create_fixed_point(2);
-        println!("{:?}", (clip_coords[0] + clip_coords[3]) * self.viewport.width() /
-        (two * clip_coords[3]) + self.viewport.x_start());
+        println!("{:?} * {:?} = {:?}", self.cur_pos * self.cur_proj, vertex_pos, clip_coords);
         self.vertices.push(Vertex {
-            clip_coords,
-            screen_coords: [
-                fixed_point_to_usize((clip_coords[0] + clip_coords[3]) * self.viewport.width() /
-                    (two * clip_coords[3]) + self.viewport.x_start(),
-                ),
-                fixed_point_to_usize((clip_coords[1] + clip_coords[3]) * self.viewport.height() /
-                    (two * clip_coords[3]) + self.viewport.y_start(),
-                ),
-            ],
+            screen_coords: [self.viewport.screen_x(&clip_coords), self.viewport.screen_y(&clip_coords)],
             color: self.color,
         });
         let len = self.vertices.len();
@@ -312,19 +269,8 @@ impl From<u8> for MatrixMode {
     }
 }
 
-pub fn create_fixed_point(val: u32) -> FixedPoint {
-    simba::scalar::FixedI32::<fixed::types::extra::U12>(
-        fixed::FixedI32::<fixed::types::extra::U12>::from_bits(val as i32)
-    )
-}
-
-pub fn fixed_point_to_usize(val: FixedPoint) -> usize {
-    val.0.to_num()
-}
-
 #[derive(Debug)]
 pub struct Vertex {
-    clip_coords: Vec4,
     pub screen_coords: [usize; 2],
     pub color: u16,
 }

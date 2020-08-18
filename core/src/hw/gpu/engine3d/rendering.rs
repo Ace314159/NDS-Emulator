@@ -29,7 +29,7 @@ impl Engine3D {
             for vertex in vertices.iter() {
                 let screen_pos = &vertex.screen_coords;
                 // TODO: Take into account polygon_attrs alpha
-                self.pixels[(GPU::HEIGHT - screen_pos[1]) * GPU::WIDTH + screen_pos[0]] = 0x8000 | vertex.color;
+                self.pixels[(GPU::HEIGHT - screen_pos[1] - 1) * GPU::WIDTH + screen_pos[0]] = 0x8000 | vertex.color;
             }
         }
 

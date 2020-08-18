@@ -1,4 +1,4 @@
-use super::{GPU, Engine3D, FixedPoint, create_fixed_point, IORegister, Scheduler};
+use super::{GPU, Engine3D, math::Vec4, IORegister, Scheduler};
 
 pub struct GXSTAT {
     pub test_busy: bool, // Box, Pos, Vector Test
@@ -277,10 +277,12 @@ impl From<u32> for PolygonMode {
 }
 
 pub struct Viewport {
-    x1: u8,
-    y1: u8,
-    x2: u8,
-    y2: u8,
+    x1: i32,
+    y1: i32,
+    x2: i32,
+    y2: i32,
+    width: i32,
+    height: i32,
 }
 
 impl Viewport {
@@ -290,32 +292,30 @@ impl Viewport {
             y1: 0,
             x2: 0,
             y2: 0,
+            width: 0,
+            height: 0,
         }
     }
 
     pub fn write(&mut self, value: u32) {
-        self.x1 = value as u8;
-        self.y1 = (value >> 8) as u8;
-        self.x2 = (value >> 16) as u8;
-        self.y2 = (value >> 24) as u8;
-        assert!((self.y1 as usize) < GPU::WIDTH);
-        assert!((self.y2 as usize) < GPU::WIDTH);
+        self.x1 = (value >> 0) as u8 as i32;
+        self.y1 = (value >> 8) as u8 as i32;
+        self.x2 = (value >> 16) as u8 as i32;
+        self.y2 = (value >> 24) as u8 as i32;
+        assert!((self.y1 as usize) < GPU::HEIGHT);
+        assert!((self.y2 as usize) < GPU::HEIGHT);
+        self.width = self.x2 - self.x1 + 1;
+        self.height = self.y2 - self.y1 + 1;
+        assert!(self.width as usize <= GPU::WIDTH);
+        assert!(self.height as usize <= GPU::HEIGHT);
     }
 
-    pub fn x_start(&self) -> FixedPoint {
-        create_fixed_point(self.x1 as u32)
+    pub fn screen_x(&self, clip_coords: &Vec4) -> usize {
+        ((clip_coords[0].raw() + clip_coords[3].raw()) * self.width / (2 * clip_coords[3].raw()) + self.x1) as usize
     }
 
-    pub fn y_start(&self) -> FixedPoint {
-        create_fixed_point(self.y1 as u32)
-    }
-
-    pub fn width(&self) -> FixedPoint {
-        create_fixed_point((self.x2 - self.x1) as u32)
-    }
-
-    pub fn height(&self) -> FixedPoint {
-        create_fixed_point((self.y2 - self.y1) as u32)
+    pub fn screen_y(&self, clip_coords: &Vec4) -> usize {
+        ((clip_coords[1].raw() + clip_coords[3].raw()) * self.height / (2 * clip_coords[3].raw()) + self.y1) as usize
     }
 }
 

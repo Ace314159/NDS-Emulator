@@ -6,11 +6,8 @@ edition = "2018"
 
 [dependencies]
 bitflags = "1.2.1"
-fixed = "1.1.0"
 log = "0.4.11"
-nalgebra = "0.21.1"
 num-traits = "0.2.12"
 num-integer = "0.1.43"
 priority-queue = "1.0.0"
-simba = { version = "0.1.5", features = ["partial_fixed_point_support"] }
 simplelog = "0.8.0"
