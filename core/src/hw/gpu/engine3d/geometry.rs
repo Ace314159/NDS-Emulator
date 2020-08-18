@@ -23,7 +23,7 @@ impl Engine3D {
         use GeometryCommand::*;
         let param = command_entry.param;
         self.gxstat.geometry_engine_busy = false;
-        error!("Executing Geometry Command {:?} {:?}", command_entry.command, self.params);
+        info!("Executing Geometry Command {:?} {:?}", command_entry.command, self.params);
         match command_entry.command {
             Unimplemented => (),
             MtxMode => self.mtx_mode = MatrixMode::from(param as u8 & 0x3),
@@ -72,7 +72,7 @@ impl Engine3D {
             MtxMult4x3 => self.apply_cur_mat(Matrix::mul4x3),
             MtxMult3x3 => self.apply_cur_mat(Matrix::mul3x3),
             MtxTrans => self.apply_cur_mat(Matrix::translate),
-            Color => self.color = param as u16, // TODO: Expand to 6 bit RGB
+            Color => self.color = self::Color::from(param as u16), // TODO: Expand to 6 bit RGB
             Vtx16 => self.submit_vertex(
                 FixedPoint::from_frac12((self.params[0] >> 0) as u16 as i16 as i32),
                 FixedPoint::from_frac12((self.params[0] >> 16) as u16 as i16 as i32),
@@ -117,7 +117,6 @@ impl Engine3D {
     fn submit_vertex(&mut self, x: FixedPoint, y: FixedPoint, z: FixedPoint) {
         let vertex_pos = Vec4::new(x, y, z, FixedPoint::one());
         let clip_coords = self.cur_pos * self.cur_proj * vertex_pos;
-        println!("{:?} * {:?} = {:?}", self.cur_pos * self.cur_proj, vertex_pos, clip_coords);
         self.vertices.push(Vertex {
             screen_coords: [self.viewport.screen_x(&clip_coords), self.viewport.screen_y(&clip_coords)],
             color: self.color,
@@ -269,10 +268,40 @@ impl From<u8> for MatrixMode {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct Color {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+}
+
+impl From<u16> for Color {
+    fn from(value: u16) -> Self {
+        Color {
+            r: ((value >> 0) & 0x1F) as u8,
+            g: ((value >> 5) & 0x1F) as u8,
+            b: ((value >> 10) & 0x1F) as u8,
+        }
+    }
+}
+impl Color {
+    pub fn new(r: u8, g: u8, b: u8) -> Self {
+        Color {
+            r,
+            g,
+            b,
+        }
+    }
+
+    pub fn as_u16(&self) -> u16 {
+        (self.b as u16) << 10 | (self.g as u16) << 5 | (self.r as u16) << 0
+    }
+}
+
 #[derive(Debug)]
 pub struct Vertex {
     pub screen_coords: [usize; 2],
-    pub color: u16,
+    pub color: Color,
 }
 
 pub struct Polygon {
