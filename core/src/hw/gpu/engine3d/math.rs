@@ -1,4 +1,4 @@
-use std::ops::{AddAssign, Add, Mul, Index};
+use std::ops::{AddAssign, Add, Mul, Neg, Index};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Matrix {
@@ -122,7 +122,7 @@ impl Mul<Vec4> for Matrix {
 }
 
 // 12 bit fraction
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, PartialOrd)]
 pub struct FixedPoint(i32);
 
 impl Mul for FixedPoint {
@@ -173,6 +173,14 @@ impl AddAssign for FixedPoint {
         self.0 += rhs.0;
     }
 
+}
+
+impl Neg for FixedPoint {
+    type Output = FixedPoint;
+
+    fn neg(self) -> Self::Output {
+        FixedPoint(-self.0)
+    }
 }
 
 impl std::fmt::Debug for FixedPoint {

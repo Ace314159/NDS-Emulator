@@ -20,11 +20,10 @@ impl Engine3D {
 
         for polygon in self.polygons.iter() {
             // TODO: Support rendering quads
-            assert_eq!(polygon.vertices.len(), 3);
             let mut vertices = [
-                &self.vertices[polygon.vertices[0]],
-                &self.vertices[polygon.vertices[1]],
-                &self.vertices[polygon.vertices[2]],
+                &self.vertices[polygon.vert_start_index + 0],
+                &self.vertices[polygon.vert_start_index + 1],
+                &self.vertices[polygon.vert_start_index + 2],
             ];
             vertices.sort_by_key(|vertex| (vertex.screen_coords[1], vertex.screen_coords[0]));
             let (x0, y0) = (vertices[0].screen_coords[0], vertices[0].screen_coords[1]);

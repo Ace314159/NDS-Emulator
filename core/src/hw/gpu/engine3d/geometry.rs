@@ -117,28 +117,137 @@ impl Engine3D {
     fn submit_vertex(&mut self, x: FixedPoint, y: FixedPoint, z: FixedPoint) {
         let vertex_pos = Vec4::new(x, y, z, FixedPoint::one());
         let clip_coords = self.cur_pos * self.cur_proj * vertex_pos;
-        self.vertices.push(Vertex {
-            screen_coords: [self.viewport.screen_x(&clip_coords), self.viewport.screen_y(&clip_coords)],
+
+        self.cur_poly_verts.push(Vertex {
+            clip_coords,
+            screen_coords: [0, 0], // Temp - Calculated after clipping
             color: self.color,
         });
-        let len = self.vertices.len();
         match self.vertex_primitive {
             VertexPrimitive::Triangles => {
-                if len % 3 == 0 {
-                    self.submit_triangle(len - 3, len - 2, len - 1);
+                if self.cur_poly_verts.len() == 3 {
+                    self.submit_triangle();
                 }
             },
             _ => todo!(),
         }
     }
 
-    fn submit_triangle(&mut self, v1_i: usize, v2_i: usize, v3_i: usize) {
-        // TODO: Implement clipping
+    fn submit_triangle(&mut self) {
+        // Clip Triangle
+        self.clip_plane(2);
+        self.clip_plane(1);
+        self.clip_plane(0);
+
+        // TODO: Draw quad instead of adding another triangle
+        if self.cur_poly_verts.len() == 4 {
+            self.cur_poly_verts.push(self.cur_poly_verts[2]);
+            self.cur_poly_verts.push(self.cur_poly_verts[0]);
+        }
+
         // TODO: Reject polygon if it doesn't fit into Vertex RAM or Polygon RAM
-        self.polygons.push(Polygon {
-            vertices: [v1_i, v2_i, v3_i],
-            attrs: self.polygon_attrs_latch.clone(),
-        })
+        for (i, verts) in self.cur_poly_verts.chunks_exact_mut(3).enumerate() {
+            for vert in verts {
+                vert.screen_coords = [
+                    self.viewport.screen_x(&vert.clip_coords),
+                    self.viewport.screen_y(&vert.clip_coords),
+                ];
+                // TODO: Avoid clone
+                self.vertices.push(vert.clone());
+            }
+            self.polygons.push(Polygon {
+                vert_start_index: i * 3,
+                attrs: self.polygon_attrs_latch.clone(),
+            })
+        }
+        if self.cur_poly_verts.len() == 4 {
+            let vert = &mut self.cur_poly_verts[3];
+            vert.screen_coords = [
+                self.viewport.screen_x(&vert.clip_coords),
+                self.viewport.screen_y(&vert.clip_coords),
+            ];
+            // TODO: Avoid clone
+            self.vertices.push(vert.clone())
+        }
+        self.cur_poly_verts.clear();
+    }
+
+    // TODO: Support Quads
+    fn clip_plane(&mut self, coord_i: usize) {
+        assert!(self.cur_poly_verts.len() == 3 || self.cur_poly_verts.len() == 4);
+        let mut new_verts = [Vertex::new(); 10];
+        let mut new_vert_i = 0;
+        // Chekc positive plane
+        for i in 0..self.cur_poly_verts.len() {
+            let cur_vertex = &self.cur_poly_verts[i];
+            let prev_index = if i == 0 { self.cur_poly_verts.len() - 1 } else { i - 1 };
+            let prev_vertex = &self.cur_poly_verts[prev_index];
+
+            // Cur Point inside positive part of plane
+            if cur_vertex.clip_coords[coord_i] <= cur_vertex.clip_coords[3] {
+                // TODO: Check polygon_attrs for far plane intersection
+                // Prev Point outside
+                if prev_vertex.clip_coords[coord_i] > prev_vertex.clip_coords[3] {
+                    new_verts[new_vert_i] = self.find_intersection(coord_i, true,
+                        cur_vertex, prev_vertex);
+                    new_vert_i += 1;
+                }
+                new_verts[new_vert_i] = cur_vertex.clone();
+                new_vert_i += 1;
+            } else if prev_vertex.clip_coords[coord_i] <= prev_vertex.clip_coords[3] { // Prev point inside
+                new_verts[new_vert_i] = self.find_intersection(coord_i, true,
+                    cur_vertex, prev_vertex);
+            }
+        }
+        self.cur_poly_verts.clear();
+
+        // Check negative plane
+        for i in 0..new_vert_i {
+            let cur_vertex = &new_verts[i];
+            let prev_index = if i == 0 { new_vert_i - 1 } else { i - 1 };
+            let prev_vertex = &new_verts[prev_index];
+
+            // Cur Point inside negative part of plane
+            if cur_vertex.clip_coords[coord_i] >= -cur_vertex.clip_coords[3] {
+                // TODO: Check polygon_attrs for far plane intersection
+                // Prev Point outside
+                if prev_vertex.clip_coords[coord_i] < -prev_vertex.clip_coords[3] {
+                    self.cur_poly_verts.push(self.find_intersection(coord_i, false,
+                        cur_vertex, prev_vertex));
+                }
+                self.cur_poly_verts.push(cur_vertex.clone());
+            } else if prev_vertex.clip_coords[coord_i] >= -prev_vertex.clip_coords[3] { // Prev point inside
+                self.cur_poly_verts.push(self.find_intersection(coord_i, false,
+                    cur_vertex, prev_vertex));
+            }
+        }
+    }
+
+    fn find_intersection(&self, coord_i: usize, positive: bool, inside: &Vertex, out: &Vertex) -> Vertex {
+        let plane_factor = if positive { 1 } else { -1 };
+        let factor_numer = inside.clip_coords[3].raw() - plane_factor * inside.clip_coords[coord_i].raw();
+        let factor_denom = factor_numer - (out.clip_coords[3].raw() - plane_factor * out.clip_coords[coord_i].raw());
+        
+        let interpolate = |inside, out| inside + (out - inside) *
+            factor_numer / factor_denom;
+        let calc_coord = |i| FixedPoint::from_frac12(
+            interpolate(inside.clip_coords[i].raw(), out.clip_coords[i].raw()),
+        );
+
+        Vertex {
+            clip_coords: Vec4::new(
+                calc_coord(0),
+                calc_coord(1),
+                calc_coord(2),
+                calc_coord(3),
+            ),
+            screen_coords: [0, 0], // Calcluated after
+            color: Color::new(
+                interpolate(inside.color.r as i32, out.color.r as i32) as u8,
+                interpolate(inside.color.g as i32, out.color.g as i32) as u8,
+                interpolate(inside.color.b as i32, out.color.b as i32) as u8,
+            ),
+        }
     }
 }
 
@@ -298,13 +407,24 @@ impl Color {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Vertex {
+    pub clip_coords: Vec4,
     pub screen_coords: [usize; 2],
     pub color: Color,
 }
 
+impl Vertex {
+    pub fn new() -> Self {
+        Vertex {
+            clip_coords: Vec4::new(FixedPoint::zero(), FixedPoint::zero(), FixedPoint::zero(), FixedPoint::zero()),
+            screen_coords: [0, 0],
+            color: Color::new(0, 0, 0),
+        }
+    }
+}
+
 pub struct Polygon {
-    pub vertices: [usize; 3], // TODO: Support quads
+    pub vert_start_index: usize,
     pub attrs: PolygonAttributes,
 }

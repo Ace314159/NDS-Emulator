@@ -45,6 +45,7 @@ pub struct Engine3D {
     polygon_attrs_latch: PolygonAttributes,
     vertex_primitive: VertexPrimitive,
     color: Color,
+    cur_poly_verts: Vec<Vertex>,
     vertices: Vec<Vertex>,
     polygons: Vec<Polygon>,
     // Textures
@@ -89,6 +90,7 @@ impl Engine3D {
             polygon_attrs_latch: PolygonAttributes::new(),
             vertex_primitive: VertexPrimitive::Triangles,
             color: Color::new(0, 0, 0),
+            cur_poly_verts: Vec::with_capacity(10),
             vertices: Vec::new(),
             polygons: Vec::new(),
             // Textures
