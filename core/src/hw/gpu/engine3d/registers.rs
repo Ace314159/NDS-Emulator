@@ -315,8 +315,6 @@ impl Viewport {
     }
 
     pub fn screen_y(&self, clip_coords: &Vec4) -> usize {
-        // 0 is considered bottom of the screen, so we have to flip it
-        GPU::HEIGHT - 1 -
         ((clip_coords[1].raw() + clip_coords[3].raw()) * self.height / (2 * clip_coords[3].raw()) + self.y1) as usize
     }
 }

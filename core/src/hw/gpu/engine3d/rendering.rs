@@ -58,7 +58,8 @@ impl Engine3D {
                 for x in start_x..end_x {
                     // TODO: Take into account alpha
                     // TODO: Use higher bit-depth for better interpolation
-                    self.pixels[y * GPU::WIDTH + x] = 0x8000 | color_slope.next().as_u16();
+                    // A y of 0 is bottom instead of the top of the screen
+                    self.pixels[(GPU::HEIGHT - 1 - y) * GPU::WIDTH + x] = 0x8000 | color_slope.next().as_u16();
                 }
             }
         }
