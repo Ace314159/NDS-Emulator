@@ -65,6 +65,8 @@ impl Engine3D {
         }
 
         self.gxstat.geometry_engine_busy = false;
+        self.vertices.clear();
+        self.polygons.clear();
         self.polygons_submitted = false;
     }
 
