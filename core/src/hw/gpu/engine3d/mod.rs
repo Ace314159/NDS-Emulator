@@ -106,9 +106,9 @@ impl Engine3D {
                 while self.gxpipe.len() < 3 {
                     if let Some(command_entry) = self.gxfifo.pop_front() {
                         self.gxpipe.push_back(command_entry);
-                    } else { break }
+                    } else { self.cycles_ahead = 0; break }
                 }
-            } else { break }
+            } else { self.cycles_ahead = 0; break }
         }
     }
 }
