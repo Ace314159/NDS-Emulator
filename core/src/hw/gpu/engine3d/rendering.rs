@@ -21,9 +21,9 @@ impl Engine3D {
         for polygon in self.polygons.iter() {
             // TODO: Support rendering quads
             let mut vertices = [
-                &self.vertices[polygon.vert_start_index + 0],
-                &self.vertices[polygon.vert_start_index + 1],
-                &self.vertices[polygon.vert_start_index + 2],
+                &self.vertices[polygon.indices[0]],
+                &self.vertices[polygon.indices[1]],
+                &self.vertices[polygon.indices[2]],
             ];
             vertices.sort_by_key(|vertex| (vertex.screen_coords[1], vertex.screen_coords[0]));
             let (x0, y0) = (vertices[0].screen_coords[0], vertices[0].screen_coords[1]);

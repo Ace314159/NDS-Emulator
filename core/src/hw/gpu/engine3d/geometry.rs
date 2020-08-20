@@ -139,37 +139,36 @@ impl Engine3D {
         self.clip_plane(1);
         self.clip_plane(0);
 
-        // TODO: Draw quad instead of adding another triangle
-        if self.cur_poly_verts.len() == 4 {
-            self.cur_poly_verts.push(self.cur_poly_verts[2]);
-            self.cur_poly_verts.push(self.cur_poly_verts[0]);
-        }
-
-        // TODO: Reject polygon if it doesn't fit into Vertex RAM or Polygon RAM
-        for (i, verts) in self.cur_poly_verts.chunks_exact_mut(3).enumerate() {
-            for vert in verts {
-                vert.screen_coords = [
+        // TODO: Reject polygon if it doesn't fit into Vertex RAM or Polygon 
+        let num_verts = self.cur_poly_verts.len();
+        for vert in self.cur_poly_verts.drain(..) {
+            self.vertices.push(Vertex {
+                screen_coords: [
                     self.viewport.screen_x(&vert.clip_coords),
                     self.viewport.screen_y(&vert.clip_coords),
-                ];
-                // TODO: Avoid clone
-                self.vertices.push(vert.clone());
+                ],
+                ..vert
+            });
+        }
+
+        let start = self.vertices.len() - num_verts;
+        match num_verts {
+            3 => self.polygons.push(Polygon {
+                indices: [start, start + 1, start + 2],
+                attrs: self.polygon_attrs_latch,
+            }),
+            4 => {
+                self.polygons.push(Polygon {
+                    indices: [start, start + 1, start + 2],
+                    attrs: self.polygon_attrs_latch,
+                });
+                self.polygons.push(Polygon {
+                    indices: [start + 2, start + 3, start],
+                    attrs: self.polygon_attrs_latch,
+                })
             }
-            self.polygons.push(Polygon {
-                vert_start_index: i * 3,
-                attrs: self.polygon_attrs_latch.clone(),
-            })
+            _ => todo!(),
         }
-        if self.cur_poly_verts.len() == 4 {
-            let vert = &mut self.cur_poly_verts[3];
-            vert.screen_coords = [
-                self.viewport.screen_x(&vert.clip_coords),
-                self.viewport.screen_y(&vert.clip_coords),
-            ];
-            // TODO: Avoid clone
-            self.vertices.push(vert.clone())
-        }
-        self.cur_poly_verts.clear();
     }
 
     // TODO: Support Quads
@@ -425,6 +424,6 @@ impl Vertex {
 }
 
 pub struct Polygon {
-    pub vert_start_index: usize,
+    pub indices: [usize; 3],
     pub attrs: PolygonAttributes,
 }
