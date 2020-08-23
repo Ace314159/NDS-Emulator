@@ -129,6 +129,11 @@ impl Engine3D {
                     self.submit_triangle();
                 }
             },
+            VertexPrimitive::Quad => {
+                if self.cur_poly_verts.len() == 4 {
+                    self.submit_triangle();
+                }
+            }
             _ => todo!(),
         }
     }
@@ -140,7 +145,11 @@ impl Engine3D {
         self.clip_plane(0);
 
         // TODO: Reject polygon if it doesn't fit into Vertex RAM or Polygon 
-        let num_verts = self.cur_poly_verts.len();
+        self.polygons.push(Polygon {
+            start_vert: self.vertices.len(),
+            end_vert: self.vertices.len() + self.cur_poly_verts.len(),
+            attrs: self.polygon_attrs_latch,
+        });
         for vert in self.cur_poly_verts.drain(..) {
             self.vertices.push(Vertex {
                 screen_coords: [
@@ -150,30 +159,9 @@ impl Engine3D {
                 ..vert
             });
         }
-
-        let start = self.vertices.len() - num_verts;
-        match num_verts {
-            3 => self.polygons.push(Polygon {
-                indices: [start, start + 1, start + 2],
-                attrs: self.polygon_attrs_latch,
-            }),
-            4 => {
-                self.polygons.push(Polygon {
-                    indices: [start, start + 1, start + 2],
-                    attrs: self.polygon_attrs_latch,
-                });
-                self.polygons.push(Polygon {
-                    indices: [start + 2, start + 3, start],
-                    attrs: self.polygon_attrs_latch,
-                })
-            }
-            _ => todo!(),
-        }
     }
 
-    // TODO: Support Quads
     fn clip_plane(&mut self, coord_i: usize) {
-        assert!(self.cur_poly_verts.len() == 3 || self.cur_poly_verts.len() == 4);
         let mut new_verts = [Vertex::new(); 10];
         let mut new_vert_i = 0;
         // Chekc positive plane
@@ -424,6 +412,7 @@ impl Vertex {
 }
 
 pub struct Polygon {
-    pub indices: [usize; 3],
+    pub start_vert: usize,
+    pub end_vert: usize,
     pub attrs: PolygonAttributes,
 }

@@ -1,4 +1,4 @@
-use super::{GPU, Color, Engine3D};
+use super::{GPU, Color, geometry::Vertex, Engine3D};
 
 impl Engine3D {
     pub fn get_line(&self, vcount: u16, line: &mut [u16; GPU::WIDTH]) {
@@ -20,46 +20,89 @@ impl Engine3D {
 
         for polygon in self.polygons.iter() {
             // TODO: Support rendering quads
-            let mut vertices = [
-                &self.vertices[polygon.indices[0]],
-                &self.vertices[polygon.indices[1]],
-                &self.vertices[polygon.indices[2]],
-            ];
-            vertices.sort_by_key(|vertex| (vertex.screen_coords[1], vertex.screen_coords[0]));
-            let (x0, y0) = (vertices[0].screen_coords[0], vertices[0].screen_coords[1]);
-            let (x1, y1) = (vertices[1].screen_coords[0], vertices[1].screen_coords[1]);
-            let (x2, y2) = (vertices[2].screen_coords[0], vertices[2].screen_coords[1]);
-            if y0 == y1 && y1 == y2 { continue } // All points are on the same line
-            let mut sides = [
-                Slope::new(x0 as f32, x1 as f32, y1 - y0),
-                Slope::new(x0 as f32, x2 as f32, y2 - y0),
-            ];
-            let mut color_sides = [
-                ColorSlope::new(vertices[0].color, vertices[1].color, y1 - y0),
-                ColorSlope::new(vertices[0].color, vertices[2].color, y2 - y0),
-            ];
-            let pointing_right = (y1 as i32 - y0 as i32) * (x2 as i32 - x0 as i32) <
-                (x1 as i32- x0 as i32 ) * (y2 as i32 - y0 as i32);
-            let left_index = if pointing_right { 1 } else { 0 };
-            let right_index = 1 - left_index;
-            let change_index = if pointing_right { right_index } else { left_index };
-            // TODO: Check if neighboring triangles are rendered properly
-            for y in y0..y2 {
-                if y == y1 {
-                    sides[change_index] = Slope::new(x1 as f32, x2 as f32, y2 - y1);
-                    color_sides[change_index] = ColorSlope::new(vertices[1].color,
-                        vertices[2].color, y2 - y1);
+            // TODO: Fix bug with extra drawing line
+            let vertices = &self.vertices[polygon.start_vert..polygon.end_vert];
+            let (mut start_vert, mut end_vert) = (0, 0);
+            for (i, vert) in vertices.iter().enumerate() {
+                if vert.screen_coords[1] < vertices[start_vert].screen_coords[1] {
+                    start_vert = i;
+                } else if vert.screen_coords[1] == vertices[start_vert].screen_coords[1] &&
+                    vert.screen_coords[0] < vertices[start_vert].screen_coords[0] {
+                    start_vert = i;
                 }
-                let start_x = sides[left_index].next() as usize;
-                let end_x = sides[right_index].next() as usize;
-                let start_color = color_sides[left_index].next();
-                let end_color = color_sides[right_index].next();
-                let mut color_slope = ColorSlope::new(start_color, end_color, end_x - start_x);
-                for x in start_x..end_x {
-                    // TODO: Take into account alpha
-                    // TODO: Use higher bit-depth for better interpolation
-                    // A y of 0 is bottom instead of the top of the screen
-                    self.pixels[(GPU::HEIGHT - 1 - y) * GPU::WIDTH + x] = 0x8000 | color_slope.next().as_u16();
+
+                if vert.screen_coords[1] > vertices[end_vert].screen_coords[1] {
+                    end_vert = i;
+                } else if vert.screen_coords[1] == vertices[end_vert].screen_coords[1] &&
+                    vert.screen_coords[0] > vertices[end_vert].screen_coords[0] {
+                    end_vert = i;
+                }
+            }
+            let mut left_vert = start_vert;
+            let mut right_vert = start_vert;
+            let start_vert = start_vert; // Shadow to mark these as immutable
+            let end_vert = end_vert; // Shadow to mark these as immutable
+            
+            let prev_vert = |cur| if cur == 0 { vertices.len() - 1 } else { cur - 1 };
+            let next_vert = |cur| if cur == vertices.len() - 1 { 0 } else { cur + 1 };
+            let new_left_vert = prev_vert(left_vert);
+            let mut left_colors = ColorSlope::new(
+                &self.vertices[left_vert].color,
+                &self.vertices[new_left_vert].color,
+                self.vertices[new_left_vert].screen_coords[1] - self.vertices[left_vert].screen_coords[1],
+            );
+            let mut left_slope = Slope::from_verts(
+                &self.vertices[left_vert],
+                &self.vertices[new_left_vert],
+            );
+            let mut left_end = self.vertices[new_left_vert].screen_coords[1];
+            left_vert = new_left_vert;
+            let new_right_vert = next_vert(right_vert);
+            let mut right_slope = Slope::from_verts(
+                &self.vertices[right_vert],
+                &self.vertices[new_right_vert],
+            );
+            let mut right_colors = ColorSlope::new(
+                &self.vertices[right_vert].color,
+                &self.vertices[new_right_vert].color,
+                self.vertices[new_right_vert].screen_coords[1] - self.vertices[right_vert].screen_coords[1],
+            );
+            let mut right_end = self.vertices[new_right_vert].screen_coords[1];
+            right_vert = new_right_vert;
+
+            for y in vertices[start_vert].screen_coords[1]..vertices[end_vert].screen_coords[1] {
+                if y == left_end {
+                    let new_left_vert = prev_vert(left_vert);
+                    left_slope = Slope::from_verts(&vertices[left_vert], &vertices[new_left_vert]);
+                    left_colors = ColorSlope::new(
+                        &self.vertices[left_vert].color,
+                        &self.vertices[new_left_vert].color,
+                        self.vertices[new_left_vert].screen_coords[1] - self.vertices[left_vert].screen_coords[1],
+                    );
+                    left_end = self.vertices[new_left_vert].screen_coords[1];
+                    left_vert = new_left_vert;
+                }
+                if y == right_end {
+                    let new_right_vert = next_vert(right_vert);
+                    right_slope = Slope::from_verts(&vertices[right_vert],&vertices[new_right_vert]);
+                    right_colors = ColorSlope::new(
+                        &self.vertices[right_vert].color,
+                        &self.vertices[new_right_vert].color,
+                        self.vertices[new_right_vert].screen_coords[1] - self.vertices[right_vert].screen_coords[1],
+                    );
+                    right_end = self.vertices[new_right_vert].screen_coords[1];
+                    right_vert = new_right_vert;
+                }
+                let x_start = left_slope.next() as usize;
+                let x_end = right_slope.next() as usize;
+                let mut color = ColorSlope::new(
+                    &left_colors.next(),
+                    &right_colors.next(),
+                    x_end - x_start
+                );
+
+                for x in x_start..x_end {
+                    self.pixels[(GPU::HEIGHT - 1 - y) * GPU::WIDTH + x] = 0x8000 | color.next().as_u16();
                 }
             }
         }
@@ -85,6 +128,14 @@ impl Slope {
         }
     }
 
+    pub fn from_verts(start: &Vertex, end: &Vertex) -> Self {
+        Slope {
+            cur: start.screen_coords[0] as f32,
+            step: (end.screen_coords[0] as f32 - start.screen_coords[0] as f32) /
+                (end.screen_coords[1] as f32 - start.screen_coords[1] as f32),
+        }
+    }
+
     pub fn next(&mut self) -> f32 {
         let return_val = self.cur;
         self.cur += self.step;
@@ -99,7 +150,7 @@ struct ColorSlope {
 }
 
 impl ColorSlope {
-    pub fn new(start_color: Color, end_color: Color, num_steps: usize) -> Self {
+    pub fn new(start_color: &Color, end_color: &Color, num_steps: usize) -> Self {
         ColorSlope {
             r: Slope::new(start_color.r as f32, end_color.r as f32, num_steps),
             g: Slope::new(start_color.g as f32, end_color.g as f32, num_steps),
