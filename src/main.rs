@@ -13,13 +13,21 @@ use debug::*;
 use imgui::*;
 
 fn main() {
+    let rom_file = "examples/3D/Simple_Tri.nds";
+
     std::env::set_current_dir("ROMs").unwrap();
+    let arm7_file_name = "arm7.log";
+    let arm9_file_name = "arm9.log";
     let instructions7_filter = LevelFilter::Off;
     let instructions9_filter = LevelFilter::Off;
-    let rom_file = "IRQ.nds";
-    CombinedLogger::init(vec![
+
+    let arm7_file = fs::File::create(arm7_file_name);
+    let arm9_file = fs::File::create(arm9_file_name);
+    let mut loggers: Vec<Box<dyn SharedLogger>> = vec![
         TermLogger::new(LevelFilter::Warn, Config::default(), TerminalMode::Mixed),
-        WriteLogger::new(instructions7_filter,
+    ];
+    if let Ok(file) = arm7_file {
+        loggers.push(WriteLogger::new(instructions7_filter,
             ConfigBuilder::new()
             .set_time_level(LevelFilter::Off)
             .set_thread_level(LevelFilter::Off)
@@ -29,8 +37,10 @@ fn main() {
             .set_max_level(LevelFilter::Off)
             .add_filter_allow_str("nds_core::arm7")
             .build(),
-        fs::File::create("arm7.log").unwrap()),
-        WriteLogger::new(instructions9_filter,
+        file));
+    }
+    if let Ok(file) = arm9_file {
+        loggers.push(WriteLogger::new(instructions9_filter,
             ConfigBuilder::new()
             .set_time_level(LevelFilter::Off)
             .set_thread_level(LevelFilter::Off)
@@ -40,8 +50,9 @@ fn main() {
             .set_max_level(LevelFilter::Off)
             .add_filter_allow_str("nds_core::arm9")
             .build(),
-        fs::File::create("arm9.log").unwrap()),
-    ]).unwrap();
+        file))
+    }
+    CombinedLogger::init(loggers).unwrap();
 
     let mut imgui = Context::create();
     let mut display = Display::new(&mut imgui);
