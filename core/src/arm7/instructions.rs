@@ -29,11 +29,13 @@ impl InstructionFlag for InstrFlagSet { fn bool() -> bool { true } fn num() -> u
 pub(super) struct InstrFlagClear {}
 impl InstructionFlag for InstrFlagClear { fn bool() -> bool { false } fn num() -> u32 { 0 } }
 
-pub(super) fn gen_condition_table() -> [bool; 256] {
+pub(super) const fn gen_condition_table() -> [bool; 256] {
     let mut lut = [false; 256];
     let (n_mask, z_mask, c_mask, v_mask) = (0x8, 0x4, 0x2, 0x1);
-    for flags in 0 ..= 0xF {
-        for condition in 0 ..= 0xF {
+    let mut flags = 0;
+    while flags <= 0xF {
+        let mut condition = 0;
+        while condition <= 0xF {
             let n = flags & n_mask != 0;
             let z = flags & z_mask != 0;
             let c = flags & c_mask != 0;
@@ -55,9 +57,11 @@ pub(super) fn gen_condition_table() -> [bool; 256] {
                 0xD => z || n != v,
                 0xE => true,
                 0xF => false, // TODO: Change
-                _ => unreachable!(),
+                _ => true, // TODO: Add unreachable!()
             };
+            condition += 1;
         }
+        flags += 1;
     }
 
     lut
