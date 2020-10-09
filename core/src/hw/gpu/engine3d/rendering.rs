@@ -49,27 +49,27 @@ impl Engine3D {
             let next_vert = |cur| if cur == 0 { vertices.len() - 1 } else { cur - 1 };
             let new_left_vert = prev_vert(left_vert);
             let mut left_colors = ColorSlope::new(
-                &self.vertices[left_vert].color,
-                &self.vertices[new_left_vert].color,
-                self.vertices[new_left_vert].screen_coords[1] - self.vertices[left_vert].screen_coords[1],
+                &vertices[left_vert].color,
+                &vertices[new_left_vert].color,
+                vertices[new_left_vert].screen_coords[1] - vertices[left_vert].screen_coords[1],
             );
             let mut left_slope = Slope::from_verts(
-                &self.vertices[left_vert],
-                &self.vertices[new_left_vert],
+                &vertices[left_vert],
+                &vertices[new_left_vert],
             );
-            let mut left_end = self.vertices[new_left_vert].screen_coords[1];
+            let mut left_end = vertices[new_left_vert].screen_coords[1];
             left_vert = new_left_vert;
             let new_right_vert = next_vert(right_vert);
             let mut right_slope = Slope::from_verts(
-                &self.vertices[right_vert],
-                &self.vertices[new_right_vert],
+                &vertices[right_vert],
+                &vertices[new_right_vert],
             );
             let mut right_colors = ColorSlope::new(
-                &self.vertices[right_vert].color,
-                &self.vertices[new_right_vert].color,
-                self.vertices[new_right_vert].screen_coords[1] - self.vertices[right_vert].screen_coords[1],
+                &vertices[right_vert].color,
+                &vertices[new_right_vert].color,
+                vertices[new_right_vert].screen_coords[1] - vertices[right_vert].screen_coords[1],
             );
-            let mut right_end = self.vertices[new_right_vert].screen_coords[1];
+            let mut right_end = vertices[new_right_vert].screen_coords[1];
             right_vert = new_right_vert;
 
             for y in vertices[start_vert].screen_coords[1]..vertices[end_vert].screen_coords[1] {
@@ -77,22 +77,22 @@ impl Engine3D {
                     let new_left_vert = prev_vert(left_vert);
                     left_slope = Slope::from_verts(&vertices[left_vert], &vertices[new_left_vert]);
                     left_colors = ColorSlope::new(
-                        &self.vertices[left_vert].color,
-                        &self.vertices[new_left_vert].color,
-                        self.vertices[new_left_vert].screen_coords[1] - self.vertices[left_vert].screen_coords[1],
+                        &vertices[left_vert].color,
+                        &vertices[new_left_vert].color,
+                        vertices[new_left_vert].screen_coords[1] - vertices[left_vert].screen_coords[1],
                     );
-                    left_end = self.vertices[new_left_vert].screen_coords[1];
+                    left_end = vertices[new_left_vert].screen_coords[1];
                     left_vert = new_left_vert;
                 }
                 if y == right_end {
                     let new_right_vert = next_vert(right_vert);
                     right_slope = Slope::from_verts(&vertices[right_vert],&vertices[new_right_vert]);
                     right_colors = ColorSlope::new(
-                        &self.vertices[right_vert].color,
-                        &self.vertices[new_right_vert].color,
-                        self.vertices[new_right_vert].screen_coords[1] - self.vertices[right_vert].screen_coords[1],
+                        &vertices[right_vert].color,
+                        &vertices[new_right_vert].color,
+                        vertices[new_right_vert].screen_coords[1] - vertices[right_vert].screen_coords[1],
                     );
-                    right_end = self.vertices[new_right_vert].screen_coords[1];
+                    right_end = vertices[new_right_vert].screen_coords[1];
                     right_vert = new_right_vert;
                 }
                 let x_start = left_slope.next() as usize;
