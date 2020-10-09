@@ -19,9 +19,11 @@ impl Engine3D {
         }
 
         for polygon in self.polygons.iter() {
-            // TODO: Support rendering quads
-            // TODO: Fix bug with extra drawing line
+            // TODO: Use fixed point for interpolation
+            // TODO: Fix uneven interpolation
             let vertices = &self.vertices[polygon.start_vert..polygon.end_vert];
+
+            // Find top left and bottom right vertices
             let (mut start_vert, mut end_vert) = (0, 0);
             for (i, vert) in vertices.iter().enumerate() {
                 if vert.screen_coords[1] < vertices[start_vert].screen_coords[1] {
@@ -43,8 +45,8 @@ impl Engine3D {
             let start_vert = start_vert; // Shadow to mark these as immutable
             let end_vert = end_vert; // Shadow to mark these as immutable
             
-            let prev_vert = |cur| if cur == 0 { vertices.len() - 1 } else { cur - 1 };
-            let next_vert = |cur| if cur == vertices.len() - 1 { 0 } else { cur + 1 };
+            let prev_vert = |cur| if cur == vertices.len() - 1 { 0 } else { cur + 1 };
+            let next_vert = |cur| if cur == 0 { vertices.len() - 1 } else { cur - 1 };
             let new_left_vert = prev_vert(left_vert);
             let mut left_colors = ColorSlope::new(
                 &self.vertices[left_vert].color,
@@ -98,11 +100,11 @@ impl Engine3D {
                 let mut color = ColorSlope::new(
                     &left_colors.next(),
                     &right_colors.next(),
-                    x_end - x_start
+                    x_end - x_start,
                 );
 
                 for x in x_start..x_end {
-                    self.pixels[(GPU::HEIGHT - 1 - y) * GPU::WIDTH + x] = 0x8000 | color.next().as_u16();
+                    self.pixels[y * GPU::WIDTH + x] = 0x8000 | color.next().as_u16();
                 }
             }
         }

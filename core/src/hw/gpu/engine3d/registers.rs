@@ -315,7 +315,8 @@ impl Viewport {
     }
 
     pub fn screen_y(&self, clip_coords: &Vec4) -> usize {
-        ((clip_coords[1].raw() + clip_coords[3].raw()) * self.height / (2 * clip_coords[3].raw()) + self.y1) as usize
+        // Negate y because coords are flipped vertically
+        ((-clip_coords[1].raw() + clip_coords[3].raw()) * self.height / (2 * clip_coords[3].raw()) + self.y1) as usize
     }
 }
 
