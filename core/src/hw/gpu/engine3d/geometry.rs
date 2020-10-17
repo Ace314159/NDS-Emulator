@@ -81,7 +81,7 @@ impl Engine3D {
             PolygonAttr => self.polygon_attrs.write(param),
             TexImageParam => self.tex_params.write(param),
             BeginVtxs => {
-                self.polygon_attrs_latch = self.polygon_attrs_latch.clone();
+                self.polygon_attrs_latch = self.polygon_attrs.clone();
                 self.vertex_primitive = VertexPrimitive::from(param & 0x3);
             },
             EndVtxs => (), // Does Nothing
