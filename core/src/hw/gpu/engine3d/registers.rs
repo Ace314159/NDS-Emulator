@@ -208,17 +208,17 @@ impl From<u32> for TexCoordTransformationMode {
 
 #[derive(Clone, Copy)]
 pub struct PolygonAttributes {
-    lights_enabled: [bool; 4],
-    mode: PolygonMode,
-    render_back: bool,
-    render_front: bool,
-    set_depth_translucent: bool,
-    render_far_plane_intersecting: bool,
-    render_1dot_behind_depth: bool,
-    depth_test_equal: bool,
-    fog_enable: bool,
-    alpha: u8,
-    polygon_id: u8,
+    pub lights_enabled: [bool; 4],
+    pub mode: PolygonMode,
+    pub render_back: bool,
+    pub render_front: bool,
+    pub set_depth_translucent: bool,
+    pub render_far_plane_intersecting: bool,
+    pub render_1dot_behind_depth: bool,
+    pub depth_test_equal: bool,
+    pub fog_enable: bool,
+    pub alpha: u8,
+    pub polygon_id: u8,
 }
 
 impl PolygonAttributes {
