@@ -52,12 +52,6 @@ pub struct Header {
 
 impl Header {
     pub fn new(rom: &Vec<u8>) -> Header {
-        let mut reserved2 = [0; 0x28];
-        let mut nintendo_logo = [0; 0x9C];
-        // let mut reserved5 = [0; 0x90];
-        reserved2.copy_from_slice(&rom[0x088..0x0B0]);
-        nintendo_logo.copy_from_slice(&rom[0x0C0..0x15C]);
-        // reserved5.copy_from_slice(&rom[0x170..0x200]);
         Header {
             game_title: rom[0x000..0x00C].try_into().unwrap(),
             game_code: rom[0x00C..0x010].try_into().unwrap(),
@@ -96,16 +90,16 @@ impl Header {
             secure_area_disable: u64::from_le_bytes(rom[0x078..0x080].try_into().unwrap()),
             used_rom_size: u32::from_le_bytes(rom[0x080..0x084].try_into().unwrap()),
             header_size: u32::from_le_bytes(rom[0x084..0x088].try_into().unwrap()),
-            reserved2,
+            reserved2: rom[0x088..0x0B0].try_into().unwrap(),
             reserved3: rom[0x0B0..0x0C0].try_into().unwrap(),
-            nintendo_logo,
+            nintendo_logo: rom[0x0C0..0x15C].try_into().unwrap(),
             nintendo_logo_checksum: u16::from_le_bytes(rom[0x15C..0x15E].try_into().unwrap()),
             header_checksum: u16::from_le_bytes(rom[0x15E..0x160].try_into().unwrap()),
             // debug_rom_offset: u32::from_le_bytes(rom[0x160..0x164].try_into().unwrap()),
             // debug_size: u32::from_le_bytes(rom[0x164..0x168].try_into().unwrap()),
             // debug_ram_addr: u32::from_le_bytes(rom[0x168..0x16C].try_into().unwrap()),
             // reserved4: rom[0x16C..0x170].try_into().unwrap(),
-            // reserved5,
+            // reserved5: rom[0x170..0x200].try_into().unwrap(),
         }
     }
 }
