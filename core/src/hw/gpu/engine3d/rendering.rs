@@ -110,7 +110,9 @@ impl Engine3D {
         right_vert = new_right_vert;
 
         for y in vertices[start_vert].screen_coords[1]..vertices[end_vert].screen_coords[1] {
-            if y == left_end {
+            // While loops to skip repeated vertices from clipping
+            // TODO: Should this be fixed in clipping or rendering code?
+            while y == left_end {
                 let new_left_vert = prev_vert(left_vert);
                 left_slope = Slope::from_verts(&vertices[left_vert], &vertices[new_left_vert]);
                 left_colors = ColorSlope::new(
@@ -121,7 +123,7 @@ impl Engine3D {
                 left_end = vertices[new_left_vert].screen_coords[1];
                 left_vert = new_left_vert;
             }
-            if y == right_end {
+            while y == right_end {
                 let new_right_vert = next_vert(right_vert);
                 right_slope = Slope::from_verts(&vertices[right_vert],&vertices[new_right_vert]);
                 right_colors = ColorSlope::new(
