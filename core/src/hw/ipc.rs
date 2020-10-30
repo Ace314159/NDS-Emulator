@@ -193,7 +193,7 @@ impl FIFOCNT {
             },
             1 => {
                 self.recv_fifo_not_empty_irq = value >> 2 & 0x1 != 0;
-                self.error = self.error && (value >> 6) & 0x1 != 0; // 1 means acknowledge error
+                self.error = self.error && (value >> 6) & 0x1 == 0; // 1 means acknowledge error
                 self.enable = value >> 7 & 0x1 != 0;
             },
             2 => (),
