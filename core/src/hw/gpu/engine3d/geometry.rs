@@ -126,20 +126,20 @@ impl Engine3D {
         match self.vertex_primitive {
             VertexPrimitive::Triangles => {
                 if self.cur_poly_verts.len() == 3 {
-                    self.submit_triangle();
+                    self.submit_polygon();
                 }
             },
             VertexPrimitive::Quad => {
                 if self.cur_poly_verts.len() == 4 {
-                    self.submit_triangle();
+                    self.submit_polygon();
                 }
             }
             _ => todo!(),
         }
     }
 
-    fn submit_triangle(&mut self) {
-        // Clip Triangle
+    fn submit_polygon(&mut self) {
+        // Clip Polygon
         self.clip_plane(2);
         self.clip_plane(1);
         self.clip_plane(0);
