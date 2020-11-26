@@ -8,8 +8,10 @@ impl Engine3D {
         assert!(!self.bus_stalled);
         let command = GeometryCommandEntry::new(command, param);
         if self.gxfifo.len() == 0 && self.gxpipe.len() < Engine3D::PIPE_LEN { self.gxpipe.push_back(command) }
-        else if self.gxfifo.len() < Engine3D::FIFO_LEN { self.gxfifo.push_back(command) }
-        else { self.bus_stalled = true }
+        else {
+            self.gxfifo.push_back(command);
+            self.bus_stalled = self.gxfifo.len() >= Engine3D::FIFO_LEN;
+        }
     }
 
     pub fn exec_command(&mut self, command_entry: GeometryCommandEntry) {

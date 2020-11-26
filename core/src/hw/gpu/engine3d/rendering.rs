@@ -8,7 +8,6 @@ impl Engine3D {
     }
 
     pub fn render(&mut self) {
-        // TODO: Add 392 cycle delay after VBlank starts
         if !self.polygons_submitted { return }
         // TODO: Add more accurate interpolation
         // TODO: Optimize
