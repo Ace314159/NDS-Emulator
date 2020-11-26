@@ -22,8 +22,8 @@ impl Engine3D {
             // TODO: Use fixed point for interpolation
             // TODO: Fix uneven interpolation
             let vertices = &self.vertices[polygon.start_vert..polygon.end_vert];
-            if self.polygon_attrs_latch.render_front { Engine3D::render_polygon(true, &mut self.pixels, vertices) }
-            if self.polygon_attrs_latch.render_back { Engine3D::render_polygon(false, &mut self.pixels, vertices) }
+            if polygon.attrs.render_front { Engine3D::render_polygon(true, &mut self.pixels, vertices) }
+            if polygon.attrs.render_back { Engine3D::render_polygon(false, &mut self.pixels, vertices) }
         }
 
         self.gxstat.geometry_engine_busy = false;
