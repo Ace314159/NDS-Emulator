@@ -14,6 +14,7 @@ use registers::*;
 
 pub struct Engine3D {
     cycles_ahead: i32,
+    pub bus_stalled: bool,
     // Registers
     gxstat: GXSTAT,
     // Geometry Engine
@@ -59,6 +60,7 @@ impl Engine3D {
     pub fn new() -> Self {
         Engine3D {
             cycles_ahead: 0,
+            bus_stalled: false,
             // Registers
             gxstat: GXSTAT::new(),
             // Geometry Engine
@@ -99,6 +101,7 @@ impl Engine3D {
     }
     
     pub fn clock(&mut self, cycles: usize) {
+        if self.polygons_submitted { return }
         self.cycles_ahead += cycles as i32;
         while self.cycles_ahead > 0 {
             if let Some(command_entry) = self.gxpipe.pop_front() {

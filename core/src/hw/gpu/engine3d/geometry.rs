@@ -5,10 +5,11 @@ use super::registers::*;
 
 impl Engine3D {
     fn push_geometry_command(&mut self, command: GeometryCommand, param: u32) {
+        assert!(!self.bus_stalled);
         let command = GeometryCommandEntry::new(command, param);
         if self.gxfifo.len() == 0 && self.gxpipe.len() < Engine3D::PIPE_LEN { self.gxpipe.push_back(command) }
         else if self.gxfifo.len() < Engine3D::FIFO_LEN { self.gxfifo.push_back(command) }
-        else { todo!() } // TODO: Stall Bus
+        else { self.bus_stalled = true }
     }
 
     pub fn exec_command(&mut self, command_entry: GeometryCommandEntry) {
@@ -23,6 +24,7 @@ impl Engine3D {
         use GeometryCommand::*;
         let param = command_entry.param;
         self.gxstat.geometry_engine_busy = false;
+        self.bus_stalled = false;
         info!("Executing Geometry Command {:?} {:?}", command_entry.command, self.params);
         match command_entry.command {
             Unimplemented => (),
@@ -301,7 +303,7 @@ impl GeometryCommand {
             TexImageParam => 0,
             BeginVtxs => 0,
             EndVtxs => 0,
-            SwapBuffers => 0,
+            SwapBuffers => 392,
             Viewport => 0,
         }
     }

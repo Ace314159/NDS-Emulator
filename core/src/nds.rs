@@ -30,18 +30,20 @@ impl NDS {
 
     pub fn emulate_frame(&mut self) {
         while !self.hw.rendered_frame() {
-            self.arm9.handle_irq(&mut self.hw);
-            if !self.hw.cp15.arm9_halted {
-                self.arm9_cycles_ahead += self.arm9.emulate_instr(&mut self.hw) as i32;
-            }
-            while self.arm9_cycles_ahead >= 0 || self.hw.cp15.arm9_halted {
-                self.arm7.handle_irq(&mut self.hw);
-                let arm7_cycles_ran = if self.hw.haltcnt.halted() { 1 }
-                else { self.arm7.emulate_instr(&mut self.hw) };
-                self.hw.clock(arm7_cycles_ran);
-                if self.hw.cp15.arm9_halted { break }
-                else { self.arm9_cycles_ahead -= 2 * arm7_cycles_ran as i32 }
-            }
+            if !self.hw.gpu.bus_stalled() {
+                self.arm9.handle_irq(&mut self.hw);
+                if !self.hw.cp15.arm9_halted {
+                    self.arm9_cycles_ahead += self.arm9.emulate_instr(&mut self.hw) as i32;
+                }
+                while self.arm9_cycles_ahead >= 0 || self.hw.cp15.arm9_halted {
+                    self.arm7.handle_irq(&mut self.hw);
+                    let arm7_cycles_ran = if self.hw.haltcnt.halted() { 1 }
+                    else { self.arm7.emulate_instr(&mut self.hw) };
+                    self.hw.clock(arm7_cycles_ran);
+                    if self.hw.cp15.arm9_halted { break }
+                    else { self.arm9_cycles_ahead -= 2 * arm7_cycles_ran as i32 }
+                }
+            } else { self.hw.clock(1) }
         }
         self.hw.save_backup();
     }

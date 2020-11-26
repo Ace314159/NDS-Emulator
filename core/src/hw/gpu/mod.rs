@@ -102,6 +102,10 @@ impl GPU {
         } else { false }
     }
 
+    pub fn bus_stalled(&self) -> bool {
+        self.engine3d.bus_stalled
+    }
+
     pub fn rendered_frame(&mut self) -> bool {
         let rendered_frame = self.rendered_frame;
         self.rendered_frame = false;
