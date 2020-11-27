@@ -15,7 +15,7 @@
             "cwd": "${workspaceRoot}",
             "externalConsole": true,
             "sourceFileMap": {
-                "/rustc/18bf6b4f01a6feaf7259ba7cdae58031af1b7b39": "${env:HOME}${env:USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/src/rust"
+                "/rustc/7eac88abb2e57e752f3302f02be5f3ce3d7adfb4": "${env:HOME}${env:USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/src/rust"
             }
         }
     ]

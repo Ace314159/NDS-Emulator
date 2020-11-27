@@ -123,6 +123,10 @@ impl ClearDepth {
             depth: 0,
         }
     }
+
+    pub fn depth(&self) -> u32 {
+        (self.depth as u32) * 0x200 + 0x1FF
+    }
 }
 
 impl IORegister for ClearDepth {
@@ -215,7 +219,7 @@ pub struct PolygonAttributes {
     pub set_depth_translucent: bool,
     pub render_far_plane_intersecting: bool,
     pub render_1dot_behind_depth: bool,
-    pub depth_test_equal: bool,
+    pub depth_test_eq: bool,
     pub fog_enable: bool,
     pub alpha: u8,
     pub polygon_id: u8,
@@ -231,7 +235,7 @@ impl PolygonAttributes {
             set_depth_translucent: false,
             render_far_plane_intersecting: false,
             render_1dot_behind_depth: false,
-            depth_test_equal: false,
+            depth_test_eq: false,
             fog_enable: false,
             alpha: 0,
             polygon_id: 0,
@@ -249,7 +253,7 @@ impl PolygonAttributes {
         self.set_depth_translucent = value >> 11 & 0x1 != 0;
         self.render_far_plane_intersecting = value >> 12 & 0x1 != 0;
         self.render_1dot_behind_depth = value >> 13 & 0x1 != 0;
-        self.depth_test_equal = value >> 14 & 0x1 != 0;
+        self.depth_test_eq = value >> 14 & 0x1 != 0;
         self.fog_enable = value >> 15 & 0x1 != 0;
         self.alpha = (value >> 16 & 0x1F) as u8;
         self.polygon_id = (value >> 24 & 0x3F) as u8;
@@ -273,6 +277,26 @@ impl From<u32> for PolygonMode {
             3 => PolygonMode::Shadow,
             _ => unreachable!(),
         }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct FrameParams {
+    pub manual_sort_translucent: bool,
+    pub w_buffer: bool,
+}
+
+impl FrameParams {
+    pub fn new() -> Self {
+        FrameParams {
+            manual_sort_translucent: false,
+            w_buffer: false,
+        }
+    }
+
+    pub fn write(&mut self, value: u32) {
+        self.manual_sort_translucent = (value >> 0) & 0x1 != 0;
+        self.w_buffer = (value >> 1) & 0x1 != 0;
     }
 }
 

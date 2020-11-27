@@ -12,17 +12,29 @@ impl Engine3D {
         // TODO: Add more accurate interpolation
         // TODO: Optimize
         // TODO: Textures
-        // TODO: Z-buffer
-        for pixel in self.pixels.iter_mut() {
-            *pixel = self.clear_color.color() 
+        for (i, pixel) in self.pixels.iter_mut().enumerate() {
+            *pixel = self.clear_color.color();
+            self.depth_buffer[i] = self.clear_depth.depth();
         }
+
+        assert!(!self.frame_params.w_buffer); // TODO: Implement W-Buffer
+        // TODO: Account for special cases
+        fn eq_depth_test(cur_depth: u32, new_depth: u32) -> bool {
+            new_depth >= cur_depth - 0x200 && new_depth <= cur_depth + 0x200
+        }
+        fn lt_depth_test(cur_depth: u32, new_depth: u32) -> bool { new_depth < cur_depth }
 
         for polygon in self.polygons.iter() {
             // TODO: Use fixed point for interpolation
             // TODO: Fix uneven interpolation
+            let depth_test = if polygon.attrs.depth_test_eq { eq_depth_test } else { lt_depth_test };
             let vertices = &self.vertices[polygon.start_vert..polygon.end_vert];
-            if polygon.attrs.render_front { Engine3D::render_polygon(true, &mut self.pixels, vertices) }
-            if polygon.attrs.render_back { Engine3D::render_polygon(false, &mut self.pixels, vertices) }
+            if polygon.attrs.render_front {
+                Engine3D::render_polygon(&mut self.depth_buffer, depth_test, true, &mut self.pixels, vertices)
+            }
+            if polygon.attrs.render_back {
+                Engine3D::render_polygon(&mut self.depth_buffer, depth_test, false, &mut self.pixels, vertices)
+            }
         }
 
         self.gxstat.geometry_engine_busy = false;
@@ -32,7 +44,8 @@ impl Engine3D {
     }
 
     // TODO: Replace front with a const generic
-    fn render_polygon(front: bool, pixels: &mut Vec<u16>, vertices: &[Vertex]) {
+    fn render_polygon<F>(depth_buffer: &mut Vec<u32>, depth_test: F, front: bool, pixels: &mut Vec<u16>, vertices: &[Vertex])
+    where F: Fn(u32, u32) -> bool {
         assert!(vertices.len() >= 3);
 
         // Check if front or back side is being rendered
@@ -89,14 +102,14 @@ impl Engine3D {
             &vertices[new_left_vert].color,
             vertices[new_left_vert].screen_coords[1] - vertices[left_vert].screen_coords[1],
         );
-        let mut left_slope = Slope::from_verts(
+        let mut left_slope = PositionSlope::from_verts(
             &vertices[left_vert],
             &vertices[new_left_vert],
         );
         let mut left_end = vertices[new_left_vert].screen_coords[1];
         left_vert = new_left_vert;
         let new_right_vert = next_vert(right_vert);
-        let mut right_slope = Slope::from_verts(
+        let mut right_slope = PositionSlope::from_verts(
             &vertices[right_vert],
             &vertices[new_right_vert],
         );
@@ -113,7 +126,7 @@ impl Engine3D {
             // TODO: Should this be fixed in clipping or rendering code?
             while y == left_end {
                 let new_left_vert = prev_vert(left_vert);
-                left_slope = Slope::from_verts(&vertices[left_vert], &vertices[new_left_vert]);
+                left_slope = PositionSlope::from_verts(&vertices[left_vert], &vertices[new_left_vert]);
                 left_colors = ColorSlope::new(
                     &vertices[left_vert].color,
                     &vertices[new_left_vert].color,
@@ -124,7 +137,7 @@ impl Engine3D {
             }
             while y == right_end {
                 let new_right_vert = next_vert(right_vert);
-                right_slope = Slope::from_verts(&vertices[right_vert],&vertices[new_right_vert]);
+                right_slope = PositionSlope::from_verts(&vertices[right_vert],&vertices[new_right_vert]);
                 right_colors = ColorSlope::new(
                     &vertices[right_vert].color,
                     &vertices[new_right_vert].color,
@@ -133,16 +146,25 @@ impl Engine3D {
                 right_end = vertices[new_right_vert].screen_coords[1];
                 right_vert = new_right_vert;
             }
-            let x_start = left_slope.next() as usize;
-            let x_end = right_slope.next() as usize;
+            let x_start = left_slope.next_x() as usize;
+            let x_end = right_slope.next_x() as usize;
             let mut color = ColorSlope::new(
                 &left_colors.next(),
                 &right_colors.next(),
                 x_end - x_start,
             );
+            let mut depth = Slope::new(
+                left_slope.next_depth(),
+                right_slope.next_depth(),
+                x_end - x_start,
+            );
 
             for x in x_start..x_end {
-                pixels[y * GPU::WIDTH + x] = 0x8000 | color.next().as_u16();
+                let depth_val = depth.next() as u32;
+                if depth_test(depth_buffer[y * GPU::WIDTH + x], depth_val) {
+                    depth_buffer[y * GPU::WIDTH + x] = depth_val;
+                    pixels[y * GPU::WIDTH + x] = 0x8000 | color.next().as_u16();
+                }
             }
         }
     }
@@ -161,18 +183,34 @@ impl Slope {
         }
     }
 
-    pub fn from_verts(start: &Vertex, end: &Vertex) -> Self {
-        Slope {
-            cur: start.screen_coords[0] as f32,
-            step: (end.screen_coords[0] as f32 - start.screen_coords[0] as f32) /
-                (end.screen_coords[1] as f32 - start.screen_coords[1] as f32),
-        }
-    }
-
     pub fn next(&mut self) -> f32 {
         let return_val = self.cur;
         self.cur += self.step;
         return_val
+    }
+}
+
+struct PositionSlope {
+    x: Slope,
+    depth: Slope,
+}
+
+impl PositionSlope {
+    pub fn from_verts(start: &Vertex, end: &Vertex) -> Self {
+        let num_steps = end.screen_coords[1] - start.screen_coords[1];
+        // TODO: Implement w-buffer
+        PositionSlope {
+            x: Slope::new(start.screen_coords[0] as f32, end.screen_coords[0] as f32, num_steps),
+            depth: Slope::new(start.z_depth as f32, end.z_depth as f32, num_steps),
+        }
+    }
+
+    pub fn next_x(&mut self) -> f32 {
+        self.x.next()
+    }
+
+    pub fn next_depth(&mut self) -> f32 {
+        self.depth.next()
     }
 }
 

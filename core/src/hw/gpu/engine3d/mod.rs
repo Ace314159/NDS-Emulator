@@ -36,10 +36,13 @@ pub struct Engine3D {
     vec_stack: [Matrix; 31], // Directional Stack
     tex_stack: [Matrix; 1], // Texture Stack
     // Rendering Engine
+    frame_params: FrameParams,
+    next_frame_params: FrameParams,
     viewport: Viewport,
     clear_color: ClearColor,
     clear_depth: ClearDepth,
     pixels: Vec<u16>,
+    depth_buffer: Vec<u32>,
     polygons_submitted: bool,
     // Polygons
     polygon_attrs: PolygonAttributes,
@@ -82,10 +85,13 @@ impl Engine3D {
             vec_stack: [Matrix::identity(); 31], // Directional Stack
             tex_stack: [Matrix::identity(); 1], // Texture Stack
             // Rendering Engine
+            frame_params: FrameParams::new(),
+            next_frame_params: FrameParams::new(),
             viewport: Viewport::new(),
             clear_color: ClearColor::new(),
             clear_depth: ClearDepth::new(),
             pixels: vec![0; GPU::WIDTH * GPU::HEIGHT],
+            depth_buffer: vec![0; GPU::WIDTH * GPU::HEIGHT],
             polygons_submitted: false,
             // Polygons
             polygon_attrs: PolygonAttributes::new(),

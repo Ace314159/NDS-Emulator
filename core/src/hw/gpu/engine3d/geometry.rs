@@ -90,6 +90,8 @@ impl Engine3D {
             },
             EndVtxs => (), // Does Nothing
             SwapBuffers => {
+                self.next_frame_params = self.frame_params;
+                self.next_frame_params.write(param);
                 self.polygons_submitted = true;
                 self.gxstat.geometry_engine_busy = true; // Keep busy until VBlank
             },
@@ -125,6 +127,7 @@ impl Engine3D {
         self.cur_poly_verts.push(Vertex {
             clip_coords,
             screen_coords: [0, 0], // Temp - Calculated after clipping
+            z_depth: 0, // Temp - Calculated after clipping
             color: self.color,
         });
         match self.vertex_primitive {
@@ -155,11 +158,14 @@ impl Engine3D {
             attrs: self.polygon_attrs_latch,
         });
         for vert in self.cur_poly_verts.drain(..) {
+            let z = vert.clip_coords[2].raw() as i64;
+            let w = vert.clip_coords[3].raw() as i64;
             self.vertices.push(Vertex {
                 screen_coords: [
                     self.viewport.screen_x(&vert.clip_coords),
                     self.viewport.screen_y(&vert.clip_coords),
                 ],
+                z_depth: ((((z * 0x4000 / w) + 0x3FFF) * 0x200) & 0xFFFFFF) as u32,
                 ..vert
             });
         }
@@ -233,6 +239,7 @@ impl Engine3D {
                 calc_coord(3),
             ),
             screen_coords: [0, 0], // Calcluated after
+            z_depth: 0, // Calculated after
             color: Color::new(
                 interpolate(inside.color.r as i32, out.color.r as i32) as u8,
                 interpolate(inside.color.g as i32, out.color.g as i32) as u8,
@@ -402,6 +409,7 @@ impl Color {
 pub struct Vertex {
     pub clip_coords: Vec4,
     pub screen_coords: [usize; 2],
+    pub z_depth: u32, // 24 bit depth
     pub color: Color,
 }
 
@@ -410,6 +418,7 @@ impl Vertex {
         Vertex {
             clip_coords: Vec4::new(FixedPoint::zero(), FixedPoint::zero(), FixedPoint::zero(), FixedPoint::zero()),
             screen_coords: [0, 0],
+            z_depth: 0,
             color: Color::new(0, 0, 0),
         }
     }
