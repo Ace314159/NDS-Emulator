@@ -5,7 +5,7 @@ use super::registers::*;
 
 impl Engine3D {
     fn push_geometry_command(&mut self, command: GeometryCommand, param: u32) {
-        assert!(!self.bus_stalled);
+        //assert!(!self.bus_stalled);
         let command = GeometryCommandEntry::new(command, param);
         if self.gxfifo.len() == 0 && self.gxpipe.len() < Engine3D::PIPE_LEN { self.gxpipe.push_back(command) }
         else {
@@ -29,7 +29,7 @@ impl Engine3D {
         self.bus_stalled = false;
         info!("Executing Geometry Command {:?} {:?}", command_entry.command, self.params);
         match command_entry.command {
-            Unimplemented => (),
+            NOP => (),
             MtxMode => self.mtx_mode = MatrixMode::from(param as u8 & 0x3),
             MtxPush => match self.mtx_mode {
                 MatrixMode::Proj => {
@@ -96,9 +96,44 @@ impl Engine3D {
                 self.gxstat.geometry_engine_busy = true; // Keep busy until VBlank
             },
             Viewport => self.viewport.write(param),
+            Unimplemented => (),
         }
         self.params.clear();
         self.cycles_ahead -= command_entry.command.exec_time() as i32;
+    }
+
+    pub fn write_geometry_fifo(&mut self, value: u32) {
+        if self.packed_commands.is_empty() {
+            let mut commands = value;
+            for _ in 0..4 {
+                self.packed_commands.push_back(GeometryCommand::from_byte(commands as u8));
+                commands >>= 8;
+            }
+            self.num_params = self.packed_commands.front().unwrap().num_params();
+            self.params_processed = 0;
+            if self.num_params > 0 { return }
+            if value == 0 {
+                self.push_geometry_command(GeometryCommand::NOP, 0);
+                self.packed_commands.clear();
+                return
+            }
+        } else { self.params_processed += 1 }
+
+        while let Some(command) = self.packed_commands.front() {
+            if command != &GeometryCommand::NOP {
+                let command = command.clone();
+                self.push_geometry_command(command, value);
+            }
+
+            assert!(self.params_processed <= self.num_params);
+            if self.params_processed == self.num_params {
+                self.packed_commands.pop_front().unwrap();
+                if let Some(command) = self.packed_commands.front() {
+                    self.params_processed = 0;
+                    self.num_params = command.num_params();
+                } else { break }
+            } else { break }
+        }
     }
 
     pub fn write_geometry_command(&mut self, addr: u32, value: u32) {
@@ -251,7 +286,7 @@ impl Engine3D {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum GeometryCommand {
-    Unimplemented = 0x00,
+    NOP = 0x00,
     MtxMode = 0x10,
     MtxPush = 0x11,
     MtxPop = 0x12,
@@ -268,6 +303,7 @@ pub enum GeometryCommand {
     TexImageParam = 0x2A,
     SwapBuffers = 0x50,
     Viewport = 0x60,
+    Unimplemented = 0xFF,
 }
 
 impl GeometryCommand {
@@ -294,10 +330,34 @@ impl GeometryCommand {
         }
     }
 
+    fn from_byte(value: u8) -> Self {
+        use GeometryCommand::*;
+        match value {
+            0x00 => NOP,
+            0x10 => MtxMode,
+            0x11 => MtxPush,
+            0x12 => MtxPop,
+            0x15 => MtxIdentity,
+            0x18 => MtxMult4x4,
+            0x19 => MtxMult4x3,
+            0x1A => MtxMult3x3,
+            0x1C => MtxTrans,
+            0x20 => Color,
+            0x23 => Vtx16,
+            0x29 => PolygonAttr,
+            0x40 => BeginVtxs,
+            0x41 => EndVtxs,
+            0x2A => TexImageParam,
+            0x50 => SwapBuffers,
+            0x60 => Viewport,
+            _ => Unimplemented,
+        }
+    }
+
     fn exec_time(&self) -> usize {
         use GeometryCommand::*;
         match *self {
-            Unimplemented => 0,
+            NOP => 0,
             MtxMode => 0,
             MtxPush => 16,
             MtxPop => 35,
@@ -314,13 +374,14 @@ impl GeometryCommand {
             EndVtxs => 0,
             SwapBuffers => 392,
             Viewport => 0,
+            Unimplemented => 0,
         }
     }
 
     fn num_params(&self) -> usize {
         use GeometryCommand::*;
         match *self {
-            Unimplemented => 0,
+            NOP => 0,
             MtxMode => 1,
             MtxPush => 0,
             MtxPop => 1,
@@ -337,6 +398,7 @@ impl GeometryCommand {
             EndVtxs => 0,
             SwapBuffers => 1,
             Viewport => 1,
+            Unimplemented => 0,
         }
     }
 }
