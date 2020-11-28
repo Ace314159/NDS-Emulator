@@ -44,7 +44,7 @@ impl Engine3D {
                     assert!(self.pos_vec_stack_sp <= 31);
                 },
                 MatrixMode::Texture => {
-                    self.cur_tex = self.tex_stack[self.tex_stack_sp as usize];
+                    self.tex_stack[self.tex_stack_sp as usize] = self.cur_tex;
                     self.tex_stack_sp += 1;
                     assert!(self.tex_stack_sp <= 31);
                 },
