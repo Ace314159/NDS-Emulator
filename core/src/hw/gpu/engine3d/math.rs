@@ -105,6 +105,23 @@ impl Matrix {
         self.elems[11] = FixedPoint::from_mul(vec[6] * old[3] + vec[7] * old[7] + vec[8] * old[11]);
     }
 
+    pub fn scale(&mut self, vec: &Vec<u32>) {
+        self.elems[0] = FixedPoint::from_mul(vec[0] * self.elems[0]);
+        self.elems[1] = FixedPoint::from_mul(vec[0] * self.elems[1]);
+        self.elems[2] = FixedPoint::from_mul(vec[0] * self.elems[2]);
+        self.elems[3] = FixedPoint::from_mul(vec[0] * self.elems[3]);
+
+        self.elems[4] = FixedPoint::from_mul(vec[1] * self.elems[4]);
+        self.elems[5] = FixedPoint::from_mul(vec[1] * self.elems[5]);
+        self.elems[6] = FixedPoint::from_mul(vec[1] * self.elems[6]);
+        self.elems[7] = FixedPoint::from_mul(vec[1] * self.elems[7]);
+
+        self.elems[8] = FixedPoint::from_mul(vec[2] * self.elems[8]);
+        self.elems[9] = FixedPoint::from_mul(vec[2] * self.elems[9]);
+        self.elems[10] = FixedPoint::from_mul(vec[2] * self.elems[10]);
+        self.elems[11] = FixedPoint::from_mul(vec[2] * self.elems[11]);
+    }
+
     pub fn translate(&mut self, coords: &Vec<u32>) {
         assert_eq!(coords.len(), 3);
         self.elems[12] += FixedPoint::from_mul(coords[0] * self.elems[0] + coords[1] * self.elems[4] + coords[2] * self.elems[8]);

@@ -71,13 +71,33 @@ impl Engine3D {
                     },
                 }
             },
-            MtxIdentity => self.apply_cur_mat(Matrix::set_identity),
-            MtxLoad4x4 => self.apply_cur_mat(Matrix::load4x4),
-            MtxLoad4x3 => self.apply_cur_mat(Matrix::load4x3),
-            MtxMult4x4 => self.apply_cur_mat(Matrix::mul4x4),
-            MtxMult4x3 => self.apply_cur_mat(Matrix::mul4x3),
-            MtxMult3x3 => self.apply_cur_mat(Matrix::mul3x3),
-            MtxTrans => self.apply_cur_mat(Matrix::translate),
+            MtxStore => {
+                let index = param & 0x3F;
+                if index == 31 { self.gxstat.mat_stack_error = true }
+                match self.mtx_mode {
+                    MatrixMode::Proj => {
+                        assert!(index <= 1);
+                        self.proj_stack[0] = self.cur_proj;
+                    },
+                    MatrixMode::Pos | MatrixMode::PosVec => {
+                        assert!(index <= 31);
+                        self.pos_stack[index as usize] = self.cur_pos;
+                        self.vec_stack[index as usize] = self.cur_vec;
+                    },
+                    MatrixMode::Texture => {
+                        assert!(index <= 31);
+                        self.tex_stack[index as usize] = self.cur_tex;
+                    },
+                }
+            },
+            MtxIdentity => self.apply_cur_mat(Matrix::set_identity, true),
+            MtxLoad4x4 => self.apply_cur_mat(Matrix::load4x4, true),
+            MtxLoad4x3 => self.apply_cur_mat(Matrix::load4x3, true),
+            MtxMult4x4 => self.apply_cur_mat(Matrix::mul4x4, true),
+            MtxMult4x3 => self.apply_cur_mat(Matrix::mul4x3, true),
+            MtxMult3x3 => self.apply_cur_mat(Matrix::mul3x3, true),
+            MtxScale => self.apply_cur_mat(Matrix::scale, false),
+            MtxTrans => self.apply_cur_mat(Matrix::translate, true),
             Color => self.color = self::Color::from(param as u16), // TODO: Expand to 6 bit RGB
             Vtx16 => self.submit_vertex(
                 FixedPoint::from_frac12((self.params[0] >> 0) as u16 as i16 as i32),
@@ -150,13 +170,13 @@ impl Engine3D {
         }
     }
 
-    fn apply_cur_mat<F: Fn(&mut Matrix, &Vec<u32>)>(&mut self, apply: F) {
+    fn apply_cur_mat<F: Fn(&mut Matrix, &Vec<u32>)>(&mut self, apply: F, also_to_vec: bool) {
         match self.mtx_mode {
             MatrixMode::Proj => apply(&mut self.cur_proj, &self.params),
             MatrixMode::Pos => apply(&mut self.cur_pos, &self.params),
             MatrixMode::PosVec => {
                 apply(&mut self.cur_pos, &self.params);
-                apply(&mut self.cur_vec, &self.params);
+                if also_to_vec { apply(&mut self.cur_vec, &self.params) }
             },
             MatrixMode::Texture => apply(&mut self.cur_tex, &self.params),
         }
@@ -297,12 +317,14 @@ pub enum GeometryCommand {
     MtxMode = 0x10,
     MtxPush = 0x11,
     MtxPop = 0x12,
+    MtxStore = 0x13,
     MtxIdentity = 0x15,
     MtxLoad4x4 = 0x16,
     MtxLoad4x3 = 0x17,
     MtxMult4x4 = 0x18,
     MtxMult4x3 = 0x19,
     MtxMult3x3 = 0x1A,
+    MtxScale = 0x1B,
     MtxTrans = 0x1C,
     Color = 0x20,
     Vtx16 = 0x23,
@@ -326,12 +348,14 @@ impl GeometryCommand {
             0x440 => MtxMode,
             0x444 => MtxPush,
             0x448 => MtxPop,
+            0x44C => MtxStore,
             0x454 => MtxIdentity,
             0x458 => MtxLoad4x4,
             0x45C => MtxLoad4x3,
             0x460 => MtxMult4x4,
             0x464 => MtxMult4x3,
             0x468 => MtxMult3x3,
+            0x46C => MtxScale,
             0x470 => MtxTrans,
             0x480 => Color,
             0x48C => Vtx16,
@@ -356,12 +380,14 @@ impl GeometryCommand {
             0x10 => MtxMode,
             0x11 => MtxPush,
             0x12 => MtxPop,
+            0x13 => MtxStore,
             0x15 => MtxIdentity,
             0x16 => MtxLoad4x4,
             0x17 => MtxLoad4x3,
             0x18 => MtxMult4x4,
             0x19 => MtxMult4x3,
             0x1A => MtxMult3x3,
+            0x1B => MtxScale,
             0x1C => MtxTrans,
             0x20 => Color,
             0x23 => Vtx16,
@@ -386,12 +412,14 @@ impl GeometryCommand {
             MtxMode => 0,
             MtxPush => 16,
             MtxPop => 35,
+            MtxStore => 17,
             MtxIdentity => 18,
             MtxLoad4x4 => 34,
             MtxLoad4x3 => 30,
             MtxMult4x4 => 19, // TOOD: Add extra cycles for MTX_MODE 2
             MtxMult4x3 => 19, // TODO: Add extra cycles for MTX_MODE 2
             MtxMult3x3 => 19, // TODO: Add extra cycles for MTX_MODE 2
+            MtxScale => 22, // TODO: Add extra cycles for MTX_MODE 2
             MtxTrans => 19, // TODO: Add extra cycles for MTX_MODE 2
             Color => 0,
             Vtx16 => 7,
@@ -416,12 +444,14 @@ impl GeometryCommand {
             MtxMode => 1,
             MtxPush => 0,
             MtxPop => 1,
+            MtxStore => 1,
             MtxIdentity => 0,
             MtxLoad4x4 => 16,
             MtxLoad4x3 => 12,
             MtxMult4x4 => 16,
             MtxMult4x3 => 12,
             MtxMult3x3 => 9,
+            MtxScale => 3,
             MtxTrans => 3,
             Color => 1,
             Vtx16 => 2,
