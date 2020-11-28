@@ -72,6 +72,8 @@ impl Engine3D {
                 }
             },
             MtxIdentity => self.apply_cur_mat(Matrix::set_identity),
+            MtxLoad4x4 => self.apply_cur_mat(Matrix::load4x4),
+            MtxLoad4x3 => self.apply_cur_mat(Matrix::load4x3),
             MtxMult4x4 => self.apply_cur_mat(Matrix::mul4x4),
             MtxMult4x3 => self.apply_cur_mat(Matrix::mul4x3),
             MtxMult3x3 => self.apply_cur_mat(Matrix::mul3x3),
@@ -291,6 +293,8 @@ pub enum GeometryCommand {
     MtxPush = 0x11,
     MtxPop = 0x12,
     MtxIdentity = 0x15,
+    MtxLoad4x4 = 0x16,
+    MtxLoad4x3 = 0x17,
     MtxMult4x4 = 0x18,
     MtxMult4x3 = 0x19,
     MtxMult3x3 = 0x1A,
@@ -314,6 +318,8 @@ impl GeometryCommand {
             0x444 => MtxPush,
             0x448 => MtxPop,
             0x454 => MtxIdentity,
+            0x458 => MtxLoad4x4,
+            0x45C => MtxLoad4x3,
             0x460 => MtxMult4x4,
             0x464 => MtxMult4x3,
             0x468 => MtxMult3x3,
@@ -338,6 +344,8 @@ impl GeometryCommand {
             0x11 => MtxPush,
             0x12 => MtxPop,
             0x15 => MtxIdentity,
+            0x16 => MtxLoad4x4,
+            0x17 => MtxLoad4x3,
             0x18 => MtxMult4x4,
             0x19 => MtxMult4x3,
             0x1A => MtxMult3x3,
@@ -362,6 +370,8 @@ impl GeometryCommand {
             MtxPush => 16,
             MtxPop => 35,
             MtxIdentity => 18,
+            MtxLoad4x4 => 34,
+            MtxLoad4x3 => 30,
             MtxMult4x4 => 19, // TOOD: Add extra cycles for MTX_MODE 2
             MtxMult4x3 => 19, // TODO: Add extra cycles for MTX_MODE 2
             MtxMult3x3 => 19, // TODO: Add extra cycles for MTX_MODE 2
@@ -386,6 +396,8 @@ impl GeometryCommand {
             MtxPush => 0,
             MtxPop => 1,
             MtxIdentity => 0,
+            MtxLoad4x4 => 16,
+            MtxLoad4x3 => 12,
             MtxMult4x4 => 16,
             MtxMult4x3 => 12,
             MtxMult3x3 => 9,

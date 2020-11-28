@@ -19,6 +19,22 @@ impl Matrix {
 
     pub fn set_identity(&mut self, _params: &Vec<u32>) { *self = Matrix::identity() }
 
+    pub fn load4x4(&mut self, vec: &Vec<u32>) {
+        assert_eq!(vec.len(), 16);
+        for i in 0..16 {
+            self.elems[i] = FixedPoint(vec[i] as i32);
+        }
+    }
+
+    pub fn load4x3(&mut self, vec: &Vec<u32>) {
+        assert_eq!(vec.len(), 12);
+        for row in 0..4 {
+            for col in 0..3 { self.elems[row * 4 + col] = FixedPoint(vec[row * 3 + col] as i32) }
+            self.elems[row * 4 + 3] = FixedPoint::zero(); 
+        }
+        self.elems[15] = FixedPoint::one();
+    }
+
     pub fn mul4x4(&mut self, vec: &Vec<u32>) {
         assert_eq!(vec.len(), 16);
         let old = self.elems.clone();
