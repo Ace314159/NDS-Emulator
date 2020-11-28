@@ -20,7 +20,7 @@ pub use gpu::{GPU, EngineA, EngineB};
 use keypad::Keypad;
 pub use keypad::Key;
 use interrupt_controller::{InterruptController, InterruptRequest};
-use dma::DMAController;
+use dma::{DMAController, DMAOccasion};
 use timers::Timers;
 use ipc::IPC;
 use math::{Div, Sqrt};
@@ -113,7 +113,19 @@ impl HW {
 
     pub fn clock(&mut self, arm7_cycles: usize) {
         self.handle_events(arm7_cycles);
-        self.gpu.engine3d.clock(arm7_cycles);
+        if self.gpu.engine3d.clock(arm7_cycles) {
+            self.check_dmas(DMAOccasion::GeometryCommandFIFO);
+        }
+    }
+
+    fn check_dmas(&mut self, occasion: DMAOccasion) {
+        let mut events = Vec::new();
+        for channel in self.dma9.channels.iter().chain(self.dma7.channels.iter()) {
+            if channel.cnt.enable && channel.cnt.start_timing == occasion {
+                events.push(Event::DMA(channel.is_nds9, channel.num));
+            }
+        }
+        for event in events.iter() { self.handle_event(*event) }
     }
 
     pub fn arm7_interrupts_requested(&mut self) -> bool {

@@ -112,8 +112,8 @@ impl Engine3D {
         }
     }
     
-    pub fn clock(&mut self, cycles: usize) {
-        if self.polygons_submitted { return }
+    pub fn clock(&mut self, cycles: usize) -> bool {
+        if self.polygons_submitted { return false }
         self.cycles_ahead += cycles as i32;
         while self.cycles_ahead > 0 {
             if let Some(command_entry) = self.gxpipe.pop_front() {
@@ -125,6 +125,7 @@ impl Engine3D {
                 }
             } else { self.cycles_ahead = 0; break }
         }
+        self.gxfifo.len() < Engine3D::FIFO_LEN / 2
     }
 }
 

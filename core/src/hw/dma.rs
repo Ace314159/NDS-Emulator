@@ -134,7 +134,7 @@ impl DMAOccasion {
                 4 => { warn!("ARM9 Main Memory Display DMA not implemented!"); DMAOccasion::MainMemoryDisplay },
                 5 => DMAOccasion::DSCartridge,
                 6 => { warn!("ARM9 GBA Cartridge DMA not implemented!"); DMAOccasion::GBACartridge },
-                7 => { warn!("ARM9 Geometry Command FIFO DMA not implemented!"); DMAOccasion::GeometryCommandFIFO },
+                7 => DMAOccasion::GeometryCommandFIFO,
                 _ => unreachable!(),
             }
         } else {

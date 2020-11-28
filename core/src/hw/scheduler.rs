@@ -116,6 +116,11 @@ impl HW {
         let transfer_32 = channel.cnt.transfer_32;
         let irq = channel.cnt.irq;
         channel.cnt.enable = channel.cnt.start_timing != DMAOccasion::Immediate && channel.cnt.repeat;
+        // TODO: Optimize
+        let count = if channel.cnt.start_timing == DMAOccasion::GeometryCommandFIFO {
+            channel.cnt.enable = count > 112;
+            std::cmp::min(count, 112)
+        } else { count };
         info!("Running {:?} ARM{} DMA{}: Writing {} values to {:08X} from {:08X}, size: {}", channel.cnt.start_timing,
         if is_nds9 { 9 } else { 7 }, num, count, dest_addr, src_addr, if transfer_32 { 32 } else { 16 });
 
@@ -167,16 +172,6 @@ impl HW {
             self.interrupts7.request |= interrupt;
             self.interrupts9.request |= interrupt;
         }
-    }
-
-    fn check_dmas(&mut self, occasion: DMAOccasion) {
-        let mut events = Vec::new();
-        for channel in self.dma9.channels.iter().chain(self.dma7.channels.iter()) {
-            if channel.cnt.enable && channel.cnt.start_timing == occasion {
-                events.push(Event::DMA(channel.is_nds9, channel.num));
-            }
-        }
-        for event in events.iter() { self.handle_event(*event) }
     }
 
     fn check_dispstats<F>(&mut self, check: &mut F) where F: FnMut(&mut DISPSTAT, &mut InterruptController) {
