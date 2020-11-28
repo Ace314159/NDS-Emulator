@@ -172,7 +172,7 @@ impl HW {
     fn check_dmas(&mut self, occasion: DMAOccasion) {
         let mut events = Vec::new();
         for channel in self.dma9.channels.iter().chain(self.dma7.channels.iter()) {
-            if channel.cnt.start_timing == occasion {
+            if channel.cnt.enable && channel.cnt.start_timing == occasion {
                 events.push(Event::DMA(channel.is_nds9, channel.num));
             }
         }
