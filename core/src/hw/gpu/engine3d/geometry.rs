@@ -90,6 +90,25 @@ impl Engine3D {
                     },
                 }
             },
+            MtxRestore => {
+                let index = param & 0x3F;
+                if index == 31 { self.gxstat.mat_stack_error = true }
+                match self.mtx_mode {
+                    MatrixMode::Proj => {
+                        assert!(index <= 1);
+                        self.cur_proj = self.proj_stack[0];
+                    },
+                    MatrixMode::Pos | MatrixMode::PosVec => {
+                        assert!(index <= 31);
+                        self.cur_pos = self.pos_stack[index as usize];
+                        self.cur_vec = self.vec_stack[index as usize];
+                    },
+                    MatrixMode::Texture => {
+                        assert!(index <= 31);
+                        self.cur_tex = self.tex_stack[index as usize];
+                    },
+                }
+            },
             MtxIdentity => self.apply_cur_mat(Matrix::set_identity, true),
             MtxLoad4x4 => self.apply_cur_mat(Matrix::load4x4, true),
             MtxLoad4x3 => self.apply_cur_mat(Matrix::load4x3, true),
@@ -318,6 +337,7 @@ pub enum GeometryCommand {
     MtxPush = 0x11,
     MtxPop = 0x12,
     MtxStore = 0x13,
+    MtxRestore = 0x14,
     MtxIdentity = 0x15,
     MtxLoad4x4 = 0x16,
     MtxLoad4x3 = 0x17,
@@ -349,6 +369,7 @@ impl GeometryCommand {
             0x444 => MtxPush,
             0x448 => MtxPop,
             0x44C => MtxStore,
+            0x450 => MtxRestore,
             0x454 => MtxIdentity,
             0x458 => MtxLoad4x4,
             0x45C => MtxLoad4x3,
@@ -381,6 +402,7 @@ impl GeometryCommand {
             0x11 => MtxPush,
             0x12 => MtxPop,
             0x13 => MtxStore,
+            0x14 => MtxRestore,
             0x15 => MtxIdentity,
             0x16 => MtxLoad4x4,
             0x17 => MtxLoad4x3,
@@ -413,6 +435,7 @@ impl GeometryCommand {
             MtxPush => 16,
             MtxPop => 35,
             MtxStore => 17,
+            MtxRestore => 36,
             MtxIdentity => 18,
             MtxLoad4x4 => 34,
             MtxLoad4x3 => 30,
@@ -445,6 +468,7 @@ impl GeometryCommand {
             MtxPush => 0,
             MtxPop => 1,
             MtxStore => 1,
+            MtxRestore => 1,
             MtxIdentity => 0,
             MtxLoad4x4 => 16,
             MtxLoad4x3 => 12,
