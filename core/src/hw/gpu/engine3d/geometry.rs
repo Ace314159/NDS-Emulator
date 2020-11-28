@@ -135,6 +135,7 @@ impl Engine3D {
                 if let Some(command) = self.packed_commands.front() {
                     self.params_processed = 0;
                     self.num_params = command.num_params();
+                    if self.num_params > 0 { break }
                 } else { break }
             } else { break }
         }
