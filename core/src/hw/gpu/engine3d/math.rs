@@ -180,6 +180,9 @@ impl FixedPoint {
     pub fn zero() -> Self { FixedPoint(0) }
     pub fn from_mul(val: i64) -> Self { FixedPoint((val >> 12) as i32) }
     pub fn from_num(val: i32) -> Self { FixedPoint(val << 12) }
+    pub fn from_frac9(val: u16) -> Self {
+        FixedPoint((if (val >> 9) & 0x1 != 0 { 0xFC00 } else { 0x0000 } | val) as i16 as i32)
+    }
     pub fn from_frac12(val: i32) -> Self { FixedPoint(val) }
     pub fn num(&self) -> usize { (self.0 >> 12) as usize }
     pub fn raw(&self) -> i32 { self.0 }
