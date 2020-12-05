@@ -8,7 +8,7 @@ mod math;
 mod geometry;
 mod rendering;
 
-use math::Matrix;
+use math::{FixedPoint, Matrix};
 use geometry::*;
 use registers::*;
 
@@ -51,6 +51,7 @@ pub struct Engine3D {
     polygon_attrs: PolygonAttributes,
     polygon_attrs_latch: PolygonAttributes,
     vertex_primitive: VertexPrimitive,
+    prev_pos: [FixedPoint; 3],
     color: Color,
     cur_poly_verts: Vec<Vertex>,
     vertices: Vec<Vertex>,
@@ -103,6 +104,7 @@ impl Engine3D {
             polygon_attrs: PolygonAttributes::new(),
             polygon_attrs_latch: PolygonAttributes::new(),
             vertex_primitive: VertexPrimitive::Triangles,
+            prev_pos: [FixedPoint::zero(); 3],
             color: Color::new(0, 0, 0),
             cur_poly_verts: Vec::with_capacity(10),
             vertices: Vec::new(),

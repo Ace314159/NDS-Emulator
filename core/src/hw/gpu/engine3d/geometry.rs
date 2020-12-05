@@ -125,6 +125,21 @@ impl Engine3D {
                 FixedPoint::from_frac12((self.params[0] >> 16) as u16 as i16 as i32),
                 FixedPoint::from_frac12((self.params[1] >> 0) as u16 as i16 as i32),
             ),
+            VtxXY => self.submit_vertex(
+                FixedPoint::from_frac12((self.params[0] >> 0) as u16 as i16 as i32),
+                FixedPoint::from_frac12((self.params[0] >> 16) as u16 as i16 as i32),
+                self.prev_pos[2],
+            ),
+            VtxXZ => self.submit_vertex(
+                FixedPoint::from_frac12((self.params[0] >> 0) as u16 as i16 as i32),
+                self.prev_pos[1],
+                FixedPoint::from_frac12((self.params[0] >> 16) as u16 as i16 as i32),
+            ),
+            VtxYZ => self.submit_vertex(
+                self.prev_pos[0],
+                FixedPoint::from_frac12((self.params[0] >> 0) as u16 as i16 as i32),
+                FixedPoint::from_frac12((self.params[0] >> 16) as u16 as i16 as i32),
+            ),
             PolygonAttr => self.polygon_attrs.write(param),
             TexImageParam => self.tex_params.write(param),
             PlttBase => info!("Unimplemented Pltt Base 0x{:X}", param),
@@ -205,6 +220,7 @@ impl Engine3D {
     }
 
     fn submit_vertex(&mut self, x: FixedPoint, y: FixedPoint, z: FixedPoint) {
+        self.prev_pos = [x, y, z];
         let vertex_pos = Vec4::new(x, y, z, FixedPoint::one());
         let clip_coords = self.cur_pos * self.cur_proj * vertex_pos;
 
@@ -353,6 +369,9 @@ pub enum GeometryCommand {
     Normal = 0x21,
     TexCoord = 0x22,
     Vtx16 = 0x23,
+    VtxXY = 0x24,
+    VtxXZ = 0x26,
+    VtxYZ = 0x27,
     PolygonAttr = 0x29,
     TexImageParam = 0x2A,
     PlttBase = 0x2B,
@@ -388,6 +407,9 @@ impl GeometryCommand {
             0x484 => Normal,
             0x488 => TexCoord,
             0x48C => Vtx16,
+            0x494 => VtxXY,
+            0x498 => VtxXZ,
+            0x49C => VtxYZ,
             0x4A4 => PolygonAttr,
             0x4A8 => TexImageParam,
             0x4AC => PlttBase,
@@ -424,6 +446,9 @@ impl GeometryCommand {
             0x21 => Normal,
             0x22 => TexCoord,
             0x23 => Vtx16,
+            0x25 => VtxXY,
+            0x26 => VtxXZ,
+            0x27 => VtxYZ,
             0x29 => PolygonAttr,
             0x2A => TexImageParam,
             0x2B => PlttBase,
@@ -460,6 +485,9 @@ impl GeometryCommand {
             Normal => 9, // TODO: Add extra cycles depending on num of enabled lights
             TexCoord => 1,
             Vtx16 => 7,
+            VtxXY => 8,
+            VtxXZ => 8,
+            VtxYZ => 8,
             PolygonAttr => 0,
             TexImageParam => 0,
             PlttBase => 1,
@@ -496,6 +524,9 @@ impl GeometryCommand {
             Normal => 1,
             TexCoord => 1,
             Vtx16 => 2,
+            VtxXY => 1,
+            VtxXZ => 1,
+            VtxYZ => 1,
             PolygonAttr => 1,
             TexImageParam => 1,
             PlttBase => 1,
