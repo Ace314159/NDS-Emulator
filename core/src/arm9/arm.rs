@@ -391,7 +391,6 @@ impl ARM9 {
         } else {
             let addr = addr & !0x1;
             if opcode == 2 || opcode == 3 {
-                assert!(base_reg != src_dest_reg && base_reg != src_dest_reg + 1); // Rn != Rd and Rn != Rd + 1
                 assert!(src_dest_reg % 2 == 0 && src_dest_reg != 14); // Rd is a multiple of 2 and cannot be 14
                 assert!(addr & 0x7 == 0); // Addr must be double-word aligned
                 // For STRD, Rm != Rd and Rm != Rd + 1
@@ -406,6 +405,7 @@ impl ARM9 {
                     self.regs.set_reg_i(src_dest_reg + 1, value2);
                 },
                 3 => { // STRD
+                    assert!(base_reg != src_dest_reg && base_reg != src_dest_reg + 1); // Rn != Rd and Rn != Rd + 1
                     self.write::<u32>(hw, AccessType::N, addr, self.regs.get_reg_i(src_dest_reg));
                     self.write::<u32>(hw, AccessType::N, addr + 4, self.regs.get_reg_i(src_dest_reg + 1));
                 },
