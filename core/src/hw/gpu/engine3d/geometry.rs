@@ -118,6 +118,8 @@ impl Engine3D {
             MtxScale => self.apply_cur_mat(Matrix::scale, false),
             MtxTrans => self.apply_cur_mat(Matrix::translate, true),
             Color => self.color = self::Color::from(param as u16), // TODO: Expand to 6 bit RGB
+            Normal => info!("Unimplemented Normal 0x{:X}", param),
+            TexCoord => { self.color = self::Color::from(0xFFFF); info!("Unimplemented Tex Coord 0x{:X}", param) },
             Vtx16 => self.submit_vertex(
                 FixedPoint::from_frac12((self.params[0] >> 0) as u16 as i16 as i32),
                 FixedPoint::from_frac12((self.params[0] >> 16) as u16 as i16 as i32),
@@ -125,11 +127,11 @@ impl Engine3D {
             ),
             PolygonAttr => self.polygon_attrs.write(param),
             TexImageParam => self.tex_params.write(param),
-            PlttBase => warn!("Unimplemented Pltt Base 0x{:X}", param),
-            DifAmb => warn!("Unimplemented Dif Amb 0x{:X}", param),
-            SpeEmi => warn!("Unimplemented Spe Emi 0x{:X}", param),
-            LightVector => warn!("Unimplemented Light Vector 0x{:X}", param),
-            LightColor => warn!("Unimplemented Light Color 0x{:X}", param),
+            PlttBase => info!("Unimplemented Pltt Base 0x{:X}", param),
+            DifAmb => info!("Unimplemented Dif Amb 0x{:X}", param),
+            SpeEmi => info!("Unimplemented Spe Emi 0x{:X}", param),
+            LightVector => info!("Unimplemented Light Vector 0x{:X}", param),
+            LightColor => info!("Unimplemented Light Color 0x{:X}", param),
             BeginVtxs => {
                 self.polygon_attrs_latch = self.polygon_attrs.clone();
                 self.vertex_primitive = VertexPrimitive::from(param & 0x3);
@@ -348,6 +350,8 @@ pub enum GeometryCommand {
     MtxScale = 0x1B,
     MtxTrans = 0x1C,
     Color = 0x20,
+    Normal = 0x21,
+    TexCoord = 0x22,
     Vtx16 = 0x23,
     PolygonAttr = 0x29,
     TexImageParam = 0x2A,
@@ -381,6 +385,8 @@ impl GeometryCommand {
             0x46C => MtxScale,
             0x470 => MtxTrans,
             0x480 => Color,
+            0x484 => Normal,
+            0x488 => TexCoord,
             0x48C => Vtx16,
             0x4A4 => PolygonAttr,
             0x4A8 => TexImageParam,
@@ -415,6 +421,8 @@ impl GeometryCommand {
             0x1B => MtxScale,
             0x1C => MtxTrans,
             0x20 => Color,
+            0x21 => Normal,
+            0x22 => TexCoord,
             0x23 => Vtx16,
             0x29 => PolygonAttr,
             0x2A => TexImageParam,
@@ -449,6 +457,8 @@ impl GeometryCommand {
             MtxScale => 22, // TODO: Add extra cycles for MTX_MODE 2
             MtxTrans => 19, // TODO: Add extra cycles for MTX_MODE 2
             Color => 0,
+            Normal => 9, // TODO: Add extra cycles depending on num of enabled lights
+            TexCoord => 1,
             Vtx16 => 7,
             PolygonAttr => 0,
             TexImageParam => 0,
@@ -483,6 +493,8 @@ impl GeometryCommand {
             MtxScale => 3,
             MtxTrans => 3,
             Color => 1,
+            Normal => 1,
+            TexCoord => 1,
             Vtx16 => 2,
             PolygonAttr => 1,
             TexImageParam => 1,
