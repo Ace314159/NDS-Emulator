@@ -118,8 +118,8 @@ impl Engine3D {
             MtxScale => self.apply_cur_mat(Matrix::scale, false),
             MtxTrans => self.apply_cur_mat(Matrix::translate, true),
             Color => self.color = self::Color::from(param as u16), // TODO: Expand to 6 bit RGB
-            Normal => info!("Unimplemented Normal 0x{:X}", param),
-            TexCoord => { self.color = self::Color::from(0xFFFF); info!("Unimplemented Tex Coord 0x{:X}", param) },
+            Normal => warn!("Unimplemented Normal 0x{:X}", param),
+            TexCoord => { self.color = self::Color::from(0xFFFF); warn!("Unimplemented Tex Coord 0x{:X}", param) },
             Vtx16 => self.submit_vertex(
                 FixedPoint::from_frac12((self.params[0] >> 0) as u16 as i16 as i32),
                 FixedPoint::from_frac12((self.params[0] >> 16) as u16 as i16 as i32),
@@ -147,11 +147,11 @@ impl Engine3D {
             ),
             PolygonAttr => self.polygon_attrs.write(param),
             TexImageParam => self.tex_params.write(param),
-            PlttBase => info!("Unimplemented Pltt Base 0x{:X}", param),
-            DifAmb => info!("Unimplemented Dif Amb 0x{:X}", param),
-            SpeEmi => info!("Unimplemented Spe Emi 0x{:X}", param),
-            LightVector => info!("Unimplemented Light Vector 0x{:X}", param),
-            LightColor => info!("Unimplemented Light Color 0x{:X}", param),
+            PlttBase => warn!("Unimplemented Pltt Base 0x{:X}", param),
+            DifAmb => warn!("Unimplemented Dif Amb 0x{:X}", param),
+            SpeEmi => warn!("Unimplemented Spe Emi 0x{:X}", param),
+            LightVector => warn!("Unimplemented Light Vector 0x{:X}", param),
+            LightColor => warn!("Unimplemented Light Color 0x{:X}", param),
             BeginVtxs => {
                 self.cur_poly_verts.clear();
                 self.swap_verts = false;

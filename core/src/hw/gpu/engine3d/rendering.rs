@@ -59,7 +59,7 @@ impl Engine3D {
         );
         let cross_product = a.1 * b.0 - a.0 * b.1;
         let can_draw = match cross_product {
-            0 => { warn!("Not Drawing Line"); false }, // Line - TODO
+            0 => { info!("Not Drawing Line"); false }, // Line - TODO
             _ if cross_product < 0 => front, // Front
             _ if cross_product > 0 => !front, // Back
             _ => unreachable!(),
