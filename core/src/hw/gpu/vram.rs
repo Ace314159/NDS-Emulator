@@ -82,6 +82,10 @@ impl VRAM {
         }
     }
 
+    pub fn read_vram_cnt(&self, index: usize) -> u8 {
+        self.cnts[index].read()
+    }
+
     pub fn write_vram_cnt(&mut self, index: usize, value: u8) {
         let bank = Bank::from_index(index);
         let new_cnt = VRAMCNT::new(index, value);
@@ -312,6 +316,7 @@ struct VRAMCNT {
     mst: u8,
     offset: u8,
     enabled: bool,
+    byte: u8,
 }
 
 impl VRAMCNT {
@@ -323,7 +328,12 @@ impl VRAMCNT {
             mst: byte & VRAMCNT::MST_MASKS[index],
             offset: byte >> 3 & VRAMCNT::OFS_MASKS[index],
             enabled: byte >> 7 & 0x1 != 0,
+            byte,
         }
+    }
+
+    pub fn read(&self) -> u8 {
+        self.byte
     }
 }
 
