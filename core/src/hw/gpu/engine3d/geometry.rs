@@ -154,6 +154,7 @@ impl Engine3D {
             LightColor => info!("Unimplemented Light Color 0x{:X}", param),
             BeginVtxs => {
                 self.cur_poly_verts.clear();
+                self.swap_verts = false;
                 self.polygon_attrs_latch = self.polygon_attrs.clone();
                 self.vertex_primitive = VertexPrimitive::from(param & 0x3);
             },
@@ -251,9 +252,11 @@ impl Engine3D {
                 if self.cur_poly_verts.len() == 3 {
                     let new_vert0 = self.cur_poly_verts[1];
                     let new_vert1 = self.cur_poly_verts[2];
+                    if self.swap_verts { self.cur_poly_verts.swap(1, 2) }
                     self.submit_polygon();
                     self.cur_poly_verts.push(new_vert0);
                     self.cur_poly_verts.push(new_vert1);
+                    self.swap_verts = !self.swap_verts;
                 }
             },
             _ => todo!(),
