@@ -119,7 +119,14 @@ impl Engine3D {
             MtxTrans => self.apply_cur_mat(Matrix::translate, true),
             Color => self.color = self::Color::from(param as u16), // TODO: Expand to 6 bit RGB
             Normal => warn!("Unimplemented Normal 0x{:X}", param),
-            TexCoord => { self.color = self::Color::from(0xFFFF); warn!("Unimplemented Tex Coord 0x{:X}", param) },
+            TexCoord => {
+                self.raw_tex_coord = [
+                    (self.params[0] >> 0) as i16,
+                    (self.params[0] >> 16) as i16,
+                ];
+                self.tex_coord = self.raw_tex_coord;
+                self.transform_tex_coord(TexCoordTransformationMode::TexCoord);
+            },
             Vtx16 => self.submit_vertex(
                 FixedPoint::from_frac12((self.params[0] >> 0) as u16 as i16 as i32),
                 FixedPoint::from_frac12((self.params[0] >> 16) as u16 as i16 as i32),
@@ -226,16 +233,33 @@ impl Engine3D {
         }
     }
 
+    // Use Const Generics
+    fn transform_tex_coord(&mut self, transformation_mode: TexCoordTransformationMode) {
+        if self.tex_params.coord_transformation_mode != transformation_mode { return }
+        let s = self.raw_tex_coord[0] as i32;
+        let t = self.raw_tex_coord[1] as i32;
+        let m = self.cur_tex.elems();
+        self.tex_coord = match self.tex_params.coord_transformation_mode {
+            TexCoordTransformationMode::None => self.raw_tex_coord,
+            TexCoordTransformationMode::TexCoord => [
+                ((s * m[0].raw() + t * m[4].raw() + m[8].raw() + m[12].raw()) >> 12) as i16,
+                ((s * m[1].raw() + t * m[4].raw() + m[9].raw() + m[13].raw()) >> 12) as i16,
+            ],
+        };
+    }
+
     fn submit_vertex(&mut self, x: FixedPoint, y: FixedPoint, z: FixedPoint) {
         self.prev_pos = [x, y, z];
         let vertex_pos = Vec4::new(x, y, z, FixedPoint::one());
         let clip_coords = self.cur_pos * self.cur_proj * vertex_pos;
 
+        // TODO: Transform tex coord
         self.cur_poly_verts.push(Vertex {
             clip_coords,
             screen_coords: [0, 0], // Temp - Calculated after clipping
             z_depth: 0, // Temp - Calculated after clipping
             color: self.color,
+            tex_coord: self.tex_coord,
         });
         match self.vertex_primitive {
             VertexPrimitive::Triangles => {
@@ -363,6 +387,10 @@ impl Engine3D {
                 interpolate(inside.color.g as i32, out.color.g as i32) as u8,
                 interpolate(inside.color.b as i32, out.color.b as i32) as u8,
             ),
+            tex_coord: [
+                interpolate(inside.tex_coord[0] as i32, out.tex_coord[0] as i32) as i16,
+                interpolate(inside.tex_coord[1] as i32, out.tex_coord[1] as i32) as i16,
+            ]
         }
     }
 }
@@ -635,6 +663,7 @@ pub struct Vertex {
     pub screen_coords: [usize; 2],
     pub z_depth: u32, // 24 bit depth
     pub color: Color,
+    pub tex_coord: [i16; 2], // 1 + 11 + 4 fixed point
 }
 
 impl Vertex {
@@ -644,6 +673,7 @@ impl Vertex {
             screen_coords: [0, 0],
             z_depth: 0,
             color: Color::new(0, 0, 0),
+            tex_coord: [0, 0],
         }
     }
 }

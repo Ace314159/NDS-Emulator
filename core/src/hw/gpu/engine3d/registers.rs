@@ -142,16 +142,16 @@ impl IORegister for ClearDepth {
 }
 
 pub struct TextureParams {
-    vram_offset: usize,
-    repeat_s: bool,
-    repeat_t: bool,
-    flip_s: bool,
-    flip_t: bool,
-    size_s: usize,
-    size_t: usize,
-    format: TextureFormat,
-    color0_transparent: bool,
-    coord_transformation_mode: TexCoordTransformationMode, 
+    pub vram_offset: usize,
+    pub repeat_s: bool,
+    pub repeat_t: bool,
+    pub flip_s: bool,
+    pub flip_t: bool,
+    pub size_s: usize,
+    pub size_t: usize,
+    pub format: TextureFormat,
+    pub color0_transparent: bool,
+    pub coord_transformation_mode: TexCoordTransformationMode, 
 }
 
 impl TextureParams {
@@ -186,25 +186,30 @@ impl TextureParams {
 
 pub enum TextureFormat {
     NoTexture = 0,
+    DirectColor = 7,
 }
 
 impl From<u32> for TextureFormat {
     fn from(value: u32) -> Self {
         match value {
             0 => TextureFormat::NoTexture,
+            7 => TextureFormat::DirectColor,
             _ => todo!(),
         }
     }
 }
 
+#[derive(PartialEq)]
 pub enum TexCoordTransformationMode {
     None = 0,
+    TexCoord = 1,
 }
 
 impl From<u32> for TexCoordTransformationMode {
     fn from(value: u32) -> Self {
         match value {
             0 => TexCoordTransformationMode::None,
+            1 => TexCoordTransformationMode::TexCoord,
             _ => todo!(),
         }
     }

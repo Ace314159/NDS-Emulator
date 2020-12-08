@@ -6,6 +6,7 @@ pub struct Matrix {
 }
 
 impl Matrix {
+    pub fn elems(&self) -> &[FixedPoint] { &self.elems }
     pub fn identity() -> Self {
         Matrix {
             elems: [
