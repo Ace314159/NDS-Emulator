@@ -97,26 +97,16 @@ impl Engine3D {
             (Box::new(clockwise), Box::new(counterclockwise))
         };
         let new_left_vert = prev_vert(left_vert);
-        let mut left_colors = ColorSlope::new(
-            &vertices[left_vert].color,
-            &vertices[new_left_vert].color,
-            vertices[new_left_vert].screen_coords[1] - vertices[left_vert].screen_coords[1],
-        );
-        let mut left_slope = PositionSlope::from_verts(
+        let mut left_slope = VertexSlope::from_verts(
             &vertices[left_vert],
             &vertices[new_left_vert],
         );
         let mut left_end = vertices[new_left_vert].screen_coords[1];
         left_vert = new_left_vert;
         let new_right_vert = next_vert(right_vert);
-        let mut right_slope = PositionSlope::from_verts(
+        let mut right_slope = VertexSlope::from_verts(
             &vertices[right_vert],
             &vertices[new_right_vert],
-        );
-        let mut right_colors = ColorSlope::new(
-            &vertices[right_vert].color,
-            &vertices[new_right_vert].color,
-            vertices[new_right_vert].screen_coords[1] - vertices[right_vert].screen_coords[1],
         );
         let mut right_end = vertices[new_right_vert].screen_coords[1];
         right_vert = new_right_vert;
@@ -126,31 +116,21 @@ impl Engine3D {
             // TODO: Should this be fixed in clipping or rendering code?
             while y == left_end {
                 let new_left_vert = prev_vert(left_vert);
-                left_slope = PositionSlope::from_verts(&vertices[left_vert], &vertices[new_left_vert]);
-                left_colors = ColorSlope::new(
-                    &vertices[left_vert].color,
-                    &vertices[new_left_vert].color,
-                    vertices[new_left_vert].screen_coords[1] - vertices[left_vert].screen_coords[1],
-                );
+                left_slope = VertexSlope::from_verts(&vertices[left_vert], &vertices[new_left_vert]);
                 left_end = vertices[new_left_vert].screen_coords[1];
                 left_vert = new_left_vert;
             }
             while y == right_end {
                 let new_right_vert = next_vert(right_vert);
-                right_slope = PositionSlope::from_verts(&vertices[right_vert],&vertices[new_right_vert]);
-                right_colors = ColorSlope::new(
-                    &vertices[right_vert].color,
-                    &vertices[new_right_vert].color,
-                    vertices[new_right_vert].screen_coords[1] - vertices[right_vert].screen_coords[1],
-                );
+                right_slope = VertexSlope::from_verts(&vertices[right_vert],&vertices[new_right_vert]);
                 right_end = vertices[new_right_vert].screen_coords[1];
                 right_vert = new_right_vert;
             }
             let x_start = left_slope.next_x() as usize;
             let x_end = right_slope.next_x() as usize;
             let mut color = ColorSlope::new(
-                &left_colors.next(),
-                &right_colors.next(),
+                &left_slope.next_color(),
+                &right_slope.next_color(),
                 x_end - x_start,
             );
             let mut depth = Slope::new(
@@ -190,18 +170,24 @@ impl Slope {
     }
 }
 
-struct PositionSlope {
+struct VertexSlope {
     x: Slope,
     depth: Slope,
+    color: ColorSlope,
 }
 
-impl PositionSlope {
+impl VertexSlope {
     pub fn from_verts(start: &Vertex, end: &Vertex) -> Self {
         let num_steps = end.screen_coords[1] - start.screen_coords[1];
         // TODO: Implement w-buffer
-        PositionSlope {
+        VertexSlope {
             x: Slope::new(start.screen_coords[0] as f32, end.screen_coords[0] as f32, num_steps),
             depth: Slope::new(start.z_depth as f32, end.z_depth as f32, num_steps),
+            color: ColorSlope::new(
+                &start.color,
+                &end.color,
+                end.screen_coords[1] - start.screen_coords[1],
+            ),
         }
     }
 
@@ -211,6 +197,10 @@ impl PositionSlope {
 
     pub fn next_depth(&mut self) -> f32 {
         self.depth.next()
+    }
+
+    pub fn next_color(&mut self) -> Color {
+        self.color.next()
     }
 }
 
