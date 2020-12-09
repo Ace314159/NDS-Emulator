@@ -16,6 +16,7 @@ pub struct VRAM {
     engine_a_bg_ext_pal: Vec<Vec<Bank>>,
     engine_a_obj_ext_pal: Vec<Vec<Bank>>,
     textures: Vec<Vec<Bank>>,
+    textures_pal: Vec<Vec<Bank>>,
     engine_b_bg: Vec<Vec<Bank>>,
     engine_b_obj: Vec<Vec<Bank>>,
     engine_b_bg_ext_pal: Vec<Vec<Bank>>,
@@ -76,6 +77,7 @@ impl VRAM {
             engine_a_bg_ext_pal: create_vecs(2),
             engine_a_obj_ext_pal: create_vecs(1),
             textures: create_vecs(32),
+            textures_pal: create_vecs(6),
             engine_b_bg: create_vecs(8),
             engine_b_obj: create_vecs(8),
             engine_b_bg_ext_pal: create_vecs(2),
@@ -104,7 +106,7 @@ impl VRAM {
                 // TODO: Replace with match or syntax
                 (VRAM::BANK_A ..= VRAM::BANK_B, 2) | (VRAM::BANK_E ..= VRAM::BANK_G, 2) =>
                     VRAM::remove_mapping(&mut self.engine_a_obj,
-                    bank,bank.get_engine_a_offset(self.cnts[index].offset), None),
+                    bank, bank.get_engine_a_offset(self.cnts[index].offset), None),
                 (VRAM::BANK_E, 4) =>
                     VRAM::remove_mapping(&mut self.engine_a_bg_ext_pal, bank, 0, Some(32 * 0x400)),
                 (VRAM::BANK_F ..= VRAM::BANK_G, 4) => VRAM::remove_mapping(&mut self.engine_a_bg_ext_pal, bank,
@@ -123,7 +125,10 @@ impl VRAM {
                     VRAM::remove_mapping(&mut self.engine_b_obj_ext_pal, bank, 0, Some(8 * 0x400)),
                 (VRAM::BANK_C ..= VRAM::BANK_D, 2) => self.remove_arm7_wram_mapping(bank, self.cnts[index].offset),
                 (VRAM::BANK_A ..= VRAM::BANK_D, 3) => VRAM::remove_mapping(&mut self.textures, bank, 0, None),
-                (_index, 3 ..= 5) => warn!("Unimplemented VRAM Mapping {:?}: {}", bank, self.cnts[index].mst),
+                (VRAM::BANK_E, 3) => VRAM::remove_mapping(&mut self.textures, bank, 0, None),
+                (VRAM::BANK_F ..= VRAM::BANK_G, 3) =>
+                    VRAM::remove_mapping(&mut self.textures_pal,
+                    bank, bank.get_textures_pal_offset(self.cnts[index].offset), None),
                 _ => unreachable!(),
             }
         }
@@ -160,7 +165,10 @@ impl VRAM {
                 VRAM::add_mapping(&mut self.engine_b_obj_ext_pal, bank, 0, Some(8 * 0x400)),
             (VRAM::BANK_C ..= VRAM::BANK_D, 2) => self.add_arm7_wram_mapping(bank, self.cnts[index].offset),
             (VRAM::BANK_A ..= VRAM::BANK_D, 3) => VRAM::add_mapping(&mut self.textures, bank, 0, None),
-            (_index, 3 ..= 5) => warn!("Unimplemented VRAM Mapping {:?}: {}", bank, self.cnts[index].mst),
+            (VRAM::BANK_E, 3) => VRAM::add_mapping(&mut self.textures, bank, 0, None),
+            (VRAM::BANK_F ..= VRAM::BANK_G, 3) =>
+                VRAM::add_mapping(&mut self.textures_pal,
+                bank, bank.get_textures_pal_offset(self.cnts[index].offset), None),
             _ => unreachable!(),
         }
     }
@@ -264,6 +272,10 @@ impl VRAM {
 
     pub fn get_textures<T: MemoryValue>(&self, addr: usize) -> T {
         VRAM::read_mapping(&self.banks, &self.textures[addr / VRAM::MAPPING_LEN], addr)
+    }
+
+    pub fn get_textures_pal<T: MemoryValue>(&self, addr: usize) -> T{
+        VRAM::read_mapping(&self.banks, &self.textures_pal[addr / VRAM::MAPPING_LEN], addr)
     }
 
     fn read_mapping<T: MemoryValue>(banks: &[Vec<u8>], mapping: &Vec<Bank>, addr: usize) -> T {
@@ -381,6 +393,11 @@ impl Bank {
             Bank::F | Bank::G => 0x4000 * (offset & 0x1) + 0x1_0000 * (offset >> 1 & 0x1),
             Bank::H | Bank::I => unreachable!(),
         }
+    }
+
+    pub fn get_textures_pal_offset(&self, offset: u8) -> usize {
+        let slot = ((offset >> 1) & 0x1) * 4 + ((offset >> 0) & 0x1) * 1;
+        slot as usize * 0x400 * 16
     }
 
     pub fn get_ext_bg_pal_offset(&self, offset: u8) -> usize {
