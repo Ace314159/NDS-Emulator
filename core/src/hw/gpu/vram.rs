@@ -124,10 +124,10 @@ impl VRAM {
                 (VRAM::BANK_I, 3) =>
                     VRAM::remove_mapping(&mut self.engine_b_obj_ext_pal, bank, 0, Some(8 * 0x400)),
                 (VRAM::BANK_C ..= VRAM::BANK_D, 2) => self.remove_arm7_wram_mapping(bank, self.cnts[index].offset),
-                (VRAM::BANK_A ..= VRAM::BANK_D, 3) => VRAM::remove_mapping(&mut self.textures, bank, 0, None),
+                (VRAM::BANK_A ..= VRAM::BANK_D, 3) => VRAM::remove_mapping(&mut self.textures,
+                    bank, bank.get_textures_offset(self.cnts[index].offset), None),
                 (VRAM::BANK_E, 3) => VRAM::remove_mapping(&mut self.textures, bank, 0, None),
-                (VRAM::BANK_F ..= VRAM::BANK_G, 3) =>
-                    VRAM::remove_mapping(&mut self.textures_pal,
+                (VRAM::BANK_F ..= VRAM::BANK_G, 3) => VRAM::remove_mapping(&mut self.textures_pal,
                     bank, bank.get_textures_pal_offset(self.cnts[index].offset), None),
                 _ => unreachable!(),
             }
@@ -164,10 +164,10 @@ impl VRAM {
             (VRAM::BANK_I, 3) =>
                 VRAM::add_mapping(&mut self.engine_b_obj_ext_pal, bank, 0, Some(8 * 0x400)),
             (VRAM::BANK_C ..= VRAM::BANK_D, 2) => self.add_arm7_wram_mapping(bank, self.cnts[index].offset),
-            (VRAM::BANK_A ..= VRAM::BANK_D, 3) => VRAM::add_mapping(&mut self.textures, bank, 0, None),
+            (VRAM::BANK_A ..= VRAM::BANK_D, 3) => VRAM::add_mapping(&mut self.textures,
+                bank, bank.get_textures_offset(self.cnts[index].offset), None),
             (VRAM::BANK_E, 3) => VRAM::add_mapping(&mut self.textures, bank, 0, None),
-            (VRAM::BANK_F ..= VRAM::BANK_G, 3) =>
-                VRAM::add_mapping(&mut self.textures_pal,
+            (VRAM::BANK_F ..= VRAM::BANK_G, 3) => VRAM::add_mapping(&mut self.textures_pal,
                 bank, bank.get_textures_pal_offset(self.cnts[index].offset), None),
             _ => unreachable!(),
         }
@@ -393,6 +393,10 @@ impl Bank {
             Bank::F | Bank::G => 0x4000 * (offset & 0x1) + 0x1_0000 * (offset >> 1 & 0x1),
             Bank::H | Bank::I => unreachable!(),
         }
+    }
+
+    pub fn get_textures_offset(&self, offset: u8) -> usize {
+        offset as usize * 0x400 * 128
     }
 
     pub fn get_textures_pal_offset(&self, offset: u8) -> usize {
