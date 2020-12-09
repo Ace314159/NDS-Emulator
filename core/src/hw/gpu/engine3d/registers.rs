@@ -188,6 +188,7 @@ impl TextureParams {
 #[derive(Clone, Copy)]
 pub enum TextureFormat {
     NoTexture = 0,
+    A3I5 = 1,
     Palette4 = 2,
     Palette16 = 3,
     Palette256 = 4,
@@ -198,6 +199,7 @@ impl From<u32> for TextureFormat {
     fn from(value: u32) -> Self {
         match value {
             0 => TextureFormat::NoTexture,
+            1 => TextureFormat::A3I5,
             2 => TextureFormat::Palette4,
             3 => TextureFormat::Palette16,
             4 => TextureFormat::Palette256,

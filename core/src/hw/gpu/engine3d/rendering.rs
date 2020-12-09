@@ -35,6 +35,12 @@ impl Engine3D {
                 let texel = t * polygon.tex_params.size_s + s;
                 match polygon.tex_params.format {
                     TextureFormat::NoTexture => color,
+                    TextureFormat::A3I5 => {
+                        // TODO: Use alpha bits
+                        let byte = vram.get_textures::<u8>(vram_offset + texel);
+                        let palette_color = byte & 0x1F;
+                        vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize)
+                    },
                     TextureFormat::Palette4 => {
                         let palette_color = vram.get_textures::<u8>(vram_offset + texel / 4) >> 2 * (texel % 4) & 0x3;
                         vram.get_textures_pal::<u16>(pal_offset / 2 + 2 * palette_color as usize)
