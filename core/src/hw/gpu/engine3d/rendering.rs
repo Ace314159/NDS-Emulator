@@ -38,6 +38,10 @@ impl Engine3D {
                         let palette_color = vram.get_textures::<u8>(vram_offset + texel / 4) >> 2 * (texel % 4) & 0x3;
                         vram.get_textures_pal::<u16>(pal_offset / 2 + 2 * palette_color as usize)
                     }
+                    TextureFormat::Palette16 => {
+                        let palette_color = vram.get_textures::<u8>(vram_offset + texel / 2) >> 4 * (texel % 2) & 0xF;
+                        vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize)
+                    },
                     TextureFormat::DirectColor => vram.get_textures::<u16>(vram_offset + 2 * texel),
                 }
             };

@@ -189,6 +189,7 @@ impl TextureParams {
 pub enum TextureFormat {
     NoTexture = 0,
     Palette4 = 2,
+    Palette16 = 3,
     DirectColor = 7,
 }
 
@@ -197,6 +198,7 @@ impl From<u32> for TextureFormat {
         match value {
             0 => TextureFormat::NoTexture,
             2 => TextureFormat::Palette4,
+            3 => TextureFormat::Palette16,
             7 => TextureFormat::DirectColor,
             _ => todo!(),
         }
