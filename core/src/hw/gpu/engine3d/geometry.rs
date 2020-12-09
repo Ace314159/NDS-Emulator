@@ -121,8 +121,8 @@ impl Engine3D {
             Normal => warn!("Unimplemented Normal 0x{:X}", param),
             TexCoord => {
                 self.raw_tex_coord = [
-                    (self.params[0] >> 0) as i16,
-                    (self.params[0] >> 16) as i16,
+                    (self.params[0] >> 0) as u16 as i16,
+                    (self.params[0] >> 16) as u16 as i16,
                 ];
                 self.tex_coord = self.raw_tex_coord;
                 self.transform_tex_coord(TexCoordTransformationMode::TexCoord);
@@ -243,7 +243,7 @@ impl Engine3D {
             TexCoordTransformationMode::None => self.raw_tex_coord,
             TexCoordTransformationMode::TexCoord => [
                 ((s * m[0].raw() + t * m[4].raw() + m[8].raw() + m[12].raw()) >> 12) as i16,
-                ((s * m[1].raw() + t * m[4].raw() + m[9].raw() + m[13].raw()) >> 12) as i16,
+                ((s * m[1].raw() + t * m[5].raw() + m[9].raw() + m[13].raw()) >> 12) as i16,
             ],
         };
     }
