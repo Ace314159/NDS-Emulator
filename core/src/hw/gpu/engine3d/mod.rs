@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use crate::hw::mmu::IORegister;
-use super::{GPU, Scheduler};
+use super::{GPU, Scheduler, super::InterruptRequest};
 
 mod registers;
 mod math;
@@ -121,9 +121,12 @@ impl Engine3D {
             tex_coord: [0; 2], // 1 + 11 + 4 fixed point
         }
     }
-    
-    pub fn clock(&mut self, cycles: usize) -> bool {
-        if self.polygons_submitted { return false }
+
+    pub fn clock(&mut self, cycles: usize, interrupts: &mut InterruptRequest) -> bool {
+        if self.polygons_submitted {
+            self.check_interrupts(interrupts);
+            return false
+        }
         self.cycles_ahead += cycles as i32;
         while self.cycles_ahead > 0 {
             if let Some(command_entry) = self.gxpipe.pop_front() {
@@ -135,7 +138,16 @@ impl Engine3D {
                 }
             } else { self.cycles_ahead = 0; break }
         }
+        self.check_interrupts(interrupts);
         self.gxfifo.len() < Engine3D::FIFO_LEN / 2
+    }
+
+    fn check_interrupts(&self, interrupts: &mut InterruptRequest) {
+        if match self.gxstat.command_fifo_irq {
+            CommandFifoIRQ::Never => false,
+            CommandFifoIRQ::LessHalf => self.gxfifo.len() < Engine3D::FIFO_LEN / 2,
+            CommandFifoIRQ::Empty => self.gxfifo.len() == 0,
+        } { *interrupts |= InterruptRequest::GEOMETRY_COMMAND_FIFO }
     }
 }
 

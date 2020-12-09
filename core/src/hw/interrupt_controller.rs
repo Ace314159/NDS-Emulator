@@ -42,6 +42,7 @@ bitflags! {
         const IPC_RECV_FIFO_NOT_EMPTY = 1 << 18;
         const GAME_CARD_TRANSFER_COMPLETION = 1 << 19;
         const GAME_CARD_IREQ_MC = 1 << 20;
+        const GEOMETRY_COMMAND_FIFO = 1 << 21;
     }
 }
 
@@ -72,6 +73,7 @@ bitflags! {
         const IPC_RECV_FIFO_NOT_EMPTY = 1 << 18;
         const GAME_CARD_TRANSFER_COMPLETION = 1 << 19;
         const GAME_CARD_IREQ_MC = 1 << 20;
+        const GEOMETRY_COMMAND_FIFO = 1 << 21; // TODO: Don't include for interrupts7
     }
 }
 

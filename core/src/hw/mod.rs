@@ -113,7 +113,7 @@ impl HW {
 
     pub fn clock(&mut self, arm7_cycles: usize) {
         self.handle_events(arm7_cycles);
-        if self.gpu.engine3d.clock(arm7_cycles) {
+        if self.gpu.engine3d.clock(arm7_cycles, &mut self.interrupts9.request) {
             self.check_dmas(DMAOccasion::GeometryCommandFIFO);
         }
     }
