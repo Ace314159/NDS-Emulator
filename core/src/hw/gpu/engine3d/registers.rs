@@ -190,6 +190,7 @@ pub enum TextureFormat {
     NoTexture = 0,
     Palette4 = 2,
     Palette16 = 3,
+    Palette256 = 4,
     DirectColor = 7,
 }
 
@@ -199,6 +200,7 @@ impl From<u32> for TextureFormat {
             0 => TextureFormat::NoTexture,
             2 => TextureFormat::Palette4,
             3 => TextureFormat::Palette16,
+            4 => TextureFormat::Palette256,
             7 => TextureFormat::DirectColor,
             _ => todo!(),
         }
