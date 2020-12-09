@@ -1,4 +1,4 @@
-use super::{GPU, Color, geometry::Vertex, Engine3D};
+use super::{GPU, Color, geometry::Vertex, Engine3D, super::VRAM, TextureFormat};
 
 impl Engine3D {
     pub fn get_line(&self, vcount: u16, line: &mut [u16; GPU::WIDTH]) {
@@ -7,7 +7,7 @@ impl Engine3D {
         }
     }
 
-    pub fn render(&mut self) {
+    pub fn render(&mut self, vram: &VRAM) {
         if !self.polygons_submitted { return }
         // TODO: Add more accurate interpolation
         // TODO: Optimize
@@ -19,21 +19,30 @@ impl Engine3D {
 
         assert!(!self.frame_params.w_buffer); // TODO: Implement W-Buffer
         // TODO: Account for special cases
+        // TODO: Remove with const generics
         fn eq_depth_test(cur_depth: u32, new_depth: u32) -> bool {
             new_depth >= cur_depth - 0x200 && new_depth <= cur_depth + 0x200
         }
         fn lt_depth_test(cur_depth: u32, new_depth: u32) -> bool { new_depth < cur_depth }
 
+        
         for polygon in self.polygons.iter() {
+            // TODO: Remove with const generics
+            let blend = |color, s, t| match polygon.tex_params.format {
+                TextureFormat::NoTexture => color,
+                TextureFormat::DirectColor => {
+                    vram.get_textures::<u16>(2 * (t * polygon.tex_params.size_s + s))
+                },
+            };
             // TODO: Use fixed point for interpolation
             // TODO: Fix uneven interpolation
             let depth_test = if polygon.attrs.depth_test_eq { eq_depth_test } else { lt_depth_test };
             let vertices = &self.vertices[polygon.start_vert..polygon.end_vert];
             if polygon.attrs.render_front {
-                Engine3D::render_polygon(&mut self.depth_buffer, depth_test, true, &mut self.pixels, vertices)
+                Engine3D::render_polygon(blend, &mut self.depth_buffer, depth_test, true, &mut self.pixels, vertices)
             }
             if polygon.attrs.render_back {
-                Engine3D::render_polygon(&mut self.depth_buffer, depth_test, false, &mut self.pixels, vertices)
+                Engine3D::render_polygon(blend, &mut self.depth_buffer, depth_test, false, &mut self.pixels, vertices)
             }
         }
 
@@ -44,8 +53,8 @@ impl Engine3D {
     }
 
     // TODO: Replace front with a const generic
-    fn render_polygon<F>(depth_buffer: &mut Vec<u32>, depth_test: F, front: bool, pixels: &mut Vec<u16>, vertices: &[Vertex])
-    where F: Fn(u32, u32) -> bool {
+    fn render_polygon<B, D>(blend: B, depth_buffer: &mut Vec<u32>, depth_test: D, front: bool, pixels: &mut Vec<u16>, vertices: &[Vertex])
+    where B: Fn(u16, usize, usize) -> u16, D: Fn(u32, u32) -> bool {
         assert!(vertices.len() >= 3);
 
         // Check if front or back side is being rendered
@@ -111,6 +120,12 @@ impl Engine3D {
         let mut right_end = vertices[new_right_vert].screen_coords[1];
         right_vert = new_right_vert;
 
+        let mut t_slope = Slope::new(
+            vertices[start_vert].tex_coord[1] as f32,
+            vertices[end_vert].tex_coord[1] as f32,
+            vertices[end_vert].screen_coords[1] - vertices[start_vert].screen_coords[1],
+        );
+
         for y in vertices[start_vert].screen_coords[1]..vertices[end_vert].screen_coords[1] {
             // While loops to skip repeated vertices from clipping
             // TODO: Should this be fixed in clipping or rendering code?
@@ -133,23 +148,31 @@ impl Engine3D {
                 &right_slope.next_color(),
                 x_end - x_start,
             );
+            let mut s = Slope::new(
+                left_slope.next_s(),
+                right_slope.next_s(),
+                x_end - x_start,
+            );
             let mut depth = Slope::new(
                 left_slope.next_depth(),
                 right_slope.next_depth(),
                 x_end - x_start,
             );
 
+            let t = t_slope.next() as usize >> 4; // Remove fractional part
             for x in x_start..x_end {
                 let depth_val = depth.next() as u32;
                 if depth_test(depth_buffer[y * GPU::WIDTH + x], depth_val) {
                     depth_buffer[y * GPU::WIDTH + x] = depth_val;
-                    pixels[y * GPU::WIDTH + x] = 0x8000 | color.next().as_u16();
+                    let blended_color = blend(color.next().as_u16(), s.next() as usize >> 4, t);
+                    pixels[y * GPU::WIDTH + x] = 0x8000 | blended_color;
                 }
             }
         }
     }
 }
 
+#[derive(Debug)]
 struct Slope {
     cur: f32,
     step: f32,
@@ -172,6 +195,7 @@ impl Slope {
 
 struct VertexSlope {
     x: Slope,
+    s: Slope,
     depth: Slope,
     color: ColorSlope,
 }
@@ -182,6 +206,7 @@ impl VertexSlope {
         // TODO: Implement w-buffer
         VertexSlope {
             x: Slope::new(start.screen_coords[0] as f32, end.screen_coords[0] as f32, num_steps),
+            s: Slope::new(start.tex_coord[0] as f32, end.tex_coord[0] as f32, num_steps),
             depth: Slope::new(start.z_depth as f32, end.z_depth as f32, num_steps),
             color: ColorSlope::new(
                 &start.color,
@@ -193,6 +218,10 @@ impl VertexSlope {
 
     pub fn next_x(&mut self) -> f32 {
         self.x.next()
+    }
+
+    pub fn next_s(&mut self) -> f32 {
+        self.s.next()
     }
 
     pub fn next_depth(&mut self) -> f32 {

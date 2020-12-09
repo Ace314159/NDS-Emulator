@@ -141,6 +141,7 @@ impl IORegister for ClearDepth {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct TextureParams {
     pub vram_offset: usize,
     pub repeat_s: bool,
@@ -184,6 +185,7 @@ impl TextureParams {
     }
 }
 
+#[derive(Clone, Copy)]
 pub enum TextureFormat {
     NoTexture = 0,
     DirectColor = 7,
@@ -199,7 +201,7 @@ impl From<u32> for TextureFormat {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum TexCoordTransformationMode {
     None = 0,
     TexCoord = 1,

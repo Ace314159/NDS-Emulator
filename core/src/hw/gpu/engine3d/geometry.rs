@@ -298,6 +298,7 @@ impl Engine3D {
             start_vert: self.vertices.len(),
             end_vert: self.vertices.len() + self.cur_poly_verts.len(),
             attrs: self.polygon_attrs_latch,
+            tex_params: self.tex_params,
         });
         for vert in self.cur_poly_verts.drain(..) {
             let z = vert.clip_coords[2].raw() as i64;
@@ -682,4 +683,5 @@ pub struct Polygon {
     pub start_vert: usize,
     pub end_vert: usize,
     pub attrs: PolygonAttributes,
+    pub tex_params: TextureParams,
 }
