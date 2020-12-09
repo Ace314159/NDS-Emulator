@@ -15,6 +15,7 @@ pub struct VRAM {
     engine_a_obj: Vec<Vec<Bank>>,
     engine_a_bg_ext_pal: Vec<Vec<Bank>>,
     engine_a_obj_ext_pal: Vec<Vec<Bank>>,
+    textures: Vec<Vec<Bank>>,
     engine_b_bg: Vec<Vec<Bank>>,
     engine_b_obj: Vec<Vec<Bank>>,
     engine_b_bg_ext_pal: Vec<Vec<Bank>>,
@@ -74,6 +75,7 @@ impl VRAM {
             engine_a_obj: create_vecs(16),
             engine_a_bg_ext_pal: create_vecs(2),
             engine_a_obj_ext_pal: create_vecs(1),
+            textures: create_vecs(32),
             engine_b_bg: create_vecs(8),
             engine_b_obj: create_vecs(8),
             engine_b_bg_ext_pal: create_vecs(2),
@@ -120,6 +122,7 @@ impl VRAM {
                 (VRAM::BANK_I, 3) =>
                     VRAM::remove_mapping(&mut self.engine_b_obj_ext_pal, bank, 0, Some(8 * 0x400)),
                 (VRAM::BANK_C ..= VRAM::BANK_D, 2) => self.remove_arm7_wram_mapping(bank, self.cnts[index].offset),
+                (VRAM::BANK_A ..= VRAM::BANK_D, 3) => VRAM::remove_mapping(&mut self.textures, bank, 0, None),
                 (_index, 3 ..= 5) => warn!("Unimplemented VRAM Mapping {:?}: {}", bank, self.cnts[index].mst),
                 _ => unreachable!(),
             }
@@ -156,6 +159,7 @@ impl VRAM {
             (VRAM::BANK_I, 3) =>
                 VRAM::add_mapping(&mut self.engine_b_obj_ext_pal, bank, 0, Some(8 * 0x400)),
             (VRAM::BANK_C ..= VRAM::BANK_D, 2) => self.add_arm7_wram_mapping(bank, self.cnts[index].offset),
+            (VRAM::BANK_A ..= VRAM::BANK_D, 3) => VRAM::add_mapping(&mut self.textures, bank, 0, None),
             (_index, 3 ..= 5) => warn!("Unimplemented VRAM Mapping {:?}: {}", bank, self.cnts[index].mst),
             _ => unreachable!(),
         }
@@ -258,7 +262,10 @@ impl VRAM {
         }
     }
 
-    
+    pub fn get_textures<T: MemoryValue>(&self, addr: usize) -> T {
+        VRAM::read_mapping(&self.banks, &self.textures[addr / VRAM::MAPPING_LEN], addr)
+    }
+
     fn read_mapping<T: MemoryValue>(banks: &[Vec<u8>], mapping: &Vec<Bank>, addr: usize) -> T {
         let mut value = num::zero();
         for bank in mapping.iter() {
