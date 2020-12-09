@@ -28,11 +28,18 @@ impl Engine3D {
         
         for polygon in self.polygons.iter() {
             // TODO: Remove with const generics
-            let offset = polygon.tex_params.vram_offset;
-            let blend = |color, s, t| match polygon.tex_params.format {
-                TextureFormat::NoTexture => color,
-                TextureFormat::DirectColor =>
-                    vram.get_textures::<u16>(offset + 2 * (t * polygon.tex_params.size_s + s)),
+            let blend = |color, s, t| {
+                let vram_offset = polygon.tex_params.vram_offset;
+                let pal_offset = polygon.palette_base;
+                let texel = t * polygon.tex_params.size_s + s;
+                match polygon.tex_params.format {
+                    TextureFormat::NoTexture => color,
+                    TextureFormat::Palette4 => {
+                        let palette_color = vram.get_textures::<u8>(vram_offset + texel / 4) >> 2 * (texel % 4) & 0x3;
+                        vram.get_textures_pal::<u16>(pal_offset / 2 + 2 * palette_color as usize)
+                    }
+                    TextureFormat::DirectColor => vram.get_textures::<u16>(vram_offset + 2 * texel),
+                }
             };
             // TODO: Use fixed point for interpolation
             // TODO: Fix uneven interpolation
