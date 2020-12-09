@@ -49,6 +49,54 @@ impl Engine3D {
                         let palette_color = vram.get_textures::<u8>(vram_offset + texel / 2) >> 4 * (texel % 2) & 0xF;
                         vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize)
                     },
+                    TextureFormat::Compressed => {
+                        let num_blocks_row = polygon.tex_params.size_s / 4;
+                        let block_start_addr = t / 4 * num_blocks_row + s / 4;
+                        let base_addr = vram_offset + 4 * block_start_addr;
+                        let te = vram.get_textures::<u8>(base_addr + t % 4);
+                        let texel_val = te >> 2 * (s % 4) & 0x3;
+                         // TODO: Check behavior and optimize
+                        assert!(base_addr / 128 / 0x400 == 0 || base_addr / 128 / 0x400 == 2);
+                        let extra_palette_addr = (base_addr & 0x1_FFFF) / 2 + if base_addr < 128 * 0x400 {
+                            0 // Slot 0
+                        } else { 0x1000 }; // Slot 2
+                        let extra_palette_info = vram.get_textures::<u16>(128 * 0x400 + extra_palette_addr);
+                        let mode = (extra_palette_info >> 14) & 0x3;
+                        let pal_offset = pal_offset + 4 * (extra_palette_info & 0x3FFF) as usize;
+                        let color = |num: u8| vram.get_textures_pal::<u16>(pal_offset + 2 * num as usize);
+                        let interp_color = |a, b, avg| {
+                            let mut new_color = 0;
+                            for i in (0..3).rev() {
+                                let val1 = color(a) >> (5 * i) & 0x1F;
+                                let val2 = color(b) >> (5 * i) & 0x1F;
+                                // TODO: Remove condition
+                                let new_val = if avg { (val1 + val2) / 2 } else { (3 * val1 + 5 * val2) / 8 };
+                                new_color = new_color << 5 | new_val;
+                            }
+                            new_color
+                        };
+                        match mode {
+                            0 => match texel_val {
+                                0 | 1 | 2 => color(texel_val),
+                                3 => 0, // TODO: Implement transparency
+                                _ => unreachable!(),
+                            }
+                            1 => match texel_val {
+                                0 | 1 => color(texel_val),
+                                2 => interp_color(0, 1, true),
+                                3 => 0, // TODO: Implement transparency
+                                _ => unreachable!(),
+                            },
+                            2 => color(texel_val),
+                            3 => match texel_val {
+                                0 | 1 => color(texel_val),
+                                2 => interp_color(0, 1, false),
+                                3 => interp_color(1, 0, false),
+                                _ => unreachable!(),
+                            }
+                            _ => unreachable!(),
+                        }
+                    },
                     TextureFormat::A5I3 => {
                         // TODO: Use alpha bits
                         let byte = vram.get_textures::<u8>(vram_offset + texel);
