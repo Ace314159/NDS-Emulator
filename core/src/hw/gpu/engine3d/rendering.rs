@@ -49,6 +49,12 @@ impl Engine3D {
                         let palette_color = vram.get_textures::<u8>(vram_offset + texel / 2) >> 4 * (texel % 2) & 0xF;
                         vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize)
                     },
+                    TextureFormat::A5I3 => {
+                        // TODO: Use alpha bits
+                        let byte = vram.get_textures::<u8>(vram_offset + texel);
+                        let palette_color = byte & 0x7;
+                        vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize)
+                    },
                     TextureFormat::Palette256 => {
                         let palette_color = vram.get_textures::<u8>(vram_offset + texel);
                         vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize)
