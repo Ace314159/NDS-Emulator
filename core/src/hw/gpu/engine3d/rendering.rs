@@ -11,7 +11,6 @@ impl Engine3D {
         if !self.polygons_submitted { return }
         // TODO: Add more accurate interpolation
         // TODO: Optimize
-        // TODO: Textures
         for (i, pixel) in self.pixels.iter_mut().enumerate() {
             *pixel = self.clear_color.color();
             self.depth_buffer[i] = self.clear_depth.depth();
@@ -27,6 +26,8 @@ impl Engine3D {
 
         
         for polygon in self.polygons.iter() {
+            // TODO: Implement perspective correction
+            // TODO: Implement translucency
             // TODO: Remove with const generics
             let blend = |color, s, t| {
                 let vram_offset = polygon.tex_params.vram_offset;
