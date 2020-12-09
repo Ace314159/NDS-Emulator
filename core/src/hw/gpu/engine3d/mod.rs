@@ -54,13 +54,14 @@ pub struct Engine3D {
     prev_pos: [FixedPoint; 3],
     swap_verts: bool,
     color: Color,
-    raw_tex_coord: [i16; 2], // 1 + 11 + 4 fixed point
-    tex_coord: [i16; 2], // 1 + 11 + 4 fixed point
     cur_poly_verts: Vec<Vertex>,
     vertices: Vec<Vertex>,
     polygons: Vec<Polygon>,
     // Textures
     tex_params: TextureParams,
+    palette_base: usize,
+    raw_tex_coord: [i16; 2], // 1 + 11 + 4 fixed point
+    tex_coord: [i16; 2], // 1 + 11 + 4 fixed point
 }
 
 impl Engine3D {
@@ -110,13 +111,14 @@ impl Engine3D {
             prev_pos: [FixedPoint::zero(); 3],
             swap_verts: false,
             color: Color::new(0, 0, 0),
-            raw_tex_coord: [0; 2], // 1 + 11 + 4 fixed point
-            tex_coord: [0; 2], // 1 + 11 + 4 fixed point
             cur_poly_verts: Vec::with_capacity(10),
             vertices: Vec::new(),
             polygons: Vec::new(),
             // Textures
             tex_params: TextureParams::new(),
+            palette_base: 0,
+            raw_tex_coord: [0; 2], // 1 + 11 + 4 fixed point
+            tex_coord: [0; 2], // 1 + 11 + 4 fixed point
         }
     }
     

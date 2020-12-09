@@ -154,7 +154,7 @@ impl Engine3D {
             ),
             PolygonAttr => self.polygon_attrs.write(param),
             TexImageParam => self.tex_params.write(param),
-            PlttBase => warn!("Unimplemented Pltt Base 0x{:X}", param),
+            PlttBase => self.palette_base = ((self.params[0] & 0xFFF) as usize) * 16,
             DifAmb => warn!("Unimplemented Dif Amb 0x{:X}", param),
             SpeEmi => warn!("Unimplemented Spe Emi 0x{:X}", param),
             LightVector => warn!("Unimplemented Light Vector 0x{:X}", param),
@@ -299,6 +299,7 @@ impl Engine3D {
             end_vert: self.vertices.len() + self.cur_poly_verts.len(),
             attrs: self.polygon_attrs_latch,
             tex_params: self.tex_params,
+            palette_base: self.palette_base,
         });
         for vert in self.cur_poly_verts.drain(..) {
             let z = vert.clip_coords[2].raw() as i64;
@@ -684,4 +685,5 @@ pub struct Polygon {
     pub end_vert: usize,
     pub attrs: PolygonAttributes,
     pub tex_params: TextureParams,
+    pub palette_base: usize,
 }
