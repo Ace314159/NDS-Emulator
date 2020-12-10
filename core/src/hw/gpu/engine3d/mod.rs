@@ -53,10 +53,12 @@ pub struct Engine3D {
     vertex_primitive: VertexPrimitive,
     prev_pos: [FixedPoint; 3],
     swap_verts: bool,
-    color: Color,
     cur_poly_verts: Vec<Vertex>,
     vertices: Vec<Vertex>,
     polygons: Vec<Polygon>,
+    // Lighting
+    lights: [Light; 4],
+    color: Color,
     // Textures
     tex_params: TextureParams,
     palette_base: usize,
@@ -110,10 +112,12 @@ impl Engine3D {
             vertex_primitive: VertexPrimitive::Triangles,
             prev_pos: [FixedPoint::zero(); 3],
             swap_verts: false,
-            color: Color::new(0, 0, 0),
             cur_poly_verts: Vec::with_capacity(10),
             vertices: Vec::new(),
             polygons: Vec::new(),
+            // Lighting
+            lights: [Light::new(); 4],
+            color: Color::new(0, 0, 0),
             // Textures
             tex_params: TextureParams::new(),
             palette_base: 0,

@@ -162,8 +162,13 @@ impl Engine3D {
             PlttBase => self.palette_base = ((self.params[0] & 0xFFF) as usize) * 16,
             DifAmb => warn!("Unimplemented Dif Amb 0x{:X}", param),
             SpeEmi => warn!("Unimplemented Spe Emi 0x{:X}", param),
-            LightVector => warn!("Unimplemented Light Vector 0x{:X}", param),
-            LightColor => warn!("Unimplemented Light Color 0x{:X}", param),
+            LightVector => self.lights[(param >> 30 & 0x3) as usize].set_direction(
+                &self.cur_vec,
+                ((param >> 0) & 0x3FF) as u16,
+                ((param >> 1) & 0x3FF) as u16,
+                ((param >> 2) & 0x3FF) as u16,
+            ),
+            LightColor => self.lights[(param >> 30 & 0x3) as usize].color = self::Color::from(param as u16),
             BeginVtxs => {
                 self.cur_poly_verts.clear();
                 self.swap_verts = false;
@@ -652,6 +657,34 @@ impl From<u8> for MatrixMode {
             3 => MatrixMode::Texture,
             _ => unreachable!(),
         }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct Light {
+    direction: [FixedPoint; 3],
+    color: Color,
+}
+
+impl Light {
+    pub fn new() -> Self {
+        Light {
+            direction: [FixedPoint::zero(), FixedPoint::zero(), FixedPoint::zero()],
+            color: Color::new(0, 0, 0)
+        }
+    }
+
+    pub fn set_direction(&mut self, mat: &Matrix, x: u16, y: u16, z: u16) {
+        let vec = [
+            FixedPoint::from_frac9(x),
+            FixedPoint::from_frac9(y),
+            FixedPoint::from_frac9(z),
+        ];
+        self.direction = [
+            FixedPoint::from_mul(vec[0] * mat[0] + vec[1] * mat[4] + vec[2] * mat[8]),
+            FixedPoint::from_mul(vec[0] * mat[1] + vec[1] * mat[5] + vec[2] * mat[9]),
+            FixedPoint::from_mul(vec[0] * mat[2] + vec[1] * mat[6] + vec[2] * mat[10]),
+        ];
     }
 }
 
