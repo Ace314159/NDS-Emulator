@@ -160,8 +160,10 @@ impl Engine3D {
             PolygonAttr => self.polygon_attrs.write(param),
             TexImageParam => self.tex_params.write(param),
             PlttBase => self.palette_base = ((self.params[0] & 0xFFF) as usize) * 16,
-            DifAmb => warn!("Unimplemented Dif Amb 0x{:X}", param),
-            SpeEmi => warn!("Unimplemented Spe Emi 0x{:X}", param),
+            DifAmb => if self.material.set_dif_amb(param) {
+                self.color = self.material.diffuse;
+            },
+            SpeEmi => self.material.set_spe_emi(param),
             LightVector => self.lights[(param >> 30 & 0x3) as usize].set_direction(
                 &self.cur_vec,
                 ((param >> 0) & 0x3FF) as u16,
@@ -685,6 +687,40 @@ impl Light {
             FixedPoint::from_mul(vec[0] * mat[1] + vec[1] * mat[5] + vec[2] * mat[9]),
             FixedPoint::from_mul(vec[0] * mat[2] + vec[1] * mat[6] + vec[2] * mat[10]),
         ];
+    }
+}
+
+pub struct Material {
+    diffuse: Color,
+    ambient: Color,
+    specular: Color,
+    emission: Color,
+    shininess: [i8; 128],
+    use_shininess_table: bool,
+}
+
+impl Material {
+    pub fn new() -> Self {
+        Material {
+            diffuse: Color::new(0, 0, 0),
+            ambient: Color::new(0, 0, 0),
+            specular: Color::new(0, 0, 0),
+            emission: Color::new(0, 0, 0),
+            shininess: [0; 128],
+            use_shininess_table: false,
+        }
+    }
+
+    pub fn set_dif_amb(&mut self, val: u32) -> bool {
+        self.diffuse = Color::from(((val >> 0) & 0x7FFF) as u16);
+        self.ambient = Color::from((val >> 16 & 0x7FFF) as u16);
+        val & 0x8000 != 0
+    }
+
+    pub fn set_spe_emi(&mut self, val: u32) {
+        self.specular = Color::from(((val >> 0) & 0x7FFF) as u16);
+        self.use_shininess_table = val & 0x8000 != 0;
+        self.emission = Color::from((val >> 16 & 0x7FFF) as u16);
     }
 }
 

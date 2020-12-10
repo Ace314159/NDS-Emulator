@@ -58,6 +58,7 @@ pub struct Engine3D {
     polygons: Vec<Polygon>,
     // Lighting
     lights: [Light; 4],
+    material: Material,
     color: Color,
     // Textures
     tex_params: TextureParams,
@@ -117,6 +118,7 @@ impl Engine3D {
             polygons: Vec::new(),
             // Lighting
             lights: [Light::new(); 4],
+            material: Material::new(),
             color: Color::new(0, 0, 0),
             // Textures
             tex_params: TextureParams::new(),
