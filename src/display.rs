@@ -230,7 +230,7 @@ impl Display {
         }
 
         self.prepare_frame(io);
-        io.update_delta_time(self.prev_frame_time);
+        io.update_delta_time(Instant::now() - self.prev_frame_time);
         let ui = imgui.frame();
         imgui_draw(&ui, keys_pressed, modifiers);
         self.prepare_render(&ui);

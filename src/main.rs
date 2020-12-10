@@ -66,7 +66,7 @@ fn main() {
     
     let engines = [Engine::A, Engine::B];
     let graphics_types = [GraphicsType::BG, GraphicsType::OBJ];
-    let tiles_ranges = [0..=3, 0..=1];
+    let tiles_ranges = [0 as u32..=3, 0 as u32..=1];
 
     let mut palettes_window = TextureWindow::new("Palettes");
     let mut palettes_extended = false;
@@ -108,10 +108,10 @@ fn main() {
                 ui.checkbox(im_str!("Extended"), &mut palettes_extended);
                 if palettes_extended {
                     if graphics_types[palettes_graphics_type] == GraphicsType::BG {
-                        Slider::new(im_str!("Slot"), 0..=3)
+                        Slider::new(im_str!("Slot")).range(0 as u32..=3)
                         .build(ui, &mut palettes_slot);
                     }
-                    Slider::new(im_str!("Palette"), 0..=15)
+                    Slider::new(im_str!("Palette")).range(0 as u32..=15)
                     .build(ui, &mut palettes_palette);
                 }
 
@@ -134,7 +134,7 @@ fn main() {
                 .build_simple(ui, &mut map_engine,
                 &engines, &(|i| Cow::from(ImString::new(i.label()))));
 
-                Slider::new(im_str!("BG"), 0..=3)
+                Slider::new(im_str!("BG")).range(0 as u32..=3)
                 .build(ui, &mut map_bg_i);
             });
 
@@ -161,18 +161,18 @@ fn main() {
                     if !tiles_extended {
                         ui.checkbox(im_str!("256 Colors"), &mut tiles_bpp8);
                     } else if graphics_types[tiles_graphics_type] == GraphicsType::BG {
-                        Slider::new(im_str!("Palette Slot"), 0..=3)
+                        Slider::new(im_str!("Palette Slot")).range(0 as u32..=3)
                         .build(ui, &mut tiles_slot);
                     }
     
                     if tiles_extended || !tiles_bpp8 {
-                        Slider::new(im_str!("Palette"), 0..=15)
+                        Slider::new(im_str!("Palette")).range(0 as u32..=15)
                         .build(ui, &mut tiles_palette);
                     }
     
                 }
                 if engines[tiles_engine] == Engine::A {
-                    Slider::new(im_str!("Offset"), tiles_ranges[tiles_graphics_type as usize].clone())
+                    Slider::new(im_str!("Offset")).range(tiles_ranges[tiles_graphics_type as usize].clone())
                     .build(ui, &mut tiles_offset);
                 }
             });
