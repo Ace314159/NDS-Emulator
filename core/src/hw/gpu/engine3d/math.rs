@@ -6,7 +6,6 @@ pub struct Matrix {
 }
 
 impl Matrix {
-    pub fn elems(&self) -> &[FixedPoint] { &self.elems }
     pub fn identity() -> Self {
         Matrix {
             elems: [
@@ -129,6 +128,14 @@ impl Matrix {
         self.elems[13] += FixedPoint::from_mul(coords[0] * self.elems[1] + coords[1] * self.elems[5] + coords[2] * self.elems[9]);
         self.elems[14] += FixedPoint::from_mul(coords[0] * self.elems[2] + coords[1] * self.elems[6] + coords[2] * self.elems[10]);
         self.elems[15] += FixedPoint::from_mul(coords[0] * self.elems[3] + coords[1] * self.elems[7] + coords[2] * self.elems[11]);
+    }
+}
+
+impl Index<usize> for Matrix {
+    type Output = FixedPoint;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.elems[index]
     }
 }
 

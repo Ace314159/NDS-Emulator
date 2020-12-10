@@ -243,7 +243,7 @@ impl Engine3D {
         if self.tex_params.coord_transformation_mode != transformation_mode { return }
         let s = self.raw_tex_coord[0] as i32;
         let t = self.raw_tex_coord[1] as i32;
-        let m = self.cur_tex.elems();
+        let m = &self.cur_tex;
         self.tex_coord = match self.tex_params.coord_transformation_mode {
             TexCoordTransformationMode::None => self.raw_tex_coord,
             TexCoordTransformationMode::TexCoord => [
