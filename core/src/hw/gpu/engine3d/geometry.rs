@@ -182,6 +182,11 @@ impl Engine3D {
                 (param >> 5 & 0x1F) as i32,
                 (param >> 10 & 0x1F) as i32,
             ],
+            Shininess => for (i, word) in self.params.iter().enumerate() {
+                for byte in 0..4 {
+                    self.material.shininess[i * 4 + byte] = (*word >> (8 * byte)) as u8 as i8;
+                }
+            },
             BeginVtxs => {
                 self.cur_poly_verts.clear();
                 self.swap_verts = false;
@@ -513,6 +518,7 @@ pub enum GeometryCommand {
     SpeEmi = 0x31,
     LightVector = 0x32,
     LightColor = 0x33,
+    Shininess = 0x34,
     BeginVtxs = 0x40,
     EndVtxs = 0x41,
     SwapBuffers = 0x50,
@@ -552,6 +558,7 @@ impl GeometryCommand {
             0x4C4 => SpeEmi,
             0x4C8 => LightVector,
             0x4CC => LightColor,
+            0x4D0 => Shininess,
             0x500 => BeginVtxs,
             0x504 => EndVtxs,
             0x540 => SwapBuffers,
@@ -593,6 +600,7 @@ impl GeometryCommand {
             0x31 => SpeEmi,
             0x32 => LightVector,
             0x33 => LightColor,
+            0x34 => Shininess,
             0x40 => BeginVtxs,
             0x41 => EndVtxs,
             0x50 => SwapBuffers,
@@ -634,6 +642,7 @@ impl GeometryCommand {
             SpeEmi => 4,
             LightVector => 6,
             LightColor => 1,
+            Shininess => 32,
             BeginVtxs => 0,
             EndVtxs => 0,
             SwapBuffers => 392,
@@ -675,6 +684,7 @@ impl GeometryCommand {
             SpeEmi => 1,
             LightVector => 1,
             LightColor => 1,
+            Shininess => 32,
             BeginVtxs => 1,
             EndVtxs => 0,
             SwapBuffers => 1,
