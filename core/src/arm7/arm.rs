@@ -228,7 +228,7 @@ impl ARM7 {
         let add_offset = U::bool();
         let transfer_byte = B::bool();
         let mut write_back = W::bool() || !pre_offset;
-        let load = instr >> 20 & 0x1 != 0;
+        let load = L::bool();
         let base_reg = instr >> 16 & 0xF;
         let base = self.regs.get_reg_i(base_reg);
         let src_dest_reg = instr >> 12 & 0xF;
