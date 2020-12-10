@@ -2,6 +2,7 @@ use super::{HW, mmu::IORegister, Scheduler, Event};
 
 pub struct DMAController {
     pub channels: [DMAChannel; 4],
+    pub by_type: [Vec<usize>; DMAOccasion::num()],
 }
 
 impl DMAController {
@@ -13,6 +14,7 @@ impl DMAController {
                 DMAChannel::new(is_nds9, 2),
                 DMAChannel::new(is_nds9, 3),
             ],
+            by_type: Default::default(), // TODO: Use ArrayVec or smth maybe?
         }
     }
 
@@ -21,7 +23,16 @@ impl DMAController {
     }
 
     pub fn write(&mut self, channel: usize, scheduler: &mut Scheduler, addr: u32, value: u8) {
+        let prev_start_timing = self.channels[channel].cnt.start_timing;
         self.channels[channel].write(scheduler, (addr & 0xFF) as usize, value);
+        let new_start_timing = self.channels[channel].cnt.start_timing;
+        // TODO: Maybe move this inside the write?
+        if prev_start_timing != new_start_timing {
+            let vec = &mut self.by_type[prev_start_timing as usize];
+            let pos = vec.iter().position(|i| *i == channel);
+            vec.swap_remove(pos.unwrap());
+            self.by_type[new_start_timing as usize].push(channel);
+        }
     }
 }
 
@@ -112,18 +123,20 @@ impl IORegister for DMAChannel {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum DMAOccasion {
-    Immediate,
-    VBlank,
-    HBlank,
-    StartOfDisplay,
-    MainMemoryDisplay,
-    DSCartridge,
-    GBACartridge,
-    GeometryCommandFIFO,
-    WirelessInterrupt,
+    Immediate = 0,
+    VBlank = 1,
+    HBlank = 2,
+    StartOfDisplay = 3,
+    MainMemoryDisplay = 4,
+    DSCartridge = 5,
+    GBACartridge = 6,
+    GeometryCommandFIFO = 7,
+    WirelessInterrupt = 8,
 }
 
 impl DMAOccasion {
+    const fn num() -> usize { 9 }
+
     fn get(is_nds9: bool, dma_num: usize, start_timing: u8) -> Self {
         if is_nds9 {
             match start_timing {

@@ -114,16 +114,17 @@ impl HW {
     pub fn clock(&mut self, arm7_cycles: usize) {
         self.handle_events(arm7_cycles);
         if self.gpu.engine3d.clock(arm7_cycles, &mut self.interrupts9.request) {
-            self.check_dmas(DMAOccasion::GeometryCommandFIFO);
+            self.run_dmas(DMAOccasion::GeometryCommandFIFO);
         }
     }
 
-    fn check_dmas(&mut self, occasion: DMAOccasion) {
+    fn run_dmas(&mut self, occasion: DMAOccasion) {
         let mut events = Vec::new();
-        for channel in self.dma9.channels.iter().chain(self.dma7.channels.iter()) {
-            if channel.cnt.enable && channel.cnt.start_timing == occasion {
-                events.push(Event::DMA(channel.is_nds9, channel.num));
-            }
+        for num in self.dma9.by_type[occasion as usize].iter() {
+            events.push(Event::DMA(true, *num));
+        }
+        for num in self.dma7.by_type[occasion as usize].iter() {
+            events.push(Event::DMA(false, *num));
         }
         for event in events.iter() { self.handle_event(*event) }
     }

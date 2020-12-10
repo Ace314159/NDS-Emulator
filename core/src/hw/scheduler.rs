@@ -59,7 +59,7 @@ impl HW {
                 );
             },
             Event::HBlank => {
-                if self.gpu.start_hblank(&mut self.scheduler) { self.check_dmas(DMAOccasion::HBlank) }
+                if self.gpu.start_hblank(&mut self.scheduler) { self.run_dmas(DMAOccasion::HBlank) }
                 self.check_dispstats(&mut |dispstat, interrupts|
                     if dispstat.contains(DISPSTATFlags::HBLANK_IRQ_ENABLE) {
                         interrupts.request |= InterruptRequest::HBLANK;
@@ -67,7 +67,7 @@ impl HW {
                 );
             },
             Event::VBlank => {
-                self.check_dmas(DMAOccasion::VBlank);
+                self.run_dmas(DMAOccasion::VBlank);
                 self.gpu.engine3d.render(&self.gpu.vram);
             },
             Event::TimerOverflow(is_nds9, timer) => {
@@ -92,7 +92,7 @@ impl HW {
             },
             Event::ROMWordTransfered => {
                 self.cartridge.update_word();
-                self.check_dmas(DMAOccasion::DSCartridge);
+                self.run_dmas(DMAOccasion::DSCartridge);
             },
             Event::ROMBlockEnded(is_arm7) => if self.cartridge.end_block() {
                 let interrupts = if is_arm7 { &mut self.interrupts7 } else { &mut self.interrupts9 };
