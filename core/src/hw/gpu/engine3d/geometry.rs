@@ -292,7 +292,17 @@ impl Engine3D {
                     self.swap_verts = !self.swap_verts;
                 }
             },
-            _ => todo!(),
+            VertexPrimitive::QuadStrips => {
+                if self.cur_poly_verts.len() == 4 {
+                    let new_vert0 = self.cur_poly_verts[2];
+                    let new_vert1 = self.cur_poly_verts[3];
+                    self.cur_poly_verts.swap(2, 3);
+                    self.submit_polygon();
+                    self.cur_poly_verts.push(new_vert0);
+                    self.cur_poly_verts.push(new_vert1);
+                    self.swap_verts = !self.swap_verts;
+                }
+            },
         }
     }
 
