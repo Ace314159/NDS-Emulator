@@ -185,6 +185,7 @@ impl FixedPoint {
         FixedPoint((if (val >> 9) & 0x1 != 0 { 0xFC00 } else { 0x0000 } | val) as i16 as i32)
     }
     pub fn from_frac12(val: i32) -> Self { FixedPoint(val) }
+    pub fn from_frac6(val: u16) -> Self { FixedPoint((val as i32) << 6) }
     pub fn num(&self) -> usize { (self.0 >> 12) as usize }
     pub fn raw(&self) -> i32 { self.0 }
 }
