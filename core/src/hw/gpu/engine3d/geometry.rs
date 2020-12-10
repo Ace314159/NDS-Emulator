@@ -301,6 +301,7 @@ impl Engine3D {
         self.clip_plane(2);
         self.clip_plane(1);
         self.clip_plane(0);
+        if self.cur_poly_verts.len() == 0 { return }
 
         // TODO: Reject polygon if it doesn't fit into Vertex RAM or Polygon 
         self.polygons.push(Polygon {
