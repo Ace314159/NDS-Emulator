@@ -358,6 +358,7 @@ impl Engine3D {
             } else if prev_vertex.clip_coords[coord_i] <= prev_vertex.clip_coords[3] { // Prev point inside
                 new_verts[new_vert_i] = self.find_intersection(coord_i, true,
                     cur_vertex, prev_vertex);
+                new_vert_i += 1;
             }
         }
         self.cur_poly_verts.clear();
