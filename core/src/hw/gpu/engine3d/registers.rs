@@ -217,6 +217,7 @@ impl From<u32> for TextureFormat {
 pub enum TexCoordTransformationMode {
     None = 0,
     TexCoord = 1,
+    Vertex = 3,
 }
 
 impl From<u32> for TexCoordTransformationMode {
@@ -224,6 +225,7 @@ impl From<u32> for TexCoordTransformationMode {
         match value {
             0 => TexCoordTransformationMode::None,
             1 => TexCoordTransformationMode::TexCoord,
+            3 => TexCoordTransformationMode::Vertex,
             _ => todo!(),
         }
     }

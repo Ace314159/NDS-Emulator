@@ -250,6 +250,10 @@ impl Engine3D {
                 ((s * m[0].raw() + t * m[4].raw() + m[8].raw() + m[12].raw()) >> 12) as i16,
                 ((s * m[1].raw() + t * m[5].raw() + m[9].raw() + m[13].raw()) >> 12) as i16,
             ],
+            TexCoordTransformationMode::Vertex => [
+                (((self.prev_pos[0] * m[0] + self.prev_pos[1] * m[4] + self.prev_pos[2] * m[8]) >> 24) + s as i64) as i16,
+                (((self.prev_pos[0] * m[1] + self.prev_pos[1] * m[5] + self.prev_pos[2] * m[9]) >> 24) + t as i64) as i16,
+            ],
         };
     }
 
@@ -258,7 +262,7 @@ impl Engine3D {
         let vertex_pos = Vec4::new(x, y, z, FixedPoint::one());
         let clip_coords = self.cur_pos * self.cur_proj * vertex_pos;
 
-        // TODO: Transform tex coord
+        self.transform_tex_coord(TexCoordTransformationMode::Vertex);
         self.cur_poly_verts.push(Vertex {
             clip_coords,
             screen_coords: [0, 0], // Temp - Calculated after clipping
