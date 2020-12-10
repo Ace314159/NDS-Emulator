@@ -162,6 +162,19 @@ impl Mul<Vec4> for Matrix {
     }
 }
 
+// TODO: Make actual Vec3 struct
+impl Mul<[FixedPoint; 3]> for Matrix {
+    type Output = [FixedPoint; 3];
+
+    fn mul(self, rhs: [FixedPoint; 3]) -> Self::Output {
+        [
+            FixedPoint::from_mul(rhs[0] * self[0] + rhs[1] * self[4] + rhs[2] * self[8]),
+            FixedPoint::from_mul(rhs[0] * self[1] + rhs[1] * self[5] + rhs[2] * self[9]),
+            FixedPoint::from_mul(rhs[0] * self[2] + rhs[1] * self[6] + rhs[2] * self[10]),
+        ]
+    }
+}
+
 // 12 bit fraction
 #[derive(Clone, Copy, PartialEq, PartialOrd)]
 pub struct FixedPoint(i32);
@@ -188,11 +201,9 @@ impl FixedPoint {
     pub fn zero() -> Self { FixedPoint(0) }
     pub fn from_mul(val: i64) -> Self { FixedPoint((val >> 12) as i32) }
     pub fn from_num(val: i32) -> Self { FixedPoint(val << 12) }
-    pub fn from_frac9(val: u16) -> Self {
-        FixedPoint((if (val >> 9) & 0x1 != 0 { 0xFC00 } else { 0x0000 } | val) as i16 as i32)
-    }
-    pub fn from_frac12(val: i32) -> Self { FixedPoint(val) }
     pub fn from_frac6(val: u16) -> Self { FixedPoint((val as i32) << 6) }
+    pub fn from_frac9(val: u16) -> Self { FixedPoint((((val << 6) as i16) >> 3) as i32) }
+    pub fn from_frac12(val: i32) -> Self { FixedPoint(val) }
     pub fn num(&self) -> usize { (self.0 >> 12) as usize }
     pub fn raw(&self) -> i32 { self.0 }
 }

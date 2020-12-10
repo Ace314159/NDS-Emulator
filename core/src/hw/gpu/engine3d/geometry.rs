@@ -118,7 +118,11 @@ impl Engine3D {
             MtxScale => self.apply_cur_mat(Matrix::scale, false),
             MtxTrans => self.apply_cur_mat(Matrix::translate, true),
             Color => self.color = self::Color::from(param as u16), // TODO: Expand to 6 bit RGB
-            Normal => warn!("Unimplemented Normal 0x{:X}", param),
+            Normal => self.calc_lighting(
+                FixedPoint::from_frac9(((param >> 0) & 0x3FF) as u16),
+                FixedPoint::from_frac9(((param >> 10) & 0x3FF) as u16),
+                FixedPoint::from_frac9(((param >> 20) & 0x3FF) as u16),
+            ),
             TexCoord => {
                 self.raw_tex_coord = [
                     (self.params[0] >> 0) as u16 as i16,
@@ -153,24 +157,31 @@ impl Engine3D {
                 FixedPoint::from_frac12((self.params[0] >> 16) as u16 as i16 as i32),
             ),
             VtxDiff => self.submit_vertex(
-                self.prev_pos[0] + FixedPoint::from_frac9(((self.params[0] >> 0) & 0x3FF) as u16),
-                self.prev_pos[1] + FixedPoint::from_frac9(((self.params[0] >> 10) & 0x3FF) as u16),
-                self.prev_pos[2] + FixedPoint::from_frac9(((self.params[0] >> 20) & 0x3FF) as u16),
+                self.prev_pos[0] + FixedPoint::from_frac12(((((param >> 0 & 0x3FF) << 6) as u16 as i16) >> 6) as i32),
+                self.prev_pos[1] + FixedPoint::from_frac12(((((param >> 10 & 0x3FF) << 6) as u16 as i16) >> 6) as i32),
+                self.prev_pos[2] + FixedPoint::from_frac12(((((param >> 20 & 0x3FF) << 6) as u16 as i16) >> 6) as i32),
             ),
             PolygonAttr => self.polygon_attrs.write(param),
             TexImageParam => self.tex_params.write(param),
             PlttBase => self.palette_base = ((self.params[0] & 0xFFF) as usize) * 16,
             DifAmb => if self.material.set_dif_amb(param) {
-                self.color = self.material.diffuse;
+                self.color = super::Color::new(
+                    self.material.diffuse[0] as u8,
+                    self.material.diffuse[1] as u8,
+                    self.material.diffuse[2] as u8,
+                );
             },
             SpeEmi => self.material.set_spe_emi(param),
-            LightVector => self.lights[(param >> 30 & 0x3) as usize].set_direction(
-                &self.cur_vec,
-                ((param >> 0) & 0x3FF) as u16,
-                ((param >> 1) & 0x3FF) as u16,
-                ((param >> 2) & 0x3FF) as u16,
-            ),
-            LightColor => self.lights[(param >> 30 & 0x3) as usize].color = self::Color::from(param as u16),
+            LightVector => self.lights[(param >> 30 & 0x3) as usize].direction = self.cur_vec * [
+                FixedPoint::from_frac9(((param >> 0) & 0x3FF) as u16),
+                FixedPoint::from_frac9(((param >> 10) & 0x3FF) as u16),
+                FixedPoint::from_frac9(((param >> 20) & 0x3FF) as u16),
+            ],
+            LightColor => self.lights[(param >> 30 & 0x3) as usize].color = [
+                (param >> 0 & 0x1F) as i32,
+                (param >> 5 & 0x1F) as i32,
+                (param >> 10 & 0x1F) as i32,
+            ],
             BeginVtxs => {
                 self.cur_poly_verts.clear();
                 self.swap_verts = false;
@@ -243,6 +254,51 @@ impl Engine3D {
             },
             MatrixMode::Texture => apply(&mut self.cur_tex, &self.params),
         }
+    }
+
+    fn calc_lighting(&mut self, x: FixedPoint, y: FixedPoint, z: FixedPoint) {
+        // TODO: Transform tex coord
+        let normal = self.cur_vec * [x, y, z];
+        let line_of_sight = [FixedPoint::zero(), FixedPoint::zero(), -FixedPoint::one()];
+        let mut final_color = self.material.emission;
+        for (light_i, enabled) in self.polygon_attrs_latch.lights_enabled.iter().enumerate() {
+            if !enabled { continue }
+            let light = &self.lights[light_i];
+            let diffuse_lvl = -FixedPoint::from_mul(
+                light.direction[0] * normal[0] + light.direction[1] * normal[1] + light.direction[2] * normal[2]
+            ).raw() >> 4; // Convert to 8 frac
+            // TODO: Use clamp
+            let diffuse_lvl = if diffuse_lvl < 0 { 0 } else if diffuse_lvl > 0xFF { 0xFF } else { diffuse_lvl };
+
+            let half_vector = [
+                FixedPoint::from_frac12((light.direction[0] + line_of_sight[0]).raw() / 2),
+                FixedPoint::from_frac12((light.direction[1] + line_of_sight[1]).raw() / 2),
+                FixedPoint::from_frac12((light.direction[2] + line_of_sight[2]).raw() / 2),
+            ];
+            let shininess_lvl = -FixedPoint::from_mul(
+                half_vector[0] * normal[0] + half_vector[1] * normal[1] + half_vector[2] * normal[2]
+            ).raw() >> 4; // Convert to 8 frac
+            let shininess_lvl = if shininess_lvl < 0 { 0 } else if shininess_lvl > 0xFF {
+                (0x100 - shininess_lvl) & 0xFF // Mirroring
+            } else { shininess_lvl };
+            let shininess_lvl = 2 * shininess_lvl * shininess_lvl - 0x100; // 0x100 = 1 in 8 frac
+            let shininess_lvl = if shininess_lvl < 0 { 0 } else { shininess_lvl };
+
+            let shininess_lvl = if self.material.use_shininess_table {
+                self.material.shininess[(shininess_lvl as usize) / 2] as i32
+            } else { shininess_lvl };
+
+            for i in 0..3 {
+                final_color[i] += (self.material.specular[i] * light.color[i] * shininess_lvl) >> 13;
+                final_color[i] += (self.material.diffuse[i] * light.color[i] * diffuse_lvl) >> 13;
+                final_color[i] += (self.material.ambient[i] * light.color[i]) >> 5;
+            }
+        }
+        self.color = Color::new(
+            if final_color[0] > 31 { 31 } else { final_color[0] } as u8,
+            if final_color[1] > 31 { 31 } else { final_color[1] } as u8,
+            if final_color[2] > 31 { 31 } else { final_color[2] } as u8,
+        );
     }
 
     // Use Const Generics
@@ -665,36 +721,23 @@ impl From<u8> for MatrixMode {
 #[derive(Clone, Copy)]
 pub struct Light {
     direction: [FixedPoint; 3],
-    color: Color,
+    color: [i32; 3],
 }
 
 impl Light {
     pub fn new() -> Self {
         Light {
             direction: [FixedPoint::zero(), FixedPoint::zero(), FixedPoint::zero()],
-            color: Color::new(0, 0, 0)
+            color: [0, 0, 0],
         }
-    }
-
-    pub fn set_direction(&mut self, mat: &Matrix, x: u16, y: u16, z: u16) {
-        let vec = [
-            FixedPoint::from_frac9(x),
-            FixedPoint::from_frac9(y),
-            FixedPoint::from_frac9(z),
-        ];
-        self.direction = [
-            FixedPoint::from_mul(vec[0] * mat[0] + vec[1] * mat[4] + vec[2] * mat[8]),
-            FixedPoint::from_mul(vec[0] * mat[1] + vec[1] * mat[5] + vec[2] * mat[9]),
-            FixedPoint::from_mul(vec[0] * mat[2] + vec[1] * mat[6] + vec[2] * mat[10]),
-        ];
     }
 }
 
 pub struct Material {
-    diffuse: Color,
-    ambient: Color,
-    specular: Color,
-    emission: Color,
+    diffuse: [i32; 3],
+    ambient: [i32; 3],
+    specular: [i32; 3],
+    emission: [i32; 3],
     shininess: [i8; 128],
     use_shininess_table: bool,
 }
@@ -702,25 +745,41 @@ pub struct Material {
 impl Material {
     pub fn new() -> Self {
         Material {
-            diffuse: Color::new(0, 0, 0),
-            ambient: Color::new(0, 0, 0),
-            specular: Color::new(0, 0, 0),
-            emission: Color::new(0, 0, 0),
+            diffuse: [0, 0, 0],
+            ambient: [0, 0, 0],
+            specular: [0, 0, 0],
+            emission: [0, 0, 0],
             shininess: [0; 128],
             use_shininess_table: false,
         }
     }
 
     pub fn set_dif_amb(&mut self, val: u32) -> bool {
-        self.diffuse = Color::from(((val >> 0) & 0x7FFF) as u16);
-        self.ambient = Color::from((val >> 16 & 0x7FFF) as u16);
+        self.diffuse = [
+            (val >> 0 & 0x1F) as i32,
+            (val >> 5 & 0x1F) as i32,
+            (val >> 10 & 0x1F) as i32,
+        ];
+        self.ambient = [
+            (val >> (16 + 0) & 0x1F) as i32,
+            (val >> (16 + 5) & 0x1F) as i32,
+            (val >> (16 + 10) & 0x1F) as i32,
+        ];
         val & 0x8000 != 0
     }
 
     pub fn set_spe_emi(&mut self, val: u32) {
-        self.specular = Color::from(((val >> 0) & 0x7FFF) as u16);
+        self.specular = [
+            (val >> 0 & 0x1F) as i32,
+            (val >> 5 & 0x1F) as i32,
+            (val >> 10 & 0x1F) as i32,
+        ];
         self.use_shininess_table = val & 0x8000 != 0;
-        self.emission = Color::from((val >> 16 & 0x7FFF) as u16);
+        self.emission = [
+            (val >> (16 + 0) & 0x1F) as i32,
+            (val >> (16 + 5) & 0x1F) as i32,
+            (val >> (16 + 10) & 0x1F) as i32,
+        ];
     }
 }
 
