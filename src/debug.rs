@@ -7,6 +7,7 @@ pub struct TextureWindow {
     texture: Texture,
     scale: f32,
     title: ImString,
+    pub opened: bool,
 }
 
 impl TextureWindow {
@@ -17,15 +18,19 @@ impl TextureWindow {
             texture: Texture::new(),
             scale: 1.0,
             title: ImString::new(title),
+            opened: false,
         }
     }
 
     pub fn render<F>(&mut self, ui: &Ui, keys_pressed: &HashSet<Key>,
         pixels: Vec<u16>, width: usize, height: usize, f: F) where F: FnOnce() {
+        if !self.opened { return }
         self.texture.update_pixels(pixels, width, height);
         let title = self.title.clone();
+        let mut opened = self.opened;
         Window::new(&title)
         .always_auto_resize(true)
+        .opened(&mut opened)
         .build(ui, || {
             if ui.is_window_focused() {
                 if keys_pressed.contains(&Key::Equal) { self.scale += TextureWindow::SCALE_OFFSET }
@@ -34,6 +39,7 @@ impl TextureWindow {
             f();
             self.texture.render(self.scale).build(ui);
         });
+        self.opened = opened;
     }
 }
 
