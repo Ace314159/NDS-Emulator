@@ -5,6 +5,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use nds_core::simplelog::*;
+use nds_core::log::*;
 use nds_core::nds::{NDS, Engine, GraphicsType};
 
 use display::Display;
@@ -12,7 +13,10 @@ use debug::*;
 use imgui::*;
 
 fn main() {
-    let rom_file = "examples/3D/Simple_Tri.nds";
+    let rom_path = PathBuf::from("examples/3D/BoxTest.nds");
+    let bios7_path = PathBuf::from("bios7.bin");
+    let bios9_path = PathBuf::from("bios9.bin");
+    let firmware_path = PathBuf::from("firmware.bin");
 
     std::env::set_current_dir("ROMs").unwrap();
     let arm7_file_name = "arm7.log";
@@ -23,7 +27,7 @@ fn main() {
     let arm7_file = fs::File::create(arm7_file_name);
     let arm9_file = fs::File::create(arm9_file_name);
     let mut loggers: Vec<Box<dyn SharedLogger>> = vec![
-        TermLogger::new(LevelFilter::Warn, Config::default(), TerminalMode::Mixed),
+        TermLogger::new(LevelFilter::Error, Config::default(), TerminalMode::Mixed),
     ];
     if let Ok(file) = arm7_file {
         loggers.push(WriteLogger::new(instructions7_filter,
@@ -56,12 +60,7 @@ fn main() {
     let mut imgui = Context::create();
     let mut display = Display::new(&mut imgui);
     
-    let bios7 = fs::read("bios7.bin").unwrap();
-    let bios9 = fs::read("bios9.bin").unwrap();
-    let firmware = fs::read("firmware.bin").unwrap();
-    let rom = fs::read(rom_file).unwrap();
-    let save_file = PathBuf::from(rom_file).with_extension("sav");
-    let mut nds = NDS::new(bios7, bios9, firmware, rom, save_file);
+    let mut nds = load_rom(&bios7_path, &bios9_path, &firmware_path, &rom_path);
 
     let mut palettes_window = DebugWindow::<PalettesWindowState>::new("Palettes");
     let mut maps_window = DebugWindow::<MapsWindowState>::new("Maps");
@@ -70,9 +69,9 @@ fn main() {
     while !display.should_close() {
         nds.emulate_frame();
         
-        let (keys_pressed, modifiers) = display.render_main(&mut nds, &mut imgui);
-        display.render_imgui(&mut imgui, keys_pressed, modifiers,
-            |ui, keys_pressed, _modifiers| {
+        let (keys_pressed, files_dropped) = display.render_main(&mut nds, &mut imgui);
+        display.render_imgui(&mut imgui, keys_pressed,
+            |ui, keys_pressed| {
             ui.main_menu_bar(|| {
                 ui.menu(im_str!("Debug Windows"), true, || {
                     palettes_window.menu_item(ui);
@@ -85,5 +84,25 @@ fn main() {
             maps_window.render(&mut nds, ui, &keys_pressed);
             tiles_window.render(&mut nds, ui, &keys_pressed);
         });
+
+        if files_dropped.len() == 1 {
+            if let Some(ext) = files_dropped[0].extension() {
+                if let Some(str) = ext.to_str() {
+                    if str.to_lowercase() == "nds" {
+                        nds = load_rom(&bios7_path, &bios9_path, &firmware_path, &files_dropped[0]);
+                    } else { error!("File is not a .nds file!") }
+                }
+            } else { error!("File does not have an extension!") }
+        } else if files_dropped.len() > 1 { error!("More than 1 file dropped!") }
+    }
+
+    fn load_rom(bios7_path: &PathBuf, bios9_path: &PathBuf, firmware_path: &PathBuf, rom_path: &PathBuf) -> NDS {
+        NDS::new(
+            fs::read(bios7_path).unwrap(),
+            fs::read(bios9_path).unwrap(),
+            fs::read(firmware_path).unwrap(),
+            fs::read(rom_path).unwrap(),
+            rom_path.with_extension("sav")
+        )
     }
 }

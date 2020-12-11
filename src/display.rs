@@ -3,7 +3,7 @@ extern crate imgui_opengl_renderer;
 
 use glfw::{Action, Context, Glfw, Window};
 
-use std::time::Instant;
+use std::{path::PathBuf, time::Instant};
 use std::collections::HashSet;
 
 use nds_core::nds::{self, NDS};
@@ -153,7 +153,7 @@ impl Display {
         }
     }
 
-    pub fn render_main(&mut self, nds: &mut NDS, imgui: &mut imgui::Context) -> (HashSet<glfw::Key>, HashSet<glfw::Modifiers>) {
+    pub fn render_main(&mut self, nds: &mut NDS, imgui: &mut imgui::Context) -> (HashSet<glfw::Key>, Vec<PathBuf>) {
         let screens = nds.get_screens();
         let (width, height) = self.window.get_size();
 
@@ -189,6 +189,7 @@ impl Display {
 
         let mut keys_pressed = HashSet::new();
         let mut modifiers = HashSet::new();
+        let mut files_dropped = Vec::new();
         let old_mouse_pressed = self.window.get_mouse_button(glfw::MouseButtonLeft) == Action::Press;
         for (_, event) in glfw::flush_messages(&self.events) {
             Display::handle_event(io, &event);
@@ -224,20 +225,21 @@ impl Display {
                 glfw::WindowEvent::CursorPos(_, _) if old_mouse_pressed && !io.want_capture_mouse =>
                     self.check_stylus(nds, x_start, y_start,
                     x_end - x_start, y_end - y_start),
+                glfw::WindowEvent::FileDrop(paths) => files_dropped = paths,
                 _ => (),
             }
         }
 
-        (keys_pressed, modifiers)
+        (keys_pressed, files_dropped)
     }
 
-    pub fn render_imgui<F>(&mut self, imgui: &mut imgui::Context, keys_pressed: HashSet<glfw::Key>, modifiers: HashSet<glfw::Modifiers>,
-        imgui_draw: F) where F: FnOnce(&imgui::Ui, HashSet<glfw::Key>, HashSet<glfw::Modifiers>){
+    pub fn render_imgui<F>(&mut self, imgui: &mut imgui::Context, keys_pressed: HashSet<glfw::Key>,
+        imgui_draw: F) where F: FnOnce(&imgui::Ui, HashSet<glfw::Key>){
         let io = imgui.io_mut();
         self.prepare_frame(io);
         io.update_delta_time(Instant::now() - self.prev_frame_time);
         let ui = imgui.frame();
-        imgui_draw(&ui, keys_pressed, modifiers);
+        imgui_draw(&ui, keys_pressed);
         self.prepare_render(&ui);
         self.imgui_renderer.render(ui);
 
