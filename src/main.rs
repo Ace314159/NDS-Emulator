@@ -27,7 +27,7 @@ fn main() {
     let arm7_file = fs::File::create(arm7_file_name);
     let arm9_file = fs::File::create(arm9_file_name);
     let mut loggers: Vec<Box<dyn SharedLogger>> = vec![
-        TermLogger::new(LevelFilter::Error, Config::default(), TerminalMode::Mixed),
+        TermLogger::new(LevelFilter::Warn, Config::default(), TerminalMode::Mixed),
     ];
     if let Ok(file) = arm7_file {
         loggers.push(WriteLogger::new(instructions7_filter,
