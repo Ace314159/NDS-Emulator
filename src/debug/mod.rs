@@ -1,30 +1,44 @@
-use imgui::*;
-use glfw::Key;
+mod windows;
 
 use std::collections::HashSet;
 
-pub struct TextureWindow {
-    texture: Texture,
-    scale: f32,
+use imgui::*;
+use glfw::Key;
+
+pub use windows::*;
+use super::{Engine, GraphicsType, NDS};
+
+pub struct DebugWindow<S> where S: DebugWindowState {
     title: ImString,
-    pub opened: bool,
+    texture: Texture,
+    opened: bool,
+    scale: f32,
+    state: S,
 }
 
-impl TextureWindow {
+impl<S> DebugWindow<S> where S: DebugWindowState {
     const SCALE_OFFSET: f32 = 0.1;
 
-    pub fn new(title: &str) -> TextureWindow {
-        TextureWindow {
-            texture: Texture::new(),
-            scale: 1.0,
+    pub fn new(title: &str) -> DebugWindow<S> {
+        DebugWindow {
             title: ImString::new(title),
+            texture: Texture::new(),
             opened: false,
+            scale: 1.0,
+            state: S::new(),
         }
     }
 
-    pub fn render<F>(&mut self, ui: &Ui, keys_pressed: &HashSet<Key>,
-        pixels: Vec<u16>, width: usize, height: usize, f: F) where F: FnOnce() {
+    pub fn menu_item(&mut self, ui: &Ui) {
+        let clicked = MenuItem::new(&self.title).selected(self.opened).build(ui);
+        if clicked { self.opened = !self.opened }
+    }
+
+    pub fn render(&mut self, nds: &mut NDS, ui: &Ui, keys_pressed: &HashSet<Key>) {
         if !self.opened { return }
+
+        let (pixels, width, height) = self.state.get_pixels(nds);
+
         self.texture.update_pixels(pixels, width, height);
         let title = self.title.clone();
         let mut opened = self.opened;
@@ -33,17 +47,26 @@ impl TextureWindow {
         .opened(&mut opened)
         .build(ui, || {
             if ui.is_window_focused() {
-                if keys_pressed.contains(&Key::Equal) { self.scale += TextureWindow::SCALE_OFFSET }
-                if keys_pressed.contains(&Key::Minus) { self.scale -= TextureWindow::SCALE_OFFSET }
+            if keys_pressed.contains(&Key::Equal) { self.scale += Self::SCALE_OFFSET }
+            if keys_pressed.contains(&Key::Minus) { self.scale -= Self::SCALE_OFFSET }
             }
-            f();
+            self.state.render(ui);
             self.texture.render(self.scale).build(ui);
         });
         self.opened = opened;
     }
 }
 
-pub struct Texture {
+pub trait DebugWindowState {
+    fn new() -> Self;
+    fn render(&mut self, ui: &Ui);
+    fn get_pixels(&self, nds: &mut NDS) -> (Vec<u16>, usize, usize);
+    
+    const ENGINES: [Engine; 2] = [Engine::A, Engine::B];
+    const GRAPHICS_TYPES: [GraphicsType; 2] = [GraphicsType::BG, GraphicsType::OBJ];
+}
+
+struct Texture {
     tex: u32,
     width: f32,
     height: f32,

@@ -153,8 +153,7 @@ impl Display {
         }
     }
 
-    pub fn render<F>(&mut self, nds: &mut NDS, imgui: &mut imgui::Context, imgui_draw: F)
-        where F: FnOnce(&imgui::Ui, HashSet<glfw::Key>, HashSet<glfw::Modifiers>) {
+    pub fn render_main(&mut self, nds: &mut NDS, imgui: &mut imgui::Context) -> (HashSet<glfw::Key>, HashSet<glfw::Modifiers>) {
         let screens = nds.get_screens();
         let (width, height) = self.window.get_size();
 
@@ -229,6 +228,12 @@ impl Display {
             }
         }
 
+        (keys_pressed, modifiers)
+    }
+
+    pub fn render_imgui<F>(&mut self, imgui: &mut imgui::Context, keys_pressed: HashSet<glfw::Key>, modifiers: HashSet<glfw::Modifiers>,
+        imgui_draw: F) where F: FnOnce(&imgui::Ui, HashSet<glfw::Key>, HashSet<glfw::Modifiers>){
+        let io = imgui.io_mut();
         self.prepare_frame(io);
         io.update_delta_time(Instant::now() - self.prev_frame_time);
         let ui = imgui.frame();
