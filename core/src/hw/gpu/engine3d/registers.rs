@@ -74,6 +74,10 @@ impl Engine3D {
             _ => unreachable!(),
         }
     }
+
+    pub(super) fn read_clip_mat(&self, byte: usize) -> u8 {
+        ((self.clip_mat[byte / 4].raw() as u32) >> (8 * (byte % 4))) as u8
+    }
 }
 
 pub struct ClearColor {

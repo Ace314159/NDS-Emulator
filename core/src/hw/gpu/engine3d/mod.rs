@@ -53,6 +53,7 @@ pub struct Engine3D {
     vertex_primitive: VertexPrimitive,
     prev_pos: [FixedPoint; 3],
     swap_verts: bool,
+    clip_mat: Matrix,
     cur_poly_verts: Vec<Vertex>,
     vertices: Vec<Vertex>,
     polygons: Vec<Polygon>,
@@ -113,6 +114,7 @@ impl Engine3D {
             vertex_primitive: VertexPrimitive::Triangles,
             prev_pos: [FixedPoint::zero(); 3],
             swap_verts: false,
+            clip_mat: Matrix::identity(),
             cur_poly_verts: Vec::with_capacity(10),
             vertices: Vec::new(),
             polygons: Vec::new(),
@@ -164,6 +166,7 @@ impl Engine3D {
         match addr & 0xFFF {
             0x600 ..= 0x603 => self.read_gxstat((addr as usize) & 0x3),
             0x604 ..= 0x607 => self.read_ram_count((addr as usize) & 0x3),
+            0x640 ..= 0x67F => self.read_clip_mat((addr as usize) & 0x3F),
             _ => { warn!("Ignoring Engine3D Read at 0x{:08X}", addr); 0 },
         }
     }

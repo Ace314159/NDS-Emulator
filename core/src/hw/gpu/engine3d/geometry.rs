@@ -57,11 +57,13 @@ impl Engine3D {
                         self.proj_stack_sp -= 1;
                         assert!(self.proj_stack_sp < 1);
                         self.cur_proj = self.proj_stack[self.proj_stack_sp as usize];
+                        self.calc_clip_mat();
                     },
                     MatrixMode::Pos | MatrixMode::PosVec => {
                         self.pos_vec_stack_sp = (self.pos_vec_stack_sp as i8 - offset) as u8;
                         assert!(self.pos_vec_stack_sp < 31);
                         self.cur_pos = self.pos_stack[self.pos_vec_stack_sp as usize];
+                        self.calc_clip_mat();
                         self.cur_vec = self.vec_stack[self.pos_vec_stack_sp as usize];
                     },
                     MatrixMode::Texture => {
@@ -97,10 +99,12 @@ impl Engine3D {
                     MatrixMode::Proj => {
                         assert!(index <= 1);
                         self.cur_proj = self.proj_stack[0];
+                        self.calc_clip_mat();
                     },
                     MatrixMode::Pos | MatrixMode::PosVec => {
                         assert!(index <= 31);
                         self.cur_pos = self.pos_stack[index as usize];
+                        self.calc_clip_mat();
                         self.cur_vec = self.vec_stack[index as usize];
                     },
                     MatrixMode::Texture => {
@@ -251,14 +255,19 @@ impl Engine3D {
 
     fn apply_cur_mat<F: Fn(&mut Matrix, &Vec<u32>)>(&mut self, apply: F, also_to_vec: bool) {
         match self.mtx_mode {
-            MatrixMode::Proj => apply(&mut self.cur_proj, &self.params),
-            MatrixMode::Pos => apply(&mut self.cur_pos, &self.params),
+            MatrixMode::Proj => { apply(&mut self.cur_proj, &self.params); self.calc_clip_mat(); },
+            MatrixMode::Pos => { apply(&mut self.cur_pos, &self.params); self.calc_clip_mat(); },
             MatrixMode::PosVec => {
                 apply(&mut self.cur_pos, &self.params);
+                self.calc_clip_mat();
                 if also_to_vec { apply(&mut self.cur_vec, &self.params) }
             },
             MatrixMode::Texture => apply(&mut self.cur_tex, &self.params),
         }
+    }
+
+    fn calc_clip_mat(&mut self) {
+        self.clip_mat = self.cur_pos * self.cur_proj;
     }
 
     fn calc_lighting(&mut self, x: FixedPoint, y: FixedPoint, z: FixedPoint) {
@@ -328,7 +337,7 @@ impl Engine3D {
     fn submit_vertex(&mut self, x: FixedPoint, y: FixedPoint, z: FixedPoint) {
         self.prev_pos = [x, y, z];
         let vertex_pos = Vec4::new(x, y, z, FixedPoint::one());
-        let clip_coords = self.cur_pos * self.cur_proj * vertex_pos;
+        let clip_coords = self.clip_mat * vertex_pos;
 
         self.transform_tex_coord(TexCoordTransformationMode::Vertex);
         self.cur_poly_verts.push(Vertex {
