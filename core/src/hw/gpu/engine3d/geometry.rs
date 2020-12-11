@@ -382,6 +382,7 @@ impl Engine3D {
         if self.cur_poly_verts.len() == 0 { return }
 
         // TODO: Reject polygon if it doesn't fit into Vertex RAM or Polygon 
+        // TODO: Do face culling here
         self.polygons.push(Polygon {
             start_vert: self.vertices.len(),
             end_vert: self.vertices.len() + self.cur_poly_verts.len(),

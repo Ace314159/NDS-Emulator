@@ -64,6 +64,16 @@ impl Engine3D {
             _ => unreachable!(),
         }
     }
+
+    pub(super) fn read_ram_count(&self, byte: usize) -> u8 {
+        match byte {
+            0 => (self.polygons.len() >> 0) as u8,
+            1 => (self.polygons.len() >> 8) as u8,
+            2 => (self.vertices.len() >> 0) as u8,
+            3 => (self.vertices.len() >> 8) as u8,
+            _ => unreachable!(),
+        }
+    }
 }
 
 pub struct ClearColor {

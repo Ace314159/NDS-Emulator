@@ -163,6 +163,7 @@ impl Engine3D {
         assert_eq!(addr >> 12, 0x04000);
         match addr & 0xFFF {
             0x600 ..= 0x603 => self.read_gxstat((addr as usize) & 0x3),
+            0x604 ..= 0x607 => self.read_ram_count((addr as usize) & 0x3),
             _ => { warn!("Ignoring Engine3D Read at 0x{:08X}", addr); 0 },
         }
     }
