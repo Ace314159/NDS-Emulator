@@ -5,18 +5,15 @@ use super::registers::*;
 
 impl Engine3D {
     fn push_geometry_command(&mut self, command: GeometryCommand, param: u32) {
-        //assert!(!self.bus_stalled);
-        let command = GeometryCommandEntry::new(command, param);
-        if self.gxfifo.len() == 0 && self.gxpipe.len() < Engine3D::PIPE_LEN { self.gxpipe.push_back(command) }
-        else {
-            self.gxfifo.push_back(command);
-            self.bus_stalled = self.gxfifo.len() >= Engine3D::FIFO_LEN;
-        }
+        let entry = GeometryCommandEntry::new(command, param);
+        self.gxfifo.push_back(entry);
+        self.bus_stalled = self.gxfifo.len() >= Engine3D::FIFO_LEN;
     }
 
     pub fn exec_command(&mut self, command_entry: GeometryCommandEntry) {
+        self.gxstat.geometry_engine_busy = false;
+        self.bus_stalled = false;
         self.params.push(command_entry.param);
-        self.cycles_ahead -= 1; // 1 cycle for processing command
         if self.params.len() < command_entry.command.num_params() {
             if self.params.len() > 1 { assert_eq!(self.prev_command, command_entry.command) }
             self.prev_command = command_entry.command;
@@ -25,8 +22,6 @@ impl Engine3D {
 
         use GeometryCommand::*;
         let param = command_entry.param;
-        self.gxstat.geometry_engine_busy = false;
-        self.bus_stalled = false;
         info!("Executing Geometry Command {:?} {:?}", command_entry.command, self.params);
         match command_entry.command {
             NOP => (),
@@ -208,7 +203,6 @@ impl Engine3D {
             Unimplemented => (),
         }
         self.params.clear();
-        self.cycles_ahead -= command_entry.command.exec_time() as i32;
     }
 
     pub fn write_geometry_fifo(&mut self, value: u32) {
@@ -616,48 +610,6 @@ impl GeometryCommand {
             0x50 => SwapBuffers,
             0x60 => Viewport,
             _ => { warn!("Unimplemented Geometry Command Byte: 0x{:X}", value); Unimplemented },
-        }
-    }
-
-    fn exec_time(&self) -> usize {
-        use GeometryCommand::*;
-        match *self {
-            NOP => 0,
-            MtxMode => 0,
-            MtxPush => 16,
-            MtxPop => 35,
-            MtxStore => 17,
-            MtxRestore => 36,
-            MtxIdentity => 18,
-            MtxLoad4x4 => 34,
-            MtxLoad4x3 => 30,
-            MtxMult4x4 => 19, // TOOD: Add extra cycles for MTX_MODE 2
-            MtxMult4x3 => 19, // TODO: Add extra cycles for MTX_MODE 2
-            MtxMult3x3 => 19, // TODO: Add extra cycles for MTX_MODE 2
-            MtxScale => 22, // TODO: Add extra cycles for MTX_MODE 2
-            MtxTrans => 19, // TODO: Add extra cycles for MTX_MODE 2
-            Color => 0,
-            Normal => 9, // TODO: Add extra cycles depending on num of enabled lights
-            TexCoord => 1,
-            Vtx16 => 7,
-            Vtx10 => 8,
-            VtxXY => 8,
-            VtxXZ => 8,
-            VtxYZ => 8,
-            VtxDiff => 8,
-            PolygonAttr => 0,
-            TexImageParam => 0,
-            PlttBase => 1,
-            DifAmb => 4,
-            SpeEmi => 4,
-            LightVector => 6,
-            LightColor => 1,
-            Shininess => 32,
-            BeginVtxs => 0,
-            EndVtxs => 0,
-            SwapBuffers => 392,
-            Viewport => 0,
-            Unimplemented => 0,
         }
     }
 

@@ -13,7 +13,6 @@ use geometry::*;
 use registers::*;
 
 pub struct Engine3D {
-    cycles_ahead: i32,
     pub bus_stalled: bool,
     // Registers
     gxstat: GXSTAT,
@@ -24,7 +23,6 @@ pub struct Engine3D {
     params_processed: usize,
     params: Vec<u32>,
     gxfifo: VecDeque<GeometryCommandEntry>,
-    gxpipe: VecDeque<GeometryCommandEntry>,
     // Matrices
     mtx_mode: MatrixMode,
     cur_proj: Matrix,
@@ -70,11 +68,9 @@ pub struct Engine3D {
 
 impl Engine3D {
     const FIFO_LEN: usize = 256;
-    const PIPE_LEN: usize = 4;
 
     pub fn new() -> Self {
         Engine3D {
-            cycles_ahead: 0,
             bus_stalled: false,
             // Registers
             gxstat: GXSTAT::new(),
@@ -85,7 +81,6 @@ impl Engine3D {
             params_processed: 0,
             params: Vec::new(),
             gxfifo: VecDeque::with_capacity(256),
-            gxpipe: VecDeque::with_capacity(4),
             // Matrices
             mtx_mode: MatrixMode::Proj,
             cur_proj: Matrix::identity(),
@@ -130,24 +125,17 @@ impl Engine3D {
         }
     }
 
-    pub fn clock(&mut self, cycles: usize, interrupts: &mut InterruptRequest) -> bool {
-        if self.polygons_submitted {
-            self.check_interrupts(interrupts);
-            return false
-        }
-        self.cycles_ahead += cycles as i32;
-        while self.cycles_ahead > 0 {
-            if let Some(command_entry) = self.gxpipe.pop_front() {
-                self.exec_command(command_entry);
-                while self.gxpipe.len() < 3 {
-                    if let Some(command_entry) = self.gxfifo.pop_front() {
-                        self.gxpipe.push_back(command_entry);
-                    } else { self.cycles_ahead = 0; break }
-                }
-            } else { self.cycles_ahead = 0; break }
-        }
+    pub fn clock(&mut self, interrupts: &mut InterruptRequest) -> bool {
         self.check_interrupts(interrupts);
-        self.gxfifo.len() < Engine3D::FIFO_LEN / 2
+        if self.polygons_submitted {
+            false
+        } else {
+            while let Some(entry) = self.gxfifo.pop_front() {
+                self.exec_command(entry);
+                if self.polygons_submitted { break }
+            }
+            self.gxfifo.len() < Engine3D::FIFO_LEN / 2
+        }
     }
 
     fn check_interrupts(&self, interrupts: &mut InterruptRequest) {
