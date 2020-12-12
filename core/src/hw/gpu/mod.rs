@@ -7,12 +7,11 @@ pub mod debug;
 use crate::hw::{
     Event, Scheduler
 };
-use registers::POWCNT1;
 
 pub use engine2d::Engine2D;
 pub use engine3d::Engine3D;
 pub use vram::VRAM;
-pub use registers::{DISPSTAT, DISPSTATFlags};
+pub use registers::{DISPSTAT, DISPSTATFlags, POWCNT1};
 
 pub struct GPU {
     // Registers and Values Shared between Engines
@@ -96,8 +95,12 @@ impl GPU {
 
         if self.vcount < GPU::HEIGHT as u16 {
             // TOOD: Use POWCNT to selectively render engines
-            self.engine_a.render_line(&self.engine3d, &self.vram, self.vcount);
-            self.engine_b.render_line(&self.engine3d, &self.vram, self.vcount);
+            if self.powcnt1.contains(POWCNT1::ENABLE_ENGINE_A) {
+                self.engine_a.render_line(&self.engine3d, &self.vram, self.vcount)
+            }
+            if self.powcnt1.contains(POWCNT1::ENABLE_ENGINE_B) {
+                self.engine_b.render_line(&self.engine3d, &self.vram, self.vcount)
+            }
             true
         } else { false }
     }

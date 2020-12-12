@@ -113,8 +113,9 @@ impl HW {
 
     pub fn clock(&mut self, arm7_cycles: usize) {
         self.handle_events(arm7_cycles);
-        if self.gpu.engine3d.clock(&mut self.interrupts9.request) {
-            self.run_dmas(DMAOccasion::GeometryCommandFIFO);
+        if self.gpu.powcnt1.contains(gpu::POWCNT1::ENABLE_3D_GEOMETRY) &&
+            self.gpu.engine3d.clock(&mut self.interrupts9.request) {
+            self.run_dmas(DMAOccasion::GeometryCommandFIFO)
         }
     }
 

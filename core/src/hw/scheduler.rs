@@ -7,7 +7,7 @@ use super::{
     dma::{DMAChannel, DMAOccasion},
     mmu::MemoryValue,
     interrupt_controller::{InterruptController, InterruptRequest},
-    gpu::{DISPSTAT, DISPSTATFlags},
+    gpu::{DISPSTAT, DISPSTATFlags, POWCNT1},
     HW
 };
 
@@ -68,7 +68,9 @@ impl HW {
             },
             Event::VBlank => {
                 self.run_dmas(DMAOccasion::VBlank);
-                self.gpu.engine3d.render(&self.gpu.vram);
+                if self.gpu.powcnt1.contains(POWCNT1::ENABLE_3D_RENDERING) {
+                    self.gpu.engine3d.render(&self.gpu.vram)
+                }
             },
             Event::TimerOverflow(is_nds9, timer) => {
                 let (timers, interrupts) = if is_nds9 {
