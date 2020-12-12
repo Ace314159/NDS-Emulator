@@ -118,14 +118,6 @@ impl HW {
         let transfer_32 = channel.cnt.transfer_32;
         let irq = channel.cnt.irq;
         channel.cnt.enable = channel.cnt.start_timing != DMAOccasion::Immediate && channel.cnt.repeat;
-        // TODO: Optimize
-        let count = if channel.cnt.start_timing == DMAOccasion::GeometryCommandFIFO {
-            channel.cnt.enable = count > 112;
-            let cur_count = std::cmp::min(count, 112);
-            channel.count_latch -= cur_count;
-            channel.cnt.enable = channel.count_latch > 0;
-            cur_count
-        } else { count };
         info!("Running {:?} ARM{} DMA{}: Writing {} values to {:08X} from {:08X}, size: {}", channel.cnt.start_timing,
         if is_nds9 { 9 } else { 7 }, num, count, dest_addr, src_addr, if transfer_32 { 32 } else { 16 });
 
