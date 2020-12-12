@@ -116,8 +116,7 @@ impl<E: EngineType> Engine2D<E> {
     }
 
     fn render_normal_line(&mut self, engine3d: &Engine3D, vram: &VRAM, vcount: u16) {
-        let affine_render_fn =
-            Engine2D::<E>::render_8bit_entry;
+        let affine_render_fn = Engine2D::<E>::render_8bit_entry;
         if self.dispcnt.contains(DISPCNTFlags::DISPLAY_WINDOW0) { self.render_window(vcount, 0) }
         if self.dispcnt.contains(DISPCNTFlags::DISPLAY_WINDOW1) { self.render_window(vcount, 1) }
         if self.dispcnt.contains(DISPCNTFlags::DISPLAY_OBJ) { self.render_objs_line(vram, vcount, ) }
@@ -518,30 +517,72 @@ impl<E: EngineType> Engine2D<E> {
         } else { (1, 1) };
 
         let dot_y = vcount as usize;
-        for dot_x in 0..GPU::WIDTH {
-            let x = (dot_x + x_offset) / mosaic_x * mosaic_x;
-            let y = (dot_y + y_offset) / mosaic_y * mosaic_y;
-            // Get Screen Entry
-            let mut map_x = x / 8;
-            let mut map_y = y / 8;
-            let map_start_addr = map_start_addr + match bgcnt.screen_size {
-                0 => 0,
-                1 => if (map_x / 32) % 2 == 1 { 0x800 } else { 0 },
-                2 => if (map_y / 32) % 2 == 1 { 0x800 } else { 0 },
-                3 => {
-                    let x_overflowed = (map_x / 32) % 2 == 1;
-                    let y_overflowed = (map_y / 32) % 2 == 1;
-                    if x_overflowed && y_overflowed { 0x800 * 3 }
-                    else if y_overflowed { 0x800 * 2 }
-                    else if x_overflowed { 0x800 * 1 }
-                    else { 0 }
-                },
+        let y = dot_y / mosaic_y * mosaic_y + y_offset;
+        let map_y = y / 8;
+        let mut map_x = x_offset / 8;
+
+        let x_overflowed = (map_x / 32) % 2 == 1;
+        let y_overflowed = (map_y / 32) % 2 == 1;
+        let (mut map_start_addr_x_offset, map_start_addr_y_offset) = match bgcnt.screen_size {
+            0 => (0, 0),
+            1 => if x_overflowed { (0x800, 0) } else { (0, 0) },
+            2 => if y_overflowed { (0, 0x800) } else { (0, 0) },
+            3 => if x_overflowed && y_overflowed { (0x800 * 1, 0x800 * 2) }
+                else if y_overflowed { (0, 0x800 * 2) }
+                else if x_overflowed { (0x800 * 1, 0) }
+                else { (0, 0) },
+            _ => unreachable!(),
+        };
+        map_x %= 32;
+        let map_y = map_y % 32;
+        let tile_x = x_offset % 8;
+
+        let inc_map_x = |map_x: &mut usize, map_start_addr_x_offset: &mut usize| if *map_x + 1 >= 32 {
+            assert_eq!(*map_x, 31);
+            *map_x = 0usize;
+            *map_start_addr_x_offset = match bgcnt.screen_size {
+                0 => *map_start_addr_x_offset,
+                1 => 0x800,
+                2 => 0,
+                3 => 0x800,
                 _ => unreachable!(),
-            };
-            map_x %= 32;
-            map_y %= 32;
-            self.bg_lines[bg_i][dot_x] = self.render_16bit_entry(vram, bg_i, map_start_addr, tile_start_addr, bit_depth,
-                32 * 8, map_x, map_y, x, y);
+            } - *map_start_addr_x_offset;
+        } else { *map_x += 1 };
+        
+        let start_x = if tile_x != 0 {
+            let map_start_addr = map_start_addr + map_start_addr_y_offset + map_start_addr_x_offset;
+            let colors = self.render_16bit_entry_f(vram, bg_i, map_start_addr, tile_start_addr, bit_depth, 32 * 8,
+                map_x, map_y, y);
+            for (i, color) in colors.iter().skip(tile_x).enumerate() {
+                self.bg_lines[bg_i][i] = *color;
+            }
+           inc_map_x(&mut map_x, &mut map_start_addr_x_offset);
+           8 - tile_x
+        } else { 0 };
+        let mut dot_x = start_x;
+        while dot_x < GPU::WIDTH - 8 {
+            let map_start_addr = map_start_addr + map_start_addr_y_offset + map_start_addr_x_offset;
+            let colors = self.render_16bit_entry_f(vram, bg_i, map_start_addr, tile_start_addr, bit_depth, 32 * 8,
+                map_x, map_y, y);
+            for (i, color) in colors.iter().enumerate() {
+                self.bg_lines[bg_i][dot_x + i] = *color;
+            }
+            inc_map_x(&mut map_x, &mut map_start_addr_x_offset);
+            dot_x += 8;
+        }
+        let map_start_addr = map_start_addr + map_start_addr_y_offset + map_start_addr_x_offset;
+        let colors = self.render_16bit_entry_f(vram, bg_i, map_start_addr, tile_start_addr, bit_depth, 32 * 8,
+            map_x, map_y, y);
+        for (i, color) in colors.iter().take(8 - start_x).enumerate() {
+            self.bg_lines[bg_i][dot_x + i] = *color;
+        }
+
+        for dot_x in (0..GPU::WIDTH).step_by(mosaic_x) {
+            let repeated_color = self.bg_lines[bg_i][dot_x];
+            let end_i = std::cmp::min(GPU::WIDTH, dot_x + mosaic_x);
+            for color in self.bg_lines[bg_i][dot_x..end_i].iter_mut() {
+                *color = repeated_color;
+            }
         }
     }
 
@@ -556,6 +597,33 @@ impl<E: EngineType> Engine2D<E> {
             x % 8, y % 8, 0);
         if color_num == 0 { 0 } // Transparent Color
         else { self.bg_palettes[color_num] | 0x8000 }
+    }
+
+    pub(super) fn render_16bit_entry_f(&mut self, vram: &VRAM, bg_i: usize, map_start_addr: usize, tile_start_addr: usize,
+        bit_depth: usize, map_size: usize, map_x: usize, map_y: usize, y: usize) -> [u16; 8] {
+        let bgcnt = self.bgcnts[bg_i];
+
+        let addr = map_start_addr + 2 * (map_y * map_size / 8 + map_x);
+        let screen_entry = vram.get_bg::<E, u16>(addr) as usize;
+        let tile_num = screen_entry & 0x3FF;
+        let flip_x = (screen_entry >> 10) & 0x1 != 0;
+        let flip_y = (screen_entry >> 11) & 0x1 != 0;
+        let original_palette_num = (screen_entry >> 12) & 0xF;
+        
+        // Convert from tile to pixels
+        let colors = Engine2D::<E>::get_colors_from_tile(vram,
+            VRAM::get_bg::<E, u8>, tile_start_addr + 8 * bit_depth * tile_num, flip_x, flip_y, bit_depth,
+            y % 8, original_palette_num);
+        let mut final_colors = [0; 8];
+        for (i, (palette_num, color_num)) in colors.iter().enumerate() {
+            final_colors[i] = if *color_num == 0 { 0 } // Transparent Color
+            else if bgcnt.bpp8 & self.dispcnt.contains(DISPCNTFlags::BG_EXTENDED_PALETTES) {
+                // Wrap bit is Change Ext Palette Slot for BG0/BG1
+                let slot = if bg_i < 2 && bgcnt.wrap { bg_i + 2 } else { bg_i };
+                vram.get_bg_ext_pal::<E>(slot, original_palette_num * 256 + color_num) | 0x8000
+            } else { self.bg_palettes[palette_num * 16 + color_num] | 0x8000 };
+        }
+        final_colors
     }
 
     pub(super) fn render_16bit_entry(&self, vram: &VRAM, bg_i: usize, map_start_addr: usize, tile_start_addr: usize,
@@ -579,6 +647,26 @@ impl<E: EngineType> Engine2D<E> {
             let slot = if bg_i < 2 && bgcnt.wrap { bg_i + 2 } else { bg_i };
             vram.get_bg_ext_pal::<E>(slot, original_palette_num * 256 + color_num) | 0x8000
         } else { self.bg_palettes[palette_num * 16 + color_num] | 0x8000 }
+    }
+
+    pub fn get_colors_from_tile<F: Fn(&VRAM, usize) -> u8>(vram: &VRAM, get_vram_byte: F, addr: usize,
+        flip_x: bool, flip_y: bool, bit_depth: usize, tile_y: usize, palette_num: usize) -> [(usize, usize); 8] {
+        let tile_y = if flip_y { 7 - tile_y } else { tile_y };
+        let mut colors = [(0, 0); 8];
+        let base_addr = addr + tile_y * bit_depth;
+        if bit_depth == 8 {
+            for tile_x in 0..8 {
+                colors[tile_x] = (0, get_vram_byte(vram, base_addr + tile_x) as usize);
+            }
+        } else {
+            for addr_inc in 0..4 {
+                let byte = get_vram_byte(vram, base_addr + addr_inc) as usize;
+                colors[2 * addr_inc + 0] = (palette_num, byte >> 0 & 0xF);
+                colors[2 * addr_inc + 1] = (palette_num, byte >> 4 & 0xF);
+            }
+        }
+        if flip_x { colors.reverse() }
+        colors
     }
 
     pub(super) fn get_color_from_tile<F: Fn(&VRAM, usize) -> u8>(vram: &VRAM, get_vram_byte: F, addr: usize,

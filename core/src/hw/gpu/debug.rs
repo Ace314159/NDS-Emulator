@@ -45,11 +45,11 @@ impl GPU {
                     let tile_num = tile_y * tiles_width + tile_x;
                     let addr = tile_start_addr + 8 * bit_depth * tile_num;
                     for y in 0..8 {
-                        for x in 0..8 {
-                            let (palette_num, color_num) = Engine2D::<E>::get_color_from_tile(&vram,
-                                get_vram_byte, addr, false, false, bit_depth,
-                                x, y, palette);
-                            if color_num == 0 { continue }
+                        let colors = Engine2D::<E>::get_colors_from_tile(&vram,
+                            get_vram_byte, addr, false, false, bit_depth,
+                            y, palette);
+                        for (x, (palette_num, color_num)) in colors.iter().enumerate() {
+                            if *color_num == 0 { continue }
                             pixels[start_i + y * width + x] = 0x8000 | if extended {
                                 get_color(palette * 16 + color_num)
                             } else {
