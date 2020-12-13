@@ -206,6 +206,7 @@ impl FixedPoint {
     pub fn from_frac12(val: i32) -> Self { FixedPoint(val) }
     pub fn num(&self) -> usize { (self.0 >> 12) as usize }
     pub fn raw(&self) -> i32 { self.0 }
+    pub fn raw64(&self) -> i64 { self.0 as i64 }
 }
 
 impl Add<FixedPoint> for i64 {
@@ -265,4 +266,3 @@ impl Index<usize> for Vec4 {
         &self.elems[index]
     }
 }
-

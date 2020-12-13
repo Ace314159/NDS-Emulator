@@ -459,32 +459,33 @@ impl Engine3D {
 
     fn find_intersection(&self, coord_i: usize, positive: bool, inside: &Vertex, out: &Vertex) -> Vertex {
         let plane_factor = if positive { 1 } else { -1 };
-        let factor_numer = inside.clip_coords[3].raw() - plane_factor * inside.clip_coords[coord_i].raw();
-        let factor_denom = factor_numer - (out.clip_coords[3].raw() - plane_factor * out.clip_coords[coord_i].raw());
+        let factor_numer = inside.clip_coords[3].raw64() - plane_factor * inside.clip_coords[coord_i].raw64();
+        let factor_denom = factor_numer - (out.clip_coords[3].raw64() - plane_factor * out.clip_coords[coord_i].raw64());
         
-        let interpolate = |inside, out| inside + (out - inside) *
-            factor_numer / factor_denom;
-        let calc_coord = |i| FixedPoint::from_frac12(
-            interpolate(inside.clip_coords[i].raw(), out.clip_coords[i].raw()),
+        let interpolate = |inside, out| inside + (out - inside) * factor_numer / factor_denom;
+        let calc_coord = |i, new_w: FixedPoint| FixedPoint::from_frac12(
+            if coord_i == i { plane_factor * new_w.raw64() }
+            else { interpolate(inside.clip_coords[i].raw64(), out.clip_coords[i].raw64()) } as i32
         );
+        let new_w = calc_coord(3, FixedPoint::zero());
 
         Vertex {
             clip_coords: Vec4::new(
-                calc_coord(0),
-                calc_coord(1),
-                calc_coord(2),
-                calc_coord(3),
+                calc_coord(0, new_w),
+                calc_coord(1, new_w),
+                calc_coord(2, new_w),
+                new_w,
             ),
             screen_coords: [0, 0], // Calcluated after
             z_depth: 0, // Calculated after
             color: Color::new(
-                interpolate(inside.color.r as i32, out.color.r as i32) as u8,
-                interpolate(inside.color.g as i32, out.color.g as i32) as u8,
-                interpolate(inside.color.b as i32, out.color.b as i32) as u8,
+                interpolate(inside.color.r as i64, out.color.r as i64) as u8,
+                interpolate(inside.color.g as i64, out.color.g as i64) as u8,
+                interpolate(inside.color.b as i64, out.color.b as i64) as u8,
             ),
             tex_coord: [
-                interpolate(inside.tex_coord[0] as i32, out.tex_coord[0] as i32) as i16,
-                interpolate(inside.tex_coord[1] as i32, out.tex_coord[1] as i32) as i16,
+                interpolate(inside.tex_coord[0] as i64, out.tex_coord[0] as i64) as i16,
+                interpolate(inside.tex_coord[1] as i64, out.tex_coord[1] as i64) as i16,
             ]
         }
     }
