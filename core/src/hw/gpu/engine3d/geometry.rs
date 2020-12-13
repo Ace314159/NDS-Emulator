@@ -429,7 +429,7 @@ impl Engine3D {
                 new_vert_i += 1;
             } else if prev_vertex.clip_coords[coord_i] <= prev_vertex.clip_coords[3] { // Prev point inside
                 new_verts[new_vert_i] = self.find_intersection(coord_i, true,
-                    cur_vertex, prev_vertex);
+                    prev_vertex, cur_vertex);
                 new_vert_i += 1;
             }
         }
@@ -452,7 +452,7 @@ impl Engine3D {
                 self.cur_poly_verts.push(cur_vertex.clone());
             } else if prev_vertex.clip_coords[coord_i] >= -prev_vertex.clip_coords[3] { // Prev point inside
                 self.cur_poly_verts.push(self.find_intersection(coord_i, false,
-                    cur_vertex, prev_vertex));
+                    prev_vertex, cur_vertex));
             }
         }
     }
