@@ -1,7 +1,11 @@
 use super::{GPU, Color, geometry::Vertex, Engine3D, super::VRAM, TextureFormat};
 
 impl Engine3D {
-    pub fn get_line(&self, vcount: u16, line: &mut [u16; GPU::WIDTH]) {
+    pub fn pixels(&self) -> &Vec<u16> {
+        &self.pixels
+    }
+
+    pub fn copy_line(&self, vcount: u16, line: &mut [u16; GPU::WIDTH]) {
         for (i, pixel) in line.iter_mut().enumerate() {
             *pixel = self.pixels[vcount as usize * GPU::WIDTH + i]
         }

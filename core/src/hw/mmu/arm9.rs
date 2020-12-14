@@ -84,6 +84,7 @@ impl HW {
             0x0400_0006 => (self.gpu.vcount >> 0) as u8,
             0x0400_0007 => (self.gpu.vcount >> 8) as u8,
             0x0400_0008 ..= 0x0400_005F => self.gpu.engine_a.read_register(addr),
+            0x0400_0064 ..= 0x0400_0067 => self.gpu.dispcapcnt.read(addr as usize % 4),
             0x0400_0060 ..= 0x0400_006B => 0, // TODO: Other GPU
             0x0400_006C => self.gpu.engine_a.master_bright.read(0),
             0x0400_006D => self.gpu.engine_a.master_bright.read(1),
@@ -175,6 +176,7 @@ impl HW {
             0x0400_0006 => (), // VCOUNT is read only
             0x0400_0007 => (), // VCOUNT is read only
             0x0400_0008 ..= 0x0400_005F => self.gpu.engine_a.write_register(&mut self.scheduler, addr, value),
+            0x0400_0064 ..= 0x0400_0067 => self.gpu.dispcapcnt.write(&mut self.scheduler, addr as usize % 4, value),
             0x0400_0060 ..= 0x0400_006B => (), // TODO: Other GPU
             0x0400_006C => self.gpu.engine_a.master_bright.write(&mut self.scheduler, 0, value),
             0x0400_006D => self.gpu.engine_a.master_bright.write(&mut self.scheduler, 1, value),

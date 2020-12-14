@@ -307,7 +307,7 @@ impl<E: EngineType> Engine2D<E> {
     }
 
     fn render_bg0(&mut self, engine3d: &Engine3D, vram: &VRAM, vcount: u16) {
-        if E::is_a() && self.dispcnt.contains(DISPCNTFlags::IS_3D) { engine3d.get_line(vcount, &mut self.bg_lines[0]) }
+        if E::is_a() && self.dispcnt.contains(DISPCNTFlags::IS_3D) { engine3d.copy_line(vcount, &mut self.bg_lines[0]) }
         else if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { self.render_text_line(vram, vcount, 0) }
     }
 

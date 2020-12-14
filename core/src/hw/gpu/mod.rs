@@ -5,13 +5,13 @@ mod vram;
 pub mod debug;
 
 use crate::hw::{
-    Event, Scheduler
+    Event, Scheduler, HW,
 };
 
 pub use engine2d::Engine2D;
 pub use engine3d::Engine3D;
 pub use vram::VRAM;
-pub use registers::{DISPSTAT, DISPSTATFlags, POWCNT1};
+pub use registers::{DISPSTAT, DISPSTATFlags, DISPCAPCNT, POWCNT1, CaptureSource, CaptureOffset};
 
 pub struct GPU {
     // Registers and Values Shared between Engines
@@ -25,6 +25,8 @@ pub struct GPU {
     pub engine3d: Engine3D,
     pub vram: VRAM,
 
+    pub dispcapcnt: DISPCAPCNT,
+    capturing: bool,
     pub powcnt1: POWCNT1,
 }
 
@@ -55,6 +57,8 @@ impl GPU {
             engine3d: Engine3D::new(),
             vram: VRAM::new(),
 
+            dispcapcnt: DISPCAPCNT::new(),
+            capturing: false,
             powcnt1: POWCNT1::ENABLE_LCDS,
         }
     }
@@ -75,10 +79,12 @@ impl GPU {
         }
         
         let start_vblank = if self.vcount == 0 {
+            self.capturing = self.dispcapcnt.enable;
             self.dispstat7.remove(DISPSTATFlags::VBLANK);
             self.dispstat9.remove(DISPSTATFlags::VBLANK);
             false
         } else if self.vcount == GPU::HEIGHT as u16 {
+            if self.capturing { self.dispcapcnt.enable = false }
             self.dispstat7.insert(DISPSTATFlags::VBLANK);
             self.dispstat9.insert(DISPSTATFlags::VBLANK);
             self.rendered_frame = true;
@@ -96,7 +102,24 @@ impl GPU {
         if self.vcount < GPU::HEIGHT as u16 {
             // TOOD: Use POWCNT to selectively render engines
             if self.powcnt1.contains(POWCNT1::ENABLE_ENGINE_A) {
-                self.engine_a.render_line(&self.engine3d, &self.vram, self.vcount)
+                self.engine_a.render_line(&self.engine3d, &self.vram, self.vcount);
+                if self.capturing && (self.vcount as usize) < self.dispcapcnt.capture_size.height() {
+                    let src_start_addr = self.vcount as usize * GPU::WIDTH;
+                    let width = self.dispcapcnt.capture_size.width();
+                    let src_a = &if self.dispcapcnt.src_a_is_3d_only {
+                        self.engine3d.pixels()
+                    } else { self.engine_a.pixels() }[src_start_addr..src_start_addr + width];
+
+                    let vram_start_addr = self.vcount as usize * GPU::WIDTH;
+                    let bank = &mut self.vram.banks[self.dispcapcnt.vram_write_block];
+                    let offset = self.dispcapcnt.vram_write_offset.offset() as u32;
+                    match self.dispcapcnt.capture_src {
+                        CaptureSource::A => for (i, pixel) in src_a.iter().enumerate() {
+                            HW::write_mem(bank, offset + 2 * (vram_start_addr + i) as u32, *pixel);
+                        },
+                        CaptureSource::B | CaptureSource::AB => todo!(),
+                    }
+                }
             }
             if self.powcnt1.contains(POWCNT1::ENABLE_ENGINE_B) {
                 self.engine_b.render_line(&self.engine3d, &self.vram, self.vcount)

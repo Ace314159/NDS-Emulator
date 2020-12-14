@@ -7,7 +7,7 @@ use super::{
 
 pub struct VRAM {
     cnts: [VRAMCNT; 9],
-    banks: [Vec<u8>; 9],
+    pub(super) banks: [Vec<u8>; 9],
     // Functions
     lcdc_enabled: [bool; 9],
     lcdc: Vec<Vec<Bank>>,
