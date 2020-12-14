@@ -18,7 +18,8 @@ pub struct Engine3D {
     gxstat: GXSTAT,
     // Geometry Engine
     prev_command: GeometryCommand, // Verification for Geometry Commands
-    packed_commands: VecDeque<GeometryCommand>,
+    packed_commands: u32,
+    cur_command: GeometryCommand, // Current Packed Command processing
     num_params: usize,
     params_processed: usize,
     params: Vec<u32>,
@@ -76,7 +77,8 @@ impl Engine3D {
             gxstat: GXSTAT::new(),
             // Geometry Engine
             prev_command: GeometryCommand::Unimplemented,
-            packed_commands: VecDeque::new(),
+            packed_commands: 0,
+            cur_command: GeometryCommand::Unimplemented,
             num_params: 0,
             params_processed: 0,
             params: Vec::new(),

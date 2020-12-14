@@ -206,34 +206,29 @@ impl Engine3D {
     }
 
     pub fn write_geometry_fifo(&mut self, value: u32) {
-        if self.packed_commands.is_empty() {
-            let mut commands = value;
-            for _ in 0..4 {
-                self.packed_commands.push_back(GeometryCommand::from_byte(commands as u8));
-                commands >>= 8;
-            }
-            self.num_params = self.packed_commands.front().unwrap().num_params();
-            self.params_processed = 0;
-            if self.num_params > 0 { return }
+        if self.packed_commands == 0 {
             if value == 0 {
-                self.push_geometry_command(GeometryCommand::NOP, 0);
-                self.packed_commands.clear();
                 return
             }
+            self.packed_commands = value;
+            self.cur_command = GeometryCommand::from_byte(self.packed_commands as u8);
+            self.num_params = self.cur_command.num_params();
+            self.params_processed = 0;
+            if self.num_params > 0 { return }
         } else { self.params_processed += 1 }
 
-        while let Some(command) = self.packed_commands.front() {
-            if command != &GeometryCommand::NOP {
-                let command = command.clone();
-                self.push_geometry_command(command, value);
+        while self.packed_commands != 0 {
+            if self.cur_command != GeometryCommand::NOP {
+                self.push_geometry_command(self.cur_command, value);
             }
 
             assert!(self.params_processed <= self.num_params);
             if self.params_processed == self.num_params {
-                self.packed_commands.pop_front().unwrap();
-                if let Some(command) = self.packed_commands.front() {
+                self.packed_commands >>= 8;
+                if self.packed_commands != 0 {
+                    self.cur_command = GeometryCommand::from_byte(self.packed_commands as u8);
+                    self.num_params = self.cur_command.num_params();
                     self.params_processed = 0;
-                    self.num_params = command.num_params();
                     if self.num_params > 0 { break }
                 } else { break }
             } else { break }
