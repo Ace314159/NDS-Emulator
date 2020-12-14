@@ -26,15 +26,37 @@ impl DMAController {
 
     pub fn write(&mut self, channel: usize, scheduler: &mut Scheduler, addr: u32, value: u8) {
         let prev_start_timing = self.channels[channel].cnt.start_timing;
+        let prev_enable = self.channels[channel].cnt.enable;
         self.channels[channel].write(scheduler, (addr & 0xFF) as usize, value);
         let new_start_timing = self.channels[channel].cnt.start_timing;
-        // TODO: Maybe move this inside the write?
-        if prev_start_timing != new_start_timing {
-            let vec = &mut self.by_type[prev_start_timing as usize];
-            let pos = vec.iter().position(|i| *i == channel);
-            vec.swap_remove(pos.unwrap());
-            self.by_type[new_start_timing as usize].push(channel);
+        let new_enable = self.channels[channel].cnt.enable;
+        // TODO: Only call this when the upper byte of cnt is written to
+        if prev_enable != new_enable || prev_start_timing != new_start_timing {
+            if prev_enable {
+                let vec = &mut self.by_type[prev_start_timing as usize];
+                let pos = vec.iter().position(|i| *i == channel);
+                vec.swap_remove(pos.unwrap());
+            }
+            if new_enable {
+                self.by_type[new_start_timing as usize].push(channel);
+            }
         }
+        if !prev_enable && new_enable {
+            let channel = &mut self.channels[channel];
+            channel.latch();
+            info!("Scheduled {:?} ARM{} DMA{}: Writing {} values to {:08X} from {:08X}, size: {}",
+            channel.cnt.start_timing, if channel.is_nds9 { 9 } else { 7 }, channel.num, channel.cnt.count,
+            channel.dad.addr, channel.sad.addr, if channel.cnt.transfer_32 { 32 } else { 16 });
+            if channel.cnt.start_timing == DMAOccasion::Immediate {
+                scheduler.run_now(Event::DMA(channel.is_nds9, channel.num))
+            }
+        }
+    }
+
+    pub fn disable(&mut self, channel: usize) {
+        let vec = &mut self.by_type[self.channels[channel].cnt.start_timing as usize];
+        let pos = vec.iter().position(|i| *i == channel);
+        vec.swap_remove(pos.unwrap());
     }
 }
 
@@ -105,19 +127,7 @@ impl IORegister for DMAChannel {
             0x8 => self.cnt.write(scheduler, 0, value),
             0x9 => self.cnt.write(scheduler, 1, value),
             0xA => self.cnt.write(scheduler, 2, value),
-            0xB => {
-                let prev_enable = self.cnt.enable;
-                self.cnt.write(scheduler, 3, value);
-                if !prev_enable && self.cnt.enable {
-                    self.latch();
-                    info!("Scheduled {:?} ARM{} DMA{}: Writing {} values to {:08X} from {:08X}, size: {}",
-                    self.cnt.start_timing, if self.is_nds9 { 9 } else { 7 }, self.num, self.cnt.count,
-                    self.dad.addr, self.sad.addr, if self.cnt.transfer_32 { 32 } else { 16 });
-                    if self.cnt.start_timing == DMAOccasion::Immediate {
-                        scheduler.run_now(Event::DMA(self.is_nds9, self.num))
-                    }
-                }
-            },
+            0xB => self.cnt.write(scheduler, 3, value),
             _ => unreachable!(),
         }
     }

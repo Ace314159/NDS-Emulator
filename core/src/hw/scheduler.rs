@@ -155,6 +155,11 @@ impl HW {
         if dest_addr_ctrl == 3 { channel.dad_latch = original_dest_addr }
         cycles_passed += 2; // 2 I cycles
 
+        if !channel.cnt.enable {
+            if is_nds9 { self.dma9.disable(num) }
+            else { self.dma7.disable(num) }
+        }
+
         // TODO: Don't halt CPU if PC is in TCM
         self.clock(cycles_passed);
         
