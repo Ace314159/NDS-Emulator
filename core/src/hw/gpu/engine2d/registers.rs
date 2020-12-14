@@ -153,7 +153,7 @@ impl<E: EngineType> IORegister for DISPCNT<E> {
                 self.flags.bits = self.flags.bits & !0x00FF_0000 | (value as u32) << 16 & DISPCNTFlags::all().bits;
                 // TODO: Use trait specialization instead of this
                 if !E::is_a() {
-                    self.flags.remove(DISPCNTFlags::BITMAP_OBJ_1D);
+                    self.flags.remove(DISPCNTFlags::BITMAP_OBJ_1D_BOUND);
                 }
             },
             3 => {
