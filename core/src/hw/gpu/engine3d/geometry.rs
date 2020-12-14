@@ -284,7 +284,7 @@ impl Engine3D {
             let shininess_lvl = if shininess_lvl < 0 { 0 } else if shininess_lvl > 0xFF {
                 (0x100 - shininess_lvl) & 0xFF // Mirroring
             } else { shininess_lvl };
-            let shininess_lvl = 2 * shininess_lvl * shininess_lvl - 0x100; // 0x100 = 1 in 8 frac
+            let shininess_lvl = ((2 * shininess_lvl * shininess_lvl) >> 8) - 0x100; // 0x100 = 1 in 8 frac
             let shininess_lvl = if shininess_lvl < 0 { 0 } else { shininess_lvl };
 
             let shininess_lvl = if self.material.use_shininess_table {
@@ -298,9 +298,9 @@ impl Engine3D {
             }
         }
         self.color = Color::new(
-            if final_color[0] > 31 { 31 } else { final_color[0] } as u8,
-            if final_color[1] > 31 { 31 } else { final_color[1] } as u8,
-            if final_color[2] > 31 { 31 } else { final_color[2] } as u8,
+            if final_color[0] > 0x1F { 0x1F } else { final_color[0] } as u8,
+            if final_color[1] > 0x1F { 0x1F } else { final_color[1] } as u8,
+            if final_color[2] > 0x1F { 0x1F } else { final_color[2] } as u8,
         );
     }
 
