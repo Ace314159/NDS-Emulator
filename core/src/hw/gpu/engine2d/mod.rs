@@ -392,7 +392,10 @@ impl<E: EngineType> Engine2D<E> {
                 if mode == 3 { // Bitmap
                     assert!(!bpp8);
                     let (tile_start_addr, width) = if self.dispcnt.contains(DISPCNTFlags::BITMAP_OBJ_1D) {
-                        todo!()
+                        // Reserved, displays nothing
+                        if self.dispcnt.contains(DISPCNTFlags::BITMAP_OBJ_SQUARE) { continue }
+                        let boundary = if self.dispcnt.contains(DISPCNTFlags::BITMAP_OBJ_1D_BOUND) { 256 } else { 128 };
+                        (base_tile_num * boundary, obj_width)
                     } else {
                         let (mask_x, width) = if self.dispcnt.contains(DISPCNTFlags::BITMAP_OBJ_SQUARE) {
                             (0x1F, 256)
