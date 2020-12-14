@@ -119,7 +119,7 @@ impl<E: EngineType> Engine2D<E> {
         let affine_render_fn = Engine2D::<E>::render_8bit_entry;
         if self.dispcnt.contains(DISPCNTFlags::DISPLAY_WINDOW0) { self.render_window(vcount, 0) }
         if self.dispcnt.contains(DISPCNTFlags::DISPLAY_WINDOW1) { self.render_window(vcount, 1) }
-        if self.dispcnt.contains(DISPCNTFlags::DISPLAY_OBJ) { self.render_objs_line(vram, vcount, ) }
+        if self.dispcnt.contains(DISPCNTFlags::DISPLAY_OBJ) { self.render_objs_line(vram, vcount) }
 
         match self.dispcnt.bg_mode {
             BGMode::Mode0 => {
@@ -391,13 +391,15 @@ impl<E: EngineType> Engine2D<E> {
                 let bpp8 = obj[0] >> 13 & 0x1 != 0;
                 if mode == 3 { // Bitmap
                     assert!(!bpp8);
-                    let tile_start_addr = if self.dispcnt.contains(DISPCNTFlags::BITMAP_OBJ_1D) {
+                    let (tile_start_addr, width) = if self.dispcnt.contains(DISPCNTFlags::BITMAP_OBJ_1D) {
                         todo!()
                     } else {
-                        let mask_x = if self.dispcnt.contains(DISPCNTFlags::BITMAP_OBJ_SQUARE) { 0x1F } else { 0x0F };
-                        (base_tile_num & mask_x) * 0x10 + (base_tile_num & !mask_x) * 0x80
+                        let (mask_x, width) = if self.dispcnt.contains(DISPCNTFlags::BITMAP_OBJ_SQUARE) {
+                            (0x1F, 256)
+                        } else { (0x0F, 128) };
+                        ((base_tile_num & mask_x) * 0x10 + (base_tile_num & !mask_x) * 0x80, width)
                     };
-                    let addr = tile_start_addr + 2 * (y_diff as i16 * obj_width + x_diff) as usize;
+                    let addr = tile_start_addr + 2 * (y_diff as i16 * width + x_diff) as usize;
                     let color = vram.get_obj::<E, u16>(addr);
                     if color & 0x8000 != 0 {
                         self.objs_line[dot_x] = OBJPixel {
