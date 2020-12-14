@@ -1,4 +1,4 @@
-use super::{GPU, Color, geometry::Vertex, Engine3D, super::VRAM, TextureFormat};
+use super::{GPU, Color, geometry::Vertex, Engine3D, super::VRAM, TextureFormat, registers::PolygonMode};
 
 impl Engine3D {
     pub fn pixels(&self) -> &Vec<u16> {
@@ -33,12 +33,22 @@ impl Engine3D {
             // TODO: Implement perspective correction
             // TODO: Implement translucency
             // TODO: Remove with const generics
-            let blend = |color, s, t| {
+            fn apply_to_colors<F>(color_a: u16, color_b: u16, f: F) -> u16 where F: Fn(u16, u16) -> u16{
+                let mut new_color = 0;
+                for i in (0..3).rev() {
+                    let val1 = color_a >> (5 * i) & 0x1F;
+                    let val2 = color_b >> (5 * i) & 0x1F;
+                    new_color = new_color << 5 | f(val1, val2);
+                }
+                new_color
+            };
+
+            let blend = |vert_color, s, t| {
                 let vram_offset = polygon.tex_params.vram_offset;
                 let pal_offset = polygon.palette_base;
                 let texel = t * polygon.tex_params.size_s + s;
-                match polygon.tex_params.format {
-                    TextureFormat::NoTexture => color,
+                let tex_color = match polygon.tex_params.format {
+                    TextureFormat::NoTexture => vert_color,
                     TextureFormat::A3I5 => {
                         // TODO: Use alpha bits
                         let byte = vram.get_textures::<u8>(vram_offset + texel);
@@ -68,17 +78,10 @@ impl Engine3D {
                         let mode = (extra_palette_info >> 14) & 0x3;
                         let pal_offset = pal_offset + 4 * (extra_palette_info & 0x3FFF) as usize;
                         let color = |num: u8| vram.get_textures_pal::<u16>(pal_offset + 2 * num as usize);
-                        let interp_color = |a, b, avg| {
-                            let mut new_color = 0;
-                            for i in (0..3).rev() {
-                                let val1 = color(a) >> (5 * i) & 0x1F;
-                                let val2 = color(b) >> (5 * i) & 0x1F;
-                                // TODO: Remove condition
-                                let new_val = if avg { (val1 + val2) / 2 } else { (3 * val1 + 5 * val2) / 8 };
-                                new_color = new_color << 5 | new_val;
-                            }
-                            new_color
-                        };
+                        let interp_color = |a, b, avg|
+                            apply_to_colors(a, b, if avg {
+                                |val1, val2| (val1 + val2) / 2
+                            } else { |val1, val2| (3 * val1 + 5 * val2) / 8 });
                         match mode {
                             0 => match texel_val {
                                 0 | 1 | 2 => color(texel_val),
@@ -112,6 +115,13 @@ impl Engine3D {
                         vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize)
                     },
                     TextureFormat::DirectColor => vram.get_textures::<u16>(vram_offset + 2 * texel),
+                };
+                // TODO: Figure out why it looks kinda dim
+                match polygon.attrs.mode {
+                    PolygonMode::Modulation => apply_to_colors(tex_color, vert_color,
+                        |val1, val2| ((val1 + 1) * (val2 + 1) - 1) / 64
+                    ),
+                    _ => todo!(),
                 }
             };
             // TODO: Use fixed point for interpolation
