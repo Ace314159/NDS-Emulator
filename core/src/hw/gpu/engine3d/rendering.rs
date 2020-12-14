@@ -78,10 +78,6 @@ impl Engine3D {
                         let mode = (extra_palette_info >> 14) & 0x3;
                         let pal_offset = pal_offset + 4 * (extra_palette_info & 0x3FFF) as usize;
                         let color = |num: u8| vram.get_textures_pal::<u16>(pal_offset + 2 * num as usize);
-                        let interp_color = |a, b, avg|
-                            apply_to_colors(a, b, if avg {
-                                |val1, val2| (val1 + val2) / 2
-                            } else { |val1, val2| (3 * val1 + 5 * val2) / 8 });
                         match mode {
                             0 => match texel_val {
                                 0 | 1 | 2 => color(texel_val),
@@ -90,15 +86,18 @@ impl Engine3D {
                             }
                             1 => match texel_val {
                                 0 | 1 => color(texel_val),
-                                2 => interp_color(0, 1, true),
+                                2 => apply_to_colors(color(0), color(1), |val0, val1|
+                                    (val0 + val1) / 2),
                                 3 => 0, // TODO: Implement transparency
                                 _ => unreachable!(),
                             },
                             2 => color(texel_val),
                             3 => match texel_val {
                                 0 | 1 => color(texel_val),
-                                2 => interp_color(0, 1, false),
-                                3 => interp_color(1, 0, false),
+                                2 => apply_to_colors(color(0), color(1),|val0, val1|
+                                    (val0 * 5 + val1 * 3) / 8),
+                                3 => apply_to_colors(color(0), color(1),|val0, val1|
+                                    (val0 * 3 + val1 * 5) / 8),
                                 _ => unreachable!(),
                             }
                             _ => unreachable!(),
