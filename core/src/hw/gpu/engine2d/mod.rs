@@ -1,6 +1,6 @@
 mod registers;
 
-pub use registers::BGMode;
+pub use registers::{BGMode, DisplayMode};
 
 use registers::*;
 use super::{EngineType, Engine3D, GPU, VRAM};
