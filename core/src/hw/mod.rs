@@ -209,6 +209,10 @@ impl HW {
         }
     }
 
+    pub fn render_bank(&self, bank: usize) -> (Vec<u16>, usize, usize) {
+        self.gpu.vram.render_bank(bank)
+    }
+
     pub fn init_mem(mut self) -> Self {
         let addr = 0x027F_FE00 & (HW::MAIN_MEM_SIZE - 1);
         self.main_mem[addr..addr + 0x170].copy_from_slice(&self.cartridge.rom()[..0x170]);

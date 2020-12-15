@@ -157,3 +157,24 @@ impl DebugWindowState for TilesWindowState {
             self.tiles_palette as usize, self.tiles_offset as usize)
     }
 }
+
+pub struct VRAMWindowState {
+    bank: u32,
+}
+
+impl DebugWindowState for VRAMWindowState {
+    fn new() -> Self {
+        VRAMWindowState {
+            bank: 0,
+        }
+    }
+
+    fn render(&mut self, ui: &Ui) {
+        Slider::new(im_str!("Bank")).range(0 as u32..=8)
+        .build(ui, &mut self.bank);
+    }
+
+    fn get_pixels(&self, nds: &mut NDS) -> (Vec<u16>, usize, usize) {
+        nds.render_bank(self.bank as usize)
+    }
+}

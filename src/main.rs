@@ -65,6 +65,7 @@ fn main() {
     let mut palettes_window = DebugWindow::<PalettesWindowState>::new("Palettes");
     let mut maps_window = DebugWindow::<MapsWindowState>::new("Maps");
     let mut tiles_window = DebugWindow::<TilesWindowState>::new("Tiles");
+    let mut vram_window = DebugWindow::<VRAMWindowState>::new("VRAM");
 
     while !display.should_close() {
         nds.emulate_frame();
@@ -77,12 +78,14 @@ fn main() {
                     palettes_window.menu_item(ui);
                     maps_window.menu_item(ui);
                     tiles_window.menu_item(ui);
+                    vram_window.menu_item(ui);
                 });
             });
 
             palettes_window.render(&mut nds, ui, &keys_pressed);
             maps_window.render(&mut nds, ui, &keys_pressed);
             tiles_window.render(&mut nds, ui, &keys_pressed);
+            vram_window.render(&mut nds, ui, &keys_pressed);
         });
 
         if files_dropped.len() == 1 {

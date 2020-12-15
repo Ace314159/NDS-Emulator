@@ -81,6 +81,10 @@ impl NDS {
         slot: usize, palette: usize, offset: usize) -> (Vec<u16>, usize, usize) {
         self.hw.render_tiles(engine, graphics_type, extended, bitmap, bpp8, slot, palette, offset)
     }
+
+    pub fn render_bank(&self, bank: usize) -> (Vec<u16>, usize, usize) {
+        self.hw.render_bank(bank)
+    }
 }
 
 pub const WIDTH: usize = crate::hw::GPU::WIDTH;
