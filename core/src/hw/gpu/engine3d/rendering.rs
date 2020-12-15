@@ -38,7 +38,7 @@ impl Engine3D {
                 for i in (0..3).rev() {
                     let val1 = color_a >> (5 * i) & 0x1F;
                     let val2 = color_b >> (5 * i) & 0x1F;
-                    new_color = new_color << 5 | f(val1, val2);
+                    new_color = new_color << 5 | (f(val1 << 1, val2 << 1) >> 1);
                 }
                 new_color
             };
@@ -115,7 +115,6 @@ impl Engine3D {
                     },
                     TextureFormat::DirectColor => vram.get_textures::<u16>(vram_offset + 2 * texel),
                 };
-                // TODO: Figure out why it looks kinda dim
                 match polygon.attrs.mode {
                     PolygonMode::Modulation => apply_to_colors(tex_color, vert_color,
                         |val1, val2| ((val1 + 1) * (val2 + 1) - 1) / 64
