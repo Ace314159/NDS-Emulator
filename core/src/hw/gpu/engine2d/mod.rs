@@ -205,7 +205,9 @@ impl<E: EngineType> Engine2D<E> {
             ];
 
             // Store top 2 layers
-            let mut colors = [self.bg_palettes[0], self.bg_palettes[0]]; // Default is backdrop color
+            let mut colors = [
+                0x8000 | self.bg_palettes[0], 0x8000 | self.bg_palettes[0] // Default is backdrop color
+            ];
             let mut layers = [Layer::BD, Layer::BD];
             let mut priorities = [4, 4];
             let mut i = 0;
@@ -250,7 +252,7 @@ impl<E: EngineType> Engine2D<E> {
                                     (val1 * self.bldalpha.eva + val2 * self.bldalpha.evb) >> 4);
                                 new_color = new_color << 5 | new_val;
                             }
-                            new_color
+                            0x8000 | new_color
                         } else { colors[0] }
                     },
                     ColorSFX::BrightnessInc => {
@@ -260,7 +262,7 @@ impl<E: EngineType> Engine2D<E> {
                             let new_val = val + (((0x1F - val) * self.bldy.evy as u16) >> 4);
                             new_color = new_color << 5 | new_val & 0x1F;
                         }
-                        new_color
+                        0x8000 | new_color
                     },
                     ColorSFX::BrightnessDec => {
                         let mut new_color = 0;
@@ -269,7 +271,7 @@ impl<E: EngineType> Engine2D<E> {
                             let new_val = val - ((val * self.bldy.evy as u16) >> 4);
                             new_color = new_color << 5 | new_val & 0x1F;
                         }
-                        new_color
+                        0x8000 | new_color
                     },
                 }
             } else { colors[0] };
