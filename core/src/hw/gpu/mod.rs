@@ -121,7 +121,7 @@ impl GPU {
                         } else { self.dispcapcnt.vram_read_offset.offset() };
                         let block = self.engine_a.dispcnt.vram_block as usize;
                         // TODO: Figure out how to avoid this copy and keep borrow checker happy
-                        src_b[..].copy_from_slice(&self.vram.banks[block][offset..offset + 2 * width]);
+                        src_b[..2 * width].copy_from_slice(&self.vram.banks[block][offset..offset + 2 * width]);
                     }
 
                     let offset = 2 * start_addr + self.dispcapcnt.vram_write_offset.offset();
@@ -132,7 +132,7 @@ impl GPU {
                             HW::write_mem(bank, offset as u32 + 2 * i as u32, *pixel);
                         },
                         CaptureSource::B =>
-                            bank[offset..offset + 2 * width].copy_from_slice(&src_b),
+                            bank[offset..offset + 2 * width].copy_from_slice(&src_b[..2 * width]),
                         CaptureSource::AB => for (i, a_pixel) in src_a.iter().enumerate() {
                             let b_pixel = HW::read_mem::<u16>(&src_b, i as u32 * 2);
                             let a_alpha = a_pixel >> 15 & 0x1;
