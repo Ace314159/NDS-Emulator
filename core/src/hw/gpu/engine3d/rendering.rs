@@ -126,12 +126,7 @@ impl Engine3D {
             // TODO: Fix uneven interpolation
             let depth_test = if polygon.attrs.depth_test_eq { eq_depth_test } else { lt_depth_test };
             let vertices = &self.vertices[polygon.start_vert..polygon.end_vert];
-            if polygon.attrs.render_front {
-                Engine3D::render_polygon(blend, &mut self.depth_buffer, depth_test, true, &mut self.pixels, vertices)
-            }
-            if polygon.attrs.render_back {
-                Engine3D::render_polygon(blend, &mut self.depth_buffer, depth_test, false, &mut self.pixels, vertices)
-            }
+            Engine3D::render_polygon(blend, &mut self.depth_buffer, depth_test, polygon.is_front, &mut self.pixels, vertices);
         }
 
         self.gxstat.geometry_engine_busy = false;
@@ -140,29 +135,9 @@ impl Engine3D {
         self.polygons_submitted = false;
     }
 
-    // TODO: Replace front with a const generic
     fn render_polygon<B, D>(blend: B, depth_buffer: &mut Vec<u32>, depth_test: D, front: bool, pixels: &mut Vec<u16>, vertices: &[Vertex])
     where B: Fn(u16, usize, usize) -> u16, D: Fn(u32, u32) -> bool {
         assert!(vertices.len() >= 3);
-
-        // Check if front or back side is being rendered
-        let a = (
-            vertices[0].screen_coords[0] as i32 - vertices[1].screen_coords[0] as i32,
-            vertices[0].screen_coords[1] as i32 - vertices[1].screen_coords[1] as i32,
-        );
-        let b = (
-            vertices[2].screen_coords[0] as i32 - vertices[1].screen_coords[0] as i32,
-            vertices[2].screen_coords[1] as i32 - vertices[1].screen_coords[1] as i32,
-        );
-        let cross_product = a.1 * b.0 - a.0 * b.1;
-        let can_draw = match cross_product {
-            0 => { info!("Not Drawing Line"); false }, // Line - TODO
-            _ if cross_product < 0 => front, // Front
-            _ if cross_product > 0 => !front, // Back
-            _ => unreachable!(),
-        };
-        if !can_draw { return }
-        
         // Find top left and bottom right vertices
         let (mut start_vert, mut end_vert) = (0, 0);
         for (i, vert) in vertices.iter().enumerate() {

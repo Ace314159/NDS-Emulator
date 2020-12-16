@@ -378,6 +378,33 @@ impl Engine3D {
     }
 
     fn submit_polygon(&mut self) {
+        // Face Culling
+        let a = (
+            self.cur_poly_verts[0].clip_coords[0] - self.cur_poly_verts[1].clip_coords[0],
+            self.cur_poly_verts[0].clip_coords[1] - self.cur_poly_verts[1].clip_coords[1],
+            self.cur_poly_verts[0].clip_coords[3] - self.cur_poly_verts[1].clip_coords[3],
+        );
+        let b = (
+            self.cur_poly_verts[2].clip_coords[0] - self.cur_poly_verts[1].clip_coords[0],
+            self.cur_poly_verts[2].clip_coords[1] - self.cur_poly_verts[1].clip_coords[1],
+            self.cur_poly_verts[2].clip_coords[3] - self.cur_poly_verts[1].clip_coords[3],
+        );
+        let normal = (
+            (a.1 * b.2) as i64 - (a.2 * b.1) as i64,
+            (a.2 * b.0) as i64 - (a.0 * b.2) as i64,
+            (a.0 * b.1) as i64 - (a.1 * b.0) as i64,
+        );
+        let vert = &self.cur_poly_verts[0].clip_coords;
+        let dot = normal.0 * vert[0].raw() as i64 + normal.1 * vert[1].raw() as i64 + normal.2 * vert[3].raw() as i64;
+
+        let (is_front, should_render) = match dot {
+            0 => { info!("Not Drawing Line"); (true, false) }, // TODO: Line
+            _ if dot < 0 => (true, self.polygon_attrs_latch.render_front), // Front
+            _ if dot > 0 => (false, self.polygon_attrs_latch.render_back), // Back
+            _ => unreachable!(),
+        };
+        if !should_render { self.cur_poly_verts.clear(); return }
+
         // Clip Polygon
         self.clip_plane(2);
         self.clip_plane(1);
@@ -385,13 +412,14 @@ impl Engine3D {
         if self.cur_poly_verts.len() == 0 { return }
 
         // TODO: Reject polygon if it doesn't fit into Vertex RAM or Polygon 
-        // TODO: Do face culling here
+
         self.polygons.push(Polygon {
             start_vert: self.vertices.len(),
             end_vert: self.vertices.len() + self.cur_poly_verts.len(),
             attrs: self.polygon_attrs_latch,
             tex_params: self.tex_params,
             palette_base: self.palette_base,
+            is_front,
         });
         for vert in self.cur_poly_verts.drain(..) {
             let z = vert.clip_coords[2].raw() as i64;
@@ -813,4 +841,5 @@ pub struct Polygon {
     pub attrs: PolygonAttributes,
     pub tex_params: TextureParams,
     pub palette_base: usize,
+    pub is_front: bool,
 }

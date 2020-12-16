@@ -1,4 +1,4 @@
-use std::ops::{AddAssign, Add, Mul, Neg, Index};
+use std::ops::{AddAssign, Add, Sub, Mul, Neg, Index};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Matrix {
@@ -221,7 +221,15 @@ impl Add for FixedPoint {
     type Output = FixedPoint;
 
     fn add(self, rhs: Self) -> Self::Output {
-        FixedPoint (self.0 + rhs.0)
+        FixedPoint(self.0 + rhs.0)
+    }
+}
+
+impl Sub for FixedPoint {
+    type Output = FixedPoint;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        FixedPoint(self.0 - rhs.0)
     }
 }
 
