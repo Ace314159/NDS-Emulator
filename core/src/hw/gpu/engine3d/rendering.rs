@@ -43,9 +43,25 @@ impl Engine3D {
                 new_color
             };
 
-            let blend = |vert_color, s, t| {
+            let blend = |vert_color, s: i32, t: i32| {
                 let vram_offset = polygon.tex_params.vram_offset;
                 let pal_offset = polygon.palette_base;
+                let size = (polygon.tex_params.size_s as i32, polygon.tex_params.size_t as i32);
+                // TODO: Avoid code repitition
+                let s = if polygon.tex_params.repeat_s {
+                    let repeated = s.rem_euclid(size.0);
+                    if polygon.tex_params.flip_s {
+                        if (s / size.0).rem_euclid(2) == 0 { repeated } else { size.0 - repeated }
+                    } else { repeated }
+                // TODO: Replace with clamp
+                } else if s < 0 { 0 } else if s > size.0 { size.0 - 1 } else { s } as usize;
+                let t = if polygon.tex_params.repeat_t {
+                    let repeated = t.rem_euclid(size.1);
+                    if polygon.tex_params.flip_t {
+                        if (t / size.1).rem_euclid(2) == 0 { repeated } else { size.1 - repeated }
+                    } else { repeated }
+                // TODO: Replace with clamp
+                } else if t < 0 { 0 } else if t > size.1 { size.1 - 1 } else { t } as usize;
                 let texel = t * polygon.tex_params.size_s + s;
                 let tex_color = match polygon.tex_params.format {
                     TextureFormat::NoTexture => vert_color,
@@ -226,7 +242,7 @@ impl Engine3D {
                 let depth_val = depth.next() as u32;
                 if depth_test(depth_buffer[y * GPU::WIDTH + x], depth_val) {
                     depth_buffer[y * GPU::WIDTH + x] = depth_val;
-                    let blended_color = blend(color.next().as_u16(), s.next() as usize >> 4, t.next() as usize >> 4);
+                    let blended_color = blend(color.next().as_u16(), s.next() as i32 >> 4, t.next() as i32 >> 4);
                     pixels[y * GPU::WIDTH + x] = 0x8000 | blended_color;
                 }
             }
