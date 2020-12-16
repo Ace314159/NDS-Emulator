@@ -128,7 +128,7 @@ impl Engine3D {
                     (self.params[0] >> 16) as u16 as i16,
                 ];
                 self.tex_coord = self.raw_tex_coord;
-                self.transform_tex_coord(TexCoordTransformationMode::TexCoord);
+                self.transform_tex_coord(TexCoordTransformationMode::TexCoord, None);
             },
             Vtx16 => self.submit_vertex(
                 FixedPoint::from_frac12((self.params[0] >> 0) as u16 as i16 as i32),
@@ -260,7 +260,7 @@ impl Engine3D {
     }
 
     fn calc_lighting(&mut self, x: FixedPoint, y: FixedPoint, z: FixedPoint) {
-        // TODO: Transform tex coord
+        self.transform_tex_coord(TexCoordTransformationMode::Normal, Some([x, y, z]));
         let normal = self.cur_vec * [x, y, z];
         let line_of_sight = [FixedPoint::zero(), FixedPoint::zero(), -FixedPoint::one()];
         let mut final_color = self.material.emission;
@@ -305,16 +305,21 @@ impl Engine3D {
     }
 
     // Use Const Generics
-    fn transform_tex_coord(&mut self, transformation_mode: TexCoordTransformationMode) {
+    fn transform_tex_coord(&mut self, transformation_mode: TexCoordTransformationMode, normal: Option<[FixedPoint; 3]>) {
         if self.tex_params.coord_transformation_mode != transformation_mode { return }
         let s = self.raw_tex_coord[0] as i32;
         let t = self.raw_tex_coord[1] as i32;
         let m = &self.cur_tex;
+        let normal = normal.unwrap_or_else(||[FixedPoint::zero(), FixedPoint::zero(), FixedPoint::zero()]);
         self.tex_coord = match self.tex_params.coord_transformation_mode {
             TexCoordTransformationMode::None => self.raw_tex_coord,
             TexCoordTransformationMode::TexCoord => [
                 ((s * m[0].raw() + t * m[4].raw() + m[8].raw() + m[12].raw()) >> 12) as i16,
                 ((s * m[1].raw() + t * m[5].raw() + m[9].raw() + m[13].raw()) >> 12) as i16,
+            ],
+            TexCoordTransformationMode::Normal => [
+                (((normal[0] * m[0] + normal[1] * m[4] + normal[2] * m[8]) >> 24) + s as i64) as i16,
+                (((normal[0] * m[1] + normal[1] * m[5] + normal[2] * m[9]) >> 24) + t as i64) as i16,
             ],
             TexCoordTransformationMode::Vertex => [
                 (((self.prev_pos[0] * m[0] + self.prev_pos[1] * m[4] + self.prev_pos[2] * m[8]) >> 24) + s as i64) as i16,
@@ -328,7 +333,7 @@ impl Engine3D {
         let vertex_pos = Vec4::new(x, y, z, FixedPoint::one());
         let clip_coords = self.clip_mat * vertex_pos;
 
-        self.transform_tex_coord(TexCoordTransformationMode::Vertex);
+        self.transform_tex_coord(TexCoordTransformationMode::Vertex, None);
         self.cur_poly_verts.push(Vertex {
             clip_coords,
             screen_coords: [0, 0], // Temp - Calculated after clipping
