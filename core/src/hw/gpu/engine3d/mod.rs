@@ -156,6 +156,7 @@ impl Engine3D {
     pub fn read_register(&self, addr: u32) -> u8 {
         assert_eq!(addr >> 12, 0x04000);
         match addr & 0xFFF {
+            0x4A4 ..= 0x4A7 => 0, // TODO: Figure out what this should actually do
             0x600 ..= 0x603 => self.read_gxstat((addr as usize) & 0x3),
             0x604 ..= 0x607 => self.read_ram_count((addr as usize) & 0x3),
             0x640 ..= 0x67F => self.read_clip_mat((addr as usize) & 0x3F),
