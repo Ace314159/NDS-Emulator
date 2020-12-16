@@ -1,4 +1,4 @@
-use super::{GPU, Color, geometry::Vertex, Engine3D, super::VRAM, TextureFormat, registers::PolygonMode};
+use super::{GPU, Color, geometry::{Polygon, Vertex}, Engine3D, super::VRAM, TextureFormat, registers::PolygonMode};
 
 impl Engine3D {
     pub fn pixels(&self) -> &Vec<u16> {
@@ -135,6 +135,7 @@ impl Engine3D {
                     PolygonMode::Modulation => apply_to_colors(tex_color, vert_color,
                         |val1, val2| ((val1 + 1) * (val2 + 1) - 1) / 64
                     ),
+                    PolygonMode::Shadow => tex_color, // TODO: Use decal blending
                     _ => todo!(),
                 }
             };
@@ -142,7 +143,7 @@ impl Engine3D {
             // TODO: Fix uneven interpolation
             let depth_test = if polygon.attrs.depth_test_eq { eq_depth_test } else { lt_depth_test };
             let vertices = &self.vertices[polygon.start_vert..polygon.end_vert];
-            Engine3D::render_polygon(blend, &mut self.depth_buffer, depth_test, polygon.is_front, &mut self.pixels, vertices);
+            Engine3D::render_polygon(blend, depth_test, &polygon, vertices, &mut self.pixels, &mut self.depth_buffer);
         }
 
         self.gxstat.geometry_engine_busy = false;
@@ -151,9 +152,10 @@ impl Engine3D {
         self.polygons_submitted = false;
     }
 
-    fn render_polygon<B, D>(blend: B, depth_buffer: &mut Vec<u32>, depth_test: D, front: bool, pixels: &mut Vec<u16>, vertices: &[Vertex])
-    where B: Fn(u16, usize, usize) -> u16, D: Fn(u32, u32) -> bool {
+    fn render_polygon<B, D>(blend: B, depth_test: D, polygon: &Polygon, vertices: &[Vertex], pixels: &mut Vec<u16>, depth_buffer: &mut Vec<u32>)
+    where B: Fn(u16, i32, i32) -> u16, D: Fn(u32, u32) -> bool {
         assert!(vertices.len() >= 3);
+        if polygon.attrs.mode == PolygonMode::Shadow { return }
         // Find top left and bottom right vertices
         let (mut start_vert, mut end_vert) = (0, 0);
         for (i, vert) in vertices.iter().enumerate() {
@@ -179,7 +181,7 @@ impl Engine3D {
         let counterclockwise = |cur| if cur == vertices.len() - 1 { 0 } else { cur + 1 };
         let clockwise = |cur| if cur == 0 { vertices.len() - 1 } else { cur - 1 };
 
-        let (prev_vert, next_vert): (Box<dyn Fn(usize) -> usize>, Box<dyn Fn(usize) -> usize>) = if front {
+        let (prev_vert, next_vert): (Box<dyn Fn(usize) -> usize>, Box<dyn Fn(usize) -> usize>) = if polygon.is_front {
             (Box::new(counterclockwise), Box::new(clockwise))
         } else {
             (Box::new(clockwise), Box::new(counterclockwise))

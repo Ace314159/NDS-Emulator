@@ -368,7 +368,7 @@ impl PolygonAttributes {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum PolygonMode {
     Modulation = 0,
     Decal = 1,
