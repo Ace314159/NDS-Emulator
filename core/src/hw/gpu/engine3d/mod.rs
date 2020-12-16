@@ -15,6 +15,7 @@ use registers::*;
 pub struct Engine3D {
     pub bus_stalled: bool,
     // Registers
+    pub disp3dcnt: DISP3DCNT,
     gxstat: GXSTAT,
     // Geometry Engine
     prev_command: GeometryCommand, // Verification for Geometry Commands
@@ -74,6 +75,7 @@ impl Engine3D {
         Engine3D {
             bus_stalled: false,
             // Registers
+            disp3dcnt: DISP3DCNT::new(),
             gxstat: GXSTAT::new(),
             // Geometry Engine
             prev_command: GeometryCommand::Unimplemented,

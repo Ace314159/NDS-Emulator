@@ -1,5 +1,76 @@
 use super::{GPU, Engine3D, math::Vec4, IORegister, Scheduler};
 
+pub struct DISP3DCNT {
+    texture_mapping: bool,
+    highlight_shading: bool,
+    alpha_test: bool,
+    alpha_blending: bool,
+    antia_aliasing: bool,
+    edge_marking: bool,
+    fog_alpha_only: bool,
+    fog_master_enable: bool,
+    fog_depth_shift: u8,
+    color_buffer_underflow: bool,
+    poly_vert_ram_overflow: bool,
+    rear_plane_bitmap: bool,
+}
+
+impl DISP3DCNT {
+    pub fn new() -> Self {
+        DISP3DCNT {
+            texture_mapping: false,
+            highlight_shading: false,
+            alpha_test: false,
+            alpha_blending: false,
+            antia_aliasing: false,
+            edge_marking: false,
+            fog_alpha_only: false,
+            fog_master_enable: false,
+            fog_depth_shift: 0,
+            color_buffer_underflow: false,
+            poly_vert_ram_overflow: false,
+            rear_plane_bitmap: false,
+        }
+    }
+}
+
+impl IORegister for DISP3DCNT {
+    fn read(&self, byte: usize) -> u8 {
+        match byte {
+            0 => (self.fog_master_enable as u8) << 7 | (self.fog_alpha_only as u8) << 6 | (self.edge_marking as u8) << 5 |
+                (self.antia_aliasing as u8) << 4 | (self.alpha_blending as u8) << 3 | (self.alpha_test as u8) << 2 |
+                (self.highlight_shading as u8) << 1 | self.texture_mapping as u8,
+            1 => (self.rear_plane_bitmap as u8) << 6 | (self.poly_vert_ram_overflow as u8) << 5 |
+                (self.color_buffer_underflow as u8) << 4 | self.fog_depth_shift,
+            2 | 3 => 0,
+            _ => unreachable!(),
+        }
+    }
+
+    fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8) {
+        match byte {
+            0 => {
+                self.texture_mapping = value >> 0 & 0x1 != 0;
+                self.highlight_shading = value >> 1 & 0x1 != 0;
+                self.alpha_test = value >> 2 & 0x1 != 0;
+                self.alpha_blending = value >> 3 & 0x1 != 0;
+                self.antia_aliasing = value >> 4 & 0x1 != 0;
+                self.edge_marking = value >> 5 & 0x1 != 0;
+                self.fog_alpha_only = value >> 6 & 0x1 != 0;
+                self.fog_master_enable = value >> 7 & 0x1 != 0;
+            },
+            1 => {
+                self.fog_depth_shift = value & 0xF;
+                self.color_buffer_underflow = self.color_buffer_underflow && value >> 4 & 0x1 == 0;
+                self.poly_vert_ram_overflow = self.poly_vert_ram_overflow && value >> 4 & 0x1 == 0;
+                self.rear_plane_bitmap = value >> 6 & 0x1 != 0;
+            },
+            2 | 3 => (),
+            _ => unreachable!(),
+        }
+    }
+}
+
 pub struct GXSTAT {
     pub test_busy: bool, // Box, Pos, Vector Test
     pub box_test_inside: bool,
