@@ -51,14 +51,16 @@ impl Engine3D {
                 let s = if polygon.tex_params.repeat_s {
                     let repeated = s.rem_euclid(size.0);
                     if polygon.tex_params.flip_s {
-                        if (s / size.0).rem_euclid(2) == 0 { repeated } else { size.0 - repeated }
+                        let num = if s < 0 { -s / size.0 + 1 } else { s / size.0 };
+                        if num.rem_euclid(2) == 0 { repeated } else { size.0 - repeated }
                     } else { repeated }
                 // TODO: Replace with clamp
                 } else if s < 0 { 0 } else if s > size.0 { size.0 - 1 } else { s } as usize;
                 let t = if polygon.tex_params.repeat_t {
                     let repeated = t.rem_euclid(size.1);
                     if polygon.tex_params.flip_t {
-                        if (t / size.1).rem_euclid(2) == 0 { repeated } else { size.1 - repeated }
+                        let num = if t < 0 { -t / size.0 + 1 } else { t / size.0 };
+                        if num % 2 == 0 { repeated } else { size.1 - repeated }
                     } else { repeated }
                 // TODO: Replace with clamp
                 } else if t < 0 { 0 } else if t > size.1 { size.1 - 1 } else { t } as usize;
