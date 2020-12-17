@@ -409,12 +409,12 @@ impl FrameParams {
 }
 
 pub struct Viewport {
-    x1: i32,
-    y1: i32,
-    x2: i32,
-    y2: i32,
-    width: i32,
-    height: i32,
+    x1: i64,
+    y1: i64,
+    x2: i64,
+    y2: i64,
+    width: i64,
+    height: i64,
 }
 
 impl Viewport {
@@ -430,10 +430,10 @@ impl Viewport {
     }
 
     pub fn write(&mut self, value: u32) {
-        self.x1 = (value >> 0) as u8 as i32;
-        self.y1 = (value >> 8) as u8 as i32;
-        self.x2 = (value >> 16) as u8 as i32;
-        self.y2 = (value >> 24) as u8 as i32;
+        self.x1 = (value >> 0) as u8 as i64;
+        self.y1 = (value >> 8) as u8 as i64;
+        self.x2 = (value >> 16) as u8 as i64;
+        self.y2 = (value >> 24) as u8 as i64;
         assert!((self.y1 as usize) < GPU::HEIGHT);
         assert!((self.y2 as usize) < GPU::HEIGHT);
         self.width = self.x2 - self.x1 + 1;
@@ -443,12 +443,12 @@ impl Viewport {
     }
 
     pub fn screen_x(&self, clip_coords: &Vec4) -> usize {
-        ((clip_coords[0].raw() + clip_coords[3].raw()) * self.width / (2 * clip_coords[3].raw()) + self.x1) as usize
+        ((clip_coords[0].raw64() + clip_coords[3].raw64()) * self.width / (2 * clip_coords[3].raw64()) + self.x1) as usize
     }
 
     pub fn screen_y(&self, clip_coords: &Vec4) -> usize {
         // Negate y because coords are flipped vertically
-        ((-clip_coords[1].raw() + clip_coords[3].raw()) * self.height / (2 * clip_coords[3].raw()) + self.y1) as usize
+        ((-clip_coords[1].raw64() + clip_coords[3].raw64()) * self.height / (2 * clip_coords[3].raw64()) + self.y1) as usize
     }
 }
 
