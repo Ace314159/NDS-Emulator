@@ -33,14 +33,19 @@ impl Engine3D {
             // TODO: Implement perspective correction
             // TODO: Implement translucency
             // TODO: Remove with const generics
-            fn apply_to_colors<F>(color_a: u16, color_b: u16, f: F) -> u16 where F: Fn(u16, u16) -> u16{
-                let mut new_color = 0;
-                for i in (0..3).rev() {
-                    let val1 = color_a >> (5 * i) & 0x1F;
-                    let val2 = color_b >> (5 * i) & 0x1F;
-                    new_color = new_color << 5 | (f(val1 << 1, val2 << 1) >> 1);
-                }
-                new_color
+            fn combine_colors5<F>(color_a: Color, color_b: Color, f: F) -> Color where F: Fn(u16, u16) -> u16 {
+                Color::new5(
+                    f(color_a.r5() as u16, color_b.r5() as u16) as u8,
+                    f(color_a.g5() as u16, color_b.g5() as u16) as u8,
+                    f(color_a.b5() as u16, color_b.b5() as u16) as u8,
+                )
+            };
+            fn combine_colors6<F>(color_a: Color, color_b: Color, f: F) -> Color where F: Fn(u16, u16) -> u16 {
+                Color::new6(
+                    f(color_a.r6() as u16, color_b.r6() as u16) as u8,
+                    f(color_a.g6() as u16, color_b.g6() as u16) as u8,
+                    f(color_a.b6() as u16, color_b.b6() as u16) as u8,
+                )
             };
 
             let blend = |vert_color, s: i32, t: i32| {
@@ -71,15 +76,15 @@ impl Engine3D {
                         // TODO: Use alpha bits
                         let byte = vram.get_textures::<u8>(vram_offset + texel);
                         let palette_color = byte & 0x1F;
-                        vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize)
+                        Color::from(vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize))
                     },
                     TextureFormat::Palette4 => {
                         let palette_color = vram.get_textures::<u8>(vram_offset + texel / 4) >> 2 * (texel % 4) & 0x3;
-                        vram.get_textures_pal::<u16>(pal_offset / 2 + 2 * palette_color as usize)
+                        Color::from(vram.get_textures_pal::<u16>(pal_offset / 2 + 2 * palette_color as usize))
                     }
                     TextureFormat::Palette16 => {
                         let palette_color = vram.get_textures::<u8>(vram_offset + texel / 2) >> 4 * (texel % 2) & 0xF;
-                        vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize)
+                        Color::from(vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize))
                     },
                     TextureFormat::Compressed => {
                         let num_blocks_row = polygon.tex_params.size_s / 4;
@@ -95,26 +100,28 @@ impl Engine3D {
                         let extra_palette_info = vram.get_textures::<u16>(128 * 0x400 + extra_palette_addr);
                         let mode = (extra_palette_info >> 14) & 0x3;
                         let pal_offset = pal_offset + 4 * (extra_palette_info & 0x3FFF) as usize;
-                        let color = |num: u8| vram.get_textures_pal::<u16>(pal_offset + 2 * num as usize);
+                        let color = |num: u8| Color::from(
+                            vram.get_textures_pal::<u16>(pal_offset + 2 * num as usize)
+                        );
                         match mode {
                             0 => match texel_val {
                                 0 | 1 | 2 => color(texel_val),
-                                3 => 0, // TODO: Implement transparency
+                                3 => Color::new8(0, 0, 0), // TODO: Implement transparency
                                 _ => unreachable!(),
                             }
                             1 => match texel_val {
                                 0 | 1 => color(texel_val),
-                                2 => apply_to_colors(color(0), color(1), |val0, val1|
+                                2 => combine_colors5(color(0), color(1), |val0, val1|
                                     (val0 + val1) / 2),
-                                3 => 0, // TODO: Implement transparency
+                                3 => Color::new8(0, 0, 0), // TODO: Implement transparency
                                 _ => unreachable!(),
                             },
                             2 => color(texel_val),
                             3 => match texel_val {
                                 0 | 1 => color(texel_val),
-                                2 => apply_to_colors(color(0), color(1),|val0, val1|
+                                2 => combine_colors5(color(0), color(1), |val0, val1|
                                     (val0 * 5 + val1 * 3) / 8),
-                                3 => apply_to_colors(color(0), color(1),|val0, val1|
+                                3 => combine_colors5(color(0), color(1), |val0, val1|
                                     (val0 * 3 + val1 * 5) / 8),
                                 _ => unreachable!(),
                             }
@@ -125,16 +132,16 @@ impl Engine3D {
                         // TODO: Use alpha bits
                         let byte = vram.get_textures::<u8>(vram_offset + texel);
                         let palette_color = byte & 0x7;
-                        vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize)
+                        Color::from(vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize))
                     },
                     TextureFormat::Palette256 => {
                         let palette_color = vram.get_textures::<u8>(vram_offset + texel);
-                        vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize)
+                        Color::from(vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize))
                     },
-                    TextureFormat::DirectColor => vram.get_textures::<u16>(vram_offset + 2 * texel),
+                    TextureFormat::DirectColor => Color::from(vram.get_textures::<u16>(vram_offset + 2 * texel)),
                 };
                 match polygon.attrs.mode {
-                    PolygonMode::Modulation => apply_to_colors(tex_color, vert_color,
+                    PolygonMode::Modulation => combine_colors6(tex_color, vert_color,
                         |val1, val2| ((val1 + 1) * (val2 + 1) - 1) / 64
                     ),
                     PolygonMode::Shadow => tex_color, // TODO: Use decal blending
@@ -155,7 +162,7 @@ impl Engine3D {
     }
 
     fn render_polygon<B, D>(blend: B, depth_test: D, polygon: &Polygon, vertices: &[Vertex], pixels: &mut Vec<u16>, depth_buffer: &mut Vec<u32>)
-    where B: Fn(u16, i32, i32) -> u16, D: Fn(u32, u32) -> bool {
+    where B: Fn(Color, i32, i32) -> Color, D: Fn(u32, u32) -> bool {
         assert!(vertices.len() >= 3);
         if polygon.attrs.mode == PolygonMode::Shadow { return }
         // Find top left and bottom right vertices
@@ -246,8 +253,8 @@ impl Engine3D {
                 let depth_val = depth.next() as u32;
                 if depth_test(depth_buffer[y * GPU::WIDTH + x], depth_val) {
                     depth_buffer[y * GPU::WIDTH + x] = depth_val;
-                    let blended_color = blend(color.next().as_u16(), s.next() as i32 >> 4, t.next() as i32 >> 4);
-                    pixels[y * GPU::WIDTH + x] = 0x8000 | blended_color;
+                    let blended_color = blend(color.next(), s.next() as i32 >> 4, t.next() as i32 >> 4);
+                    pixels[y * GPU::WIDTH + x] = 0x8000 | blended_color.as_u16();
                 }
             }
         }
@@ -330,14 +337,14 @@ struct ColorSlope {
 impl ColorSlope {
     pub fn new(start_color: &Color, end_color: &Color, num_steps: usize) -> Self {
         ColorSlope {
-            r: Slope::new(start_color.r as f32, end_color.r as f32, num_steps),
-            g: Slope::new(start_color.g as f32, end_color.g as f32, num_steps),
-            b: Slope::new(start_color.b as f32, end_color.b as f32, num_steps),
+            r: Slope::new(start_color.r8() as f32, end_color.r8() as f32, num_steps),
+            g: Slope::new(start_color.g8() as f32, end_color.g8() as f32, num_steps),
+            b: Slope::new(start_color.b8() as f32, end_color.b8() as f32, num_steps),
         }
     }
 
     pub fn next(&mut self) -> Color {
-        Color::new(
+        Color::new8(
             self.r.next() as u8,
             self.g.next() as u8,
             self.b.next() as u8,

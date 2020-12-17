@@ -120,7 +120,7 @@ impl Engine3D {
             // Lighting
             lights: [Light::new(); 4],
             material: Material::new(),
-            color: Color::new(0, 0, 0),
+            color: Color::new5(0, 0, 0),
             // Textures
             tex_params: TextureParams::new(),
             palette_base: 0,

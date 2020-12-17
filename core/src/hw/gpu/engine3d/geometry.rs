@@ -116,7 +116,7 @@ impl Engine3D {
             MtxMult3x3 => self.apply_cur_mat(Matrix::mul3x3, true),
             MtxScale => self.apply_cur_mat(Matrix::scale, false),
             MtxTrans => self.apply_cur_mat(Matrix::translate, true),
-            Color => self.color = self::Color::from(param as u16), // TODO: Expand to 6 bit RGB
+            Color => self.color = self::Color::from(param as u16),
             Normal => self.calc_lighting(
                 FixedPoint::from_frac9(((param >> 0) & 0x3FF) as u16),
                 FixedPoint::from_frac9(((param >> 10) & 0x3FF) as u16),
@@ -164,7 +164,7 @@ impl Engine3D {
             TexImageParam => self.tex_params.write(param),
             PlttBase => self.palette_base = ((self.params[0] & 0xFFF) as usize) * 16,
             DifAmb => if self.material.set_dif_amb(param) {
-                self.color = super::Color::new(
+                self.color = super::Color::new5(
                     self.material.diffuse[0] as u8,
                     self.material.diffuse[1] as u8,
                     self.material.diffuse[2] as u8,
@@ -297,7 +297,7 @@ impl Engine3D {
                 final_color[i] += (self.material.ambient[i] * light.color[i]) >> 5;
             }
         }
-        self.color = Color::new(
+        self.color = Color::new5(
             if final_color[0] > 0x1F { 0x1F } else { final_color[0] } as u8,
             if final_color[1] > 0x1F { 0x1F } else { final_color[1] } as u8,
             if final_color[2] > 0x1F { 0x1F } else { final_color[2] } as u8,
@@ -512,7 +512,7 @@ impl Engine3D {
             ),
             screen_coords: [0, 0], // Calcluated after
             z_depth: 0, // Calculated after
-            color: Color::new(
+            color: Color::new8(
                 interpolate(inside.color.r as i64, out.color.r as i64) as u8,
                 interpolate(inside.color.g as i64, out.color.g as i64) as u8,
                 interpolate(inside.color.b as i64, out.color.b as i64) as u8,
@@ -792,22 +792,40 @@ impl Material {
 
 #[derive(Clone, Copy, Debug)]
 pub struct Color {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
+    r: u8,
+    g: u8,
+    b: u8,
 }
 
 impl From<u16> for Color {
     fn from(value: u16) -> Self {
-        Color {
-            r: ((value >> 0) & 0x1F) as u8,
-            g: ((value >> 5) & 0x1F) as u8,
-            b: ((value >> 10) & 0x1F) as u8,
-        }
+        Color::new5(
+            ((value >> 0) & 0x1F) as u8,
+            ((value >> 5) & 0x1F) as u8,
+            ((value >> 10) & 0x1F) as u8,
+        )
     }
 }
 impl Color {
-    pub fn new(r: u8, g: u8, b: u8) -> Self {
+    // Expands 5 bit components to internal 6-bit
+    pub fn new5(r: u8, g: u8, b: u8) -> Self {
+        Color::new6(
+            if r == 0 { 0 } else { r * 2 + 1},
+            if g == 0 { 0 } else { g * 2 + 1},
+            if b == 0 { 0 } else { b * 2 + 1},
+        )
+    }
+
+    // Expands 6 bit components to 8 bits for interpolation
+    pub fn new6(r: u8, g: u8, b: u8) -> Self {
+        Color {
+            r: if r == 0 { 0 } else { (r * 2 + 1) * 2 + 1 },
+            g: if g == 0 { 0 } else { (g * 2 + 1) * 2 + 1 },
+            b: if b == 0 { 0 } else { (b * 2 + 1) * 2 + 1 },
+        }
+    }
+
+    pub fn new8(r: u8, g: u8, b: u8) -> Self {
         Color {
             r,
             g,
@@ -815,9 +833,20 @@ impl Color {
         }
     }
 
+    // 8 bit components reduced to 5 bit
     pub fn as_u16(&self) -> u16 {
-        (self.b as u16) << 10 | (self.g as u16) << 5 | (self.r as u16) << 0
+        (self.b as u16 >> 3) << 10 | (self.g as u16 >> 3) << 5 | (self.r as u16 >> 3) << 0
     }
+
+    pub fn r5(&self) -> u8 { self.r >> 3 }
+    pub fn g5(&self) -> u8 { self.g >> 3 }
+    pub fn b5(&self) -> u8 { self.b >> 3 }
+    pub fn r6(&self) -> u8 { self.r >> 2 }
+    pub fn g6(&self) -> u8 { self.g >> 2 }
+    pub fn b6(&self) -> u8 { self.b >> 2 }
+    pub fn r8(&self) -> u8 { self.r >> 0 }
+    pub fn g8(&self) -> u8 { self.g >> 0 }
+    pub fn b8(&self) -> u8 { self.b >> 0 }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -835,7 +864,7 @@ impl Vertex {
             clip_coords: Vec4::new(FixedPoint::zero(), FixedPoint::zero(), FixedPoint::zero(), FixedPoint::zero()),
             screen_coords: [0, 0],
             z_depth: 0,
-            color: Color::new(0, 0, 0),
+            color: Color::new8(0, 0, 0),
             tex_coord: [0, 0],
         }
     }
