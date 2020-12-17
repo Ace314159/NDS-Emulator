@@ -389,13 +389,19 @@ impl Engine3D {
             self.cur_poly_verts[2].clip_coords[1] - self.cur_poly_verts[1].clip_coords[1],
             self.cur_poly_verts[2].clip_coords[3] - self.cur_poly_verts[1].clip_coords[3],
         );
-        let normal = (
-            (a.1 * b.2) as i64 - (a.2 * b.1) as i64,
-            (a.2 * b.0) as i64 - (a.0 * b.2) as i64,
-            (a.0 * b.1) as i64 - (a.1 * b.0) as i64,
+        let mut normal = (
+            ((a.1 * b.2) as i64 - (a.2 * b.1) as i64),
+            ((a.2 * b.0) as i64 - (a.0 * b.2) as i64),
+            ((a.0 * b.1) as i64 - (a.1 * b.0) as i64),
         );
+        while (normal.0 >> 31) ^ (normal.1 >> 63) != 0 || (normal.1 >> 31) ^ (normal.1 >> 63) != 0 ||
+            (normal.2 >> 31) ^ (normal.2 >> 63) != 0 {
+            normal.0 >>= 4;
+            normal.1 >>= 4;
+            normal.2 >>= 4;
+        }
         let vert = &self.cur_poly_verts[0].clip_coords;
-        let dot = normal.0 * vert[0].raw() as i64 + normal.1 * vert[1].raw() as i64 + normal.2 * vert[3].raw() as i64;
+        let dot = normal.0 * vert[0].raw64() + normal.1 * vert[1].raw64() + normal.2 * vert[3].raw64();
 
         let (is_front, should_render) = match dot {
             0 => { info!("Not Drawing Line"); (true, false) }, // TODO: Line
