@@ -159,22 +159,26 @@ impl DebugWindowState for TilesWindowState {
 }
 
 pub struct VRAMWindowState {
+    ignore_alpha: bool,
     bank: u32,
 }
 
 impl DebugWindowState for VRAMWindowState {
     fn new() -> Self {
         VRAMWindowState {
+            ignore_alpha: false,
             bank: 0,
         }
     }
 
     fn render(&mut self, ui: &Ui) {
+        ui.checkbox(im_str!("Ignore alpha"), &mut self.ignore_alpha);
+
         Slider::new(im_str!("Bank")).range(0 as u32..=8)
         .build(ui, &mut self.bank);
     }
 
     fn get_pixels(&self, nds: &mut NDS) -> (Vec<u16>, usize, usize) {
-        nds.render_bank(self.bank as usize)
+        nds.render_bank(self.bank as usize, self.ignore_alpha)
     }
 }

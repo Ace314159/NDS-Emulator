@@ -82,8 +82,8 @@ impl NDS {
         self.hw.render_tiles(engine, graphics_type, extended, bitmap, bpp8, slot, palette, offset)
     }
 
-    pub fn render_bank(&self, bank: usize) -> (Vec<u16>, usize, usize) {
-        self.hw.render_bank(bank)
+    pub fn render_bank(&self, bank: usize, ignore_alpha: bool) -> (Vec<u16>, usize, usize) {
+        self.hw.render_bank(ignore_alpha, bank)
     }
 }
 

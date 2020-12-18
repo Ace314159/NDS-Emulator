@@ -414,7 +414,8 @@ mod debug {
     use super::{Bank, HW, VRAM};
 
     impl VRAM {
-        pub fn render_bank(&self, bank: usize) -> (Vec<u16>, usize, usize) {
+        pub fn render_bank(&self, ignore_alpha: bool, bank: usize) -> (Vec<u16>, usize, usize) {
+            let alpha = if ignore_alpha { 0x8000 } else { 0 };
             let bank = Bank::from_index(bank);
             let (width, height) = match bank {
                 Bank::A | Bank::B | Bank::C | Bank::D => (8, 8),
@@ -425,7 +426,7 @@ mod debug {
             let mut pixels = vec![0; width * 32 * height * 32];
             // TODO: Cast slice instead of read_mem
             for (i, pixel) in pixels.iter_mut().enumerate() {
-                *pixel = HW::read_mem(&self.banks[bank as usize], 2 * i as u32);
+                *pixel = alpha | HW::read_mem::<u16>(&self.banks[bank as usize], 2 * i as u32);
             }
             (pixels, width * 32, height * 32)
         }

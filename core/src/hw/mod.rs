@@ -209,8 +209,8 @@ impl HW {
         }
     }
 
-    pub fn render_bank(&self, bank: usize) -> (Vec<u16>, usize, usize) {
-        self.gpu.vram.render_bank(bank)
+    pub fn render_bank(&self, ignore_alpha: bool, bank: usize) -> (Vec<u16>, usize, usize) {
+        self.gpu.vram.render_bank(ignore_alpha, bank)
     }
 
     pub fn init_mem(mut self) -> Self {
