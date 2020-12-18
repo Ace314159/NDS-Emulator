@@ -124,8 +124,8 @@ impl Engine3D {
             ),
             TexCoord => {
                 self.raw_tex_coord = [
-                    (self.params[0] >> 0) as u16 as i16,
-                    (self.params[0] >> 16) as u16 as i16,
+                    (param >> 0) as u16 as i16,
+                    (param >> 16) as u16 as i16,
                 ];
                 self.tex_coord = self.raw_tex_coord;
                 self.transform_tex_coord(TexCoordTransformationMode::TexCoord, None);
@@ -136,24 +136,24 @@ impl Engine3D {
                 FixedPoint::from_frac12((self.params[1] >> 0) as u16 as i16 as i32),
             ),
             Vtx10 => self.submit_vertex(
-                FixedPoint::from_frac6(((self.params[0] >> 0) & 0x3FF) as u16),
-                FixedPoint::from_frac6(((self.params[0] >> 10) & 0x3FF) as u16),
-                FixedPoint::from_frac6(((self.params[0] >> 20) & 0x3FF) as u16),
+                FixedPoint::from_frac6(((param >> 0) & 0x3FF) as u16),
+                FixedPoint::from_frac6(((param >> 10) & 0x3FF) as u16),
+                FixedPoint::from_frac6(((param >> 20) & 0x3FF) as u16),
             ),
             VtxXY => self.submit_vertex(
-                FixedPoint::from_frac12((self.params[0] >> 0) as u16 as i16 as i32),
-                FixedPoint::from_frac12((self.params[0] >> 16) as u16 as i16 as i32),
+                FixedPoint::from_frac12((param >> 0) as u16 as i16 as i32),
+                FixedPoint::from_frac12((param >> 16) as u16 as i16 as i32),
                 self.prev_pos[2],
             ),
             VtxXZ => self.submit_vertex(
-                FixedPoint::from_frac12((self.params[0] >> 0) as u16 as i16 as i32),
+                FixedPoint::from_frac12((param >> 0) as u16 as i16 as i32),
                 self.prev_pos[1],
-                FixedPoint::from_frac12((self.params[0] >> 16) as u16 as i16 as i32),
+                FixedPoint::from_frac12((param >> 16) as u16 as i16 as i32),
             ),
             VtxYZ => self.submit_vertex(
                 self.prev_pos[0],
-                FixedPoint::from_frac12((self.params[0] >> 0) as u16 as i16 as i32),
-                FixedPoint::from_frac12((self.params[0] >> 16) as u16 as i16 as i32),
+                FixedPoint::from_frac12((param >> 0) as u16 as i16 as i32),
+                FixedPoint::from_frac12((param >> 16) as u16 as i16 as i32),
             ),
             VtxDiff => self.submit_vertex(
                 self.prev_pos[0] + FixedPoint::from_frac12(((((param >> 0 & 0x3FF) << 6) as u16 as i16) >> 6) as i32),
@@ -162,7 +162,7 @@ impl Engine3D {
             ),
             PolygonAttr => self.polygon_attrs.write(param),
             TexImageParam => self.tex_params.write(param),
-            PlttBase => self.palette_base = ((self.params[0] & 0xFFF) as usize) * 16,
+            PlttBase => self.palette_base = ((param & 0xFFF) as usize) * 16,
             DifAmb => if self.material.set_dif_amb(param) {
                 self.color = super::Color::new5(
                     self.material.diffuse[0] as u8,
