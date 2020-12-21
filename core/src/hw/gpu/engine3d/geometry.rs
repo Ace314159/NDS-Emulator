@@ -394,7 +394,7 @@ impl Engine3D {
             ((a.2 * b.0) as i64 - (a.0 * b.2) as i64),
             ((a.0 * b.1) as i64 - (a.1 * b.0) as i64),
         );
-        while (normal.0 >> 31) ^ (normal.1 >> 63) != 0 || (normal.1 >> 31) ^ (normal.1 >> 63) != 0 ||
+        while (normal.0 >> 31) ^ (normal.0 >> 63) != 0 || (normal.1 >> 31) ^ (normal.1 >> 63) != 0 ||
             (normal.2 >> 31) ^ (normal.2 >> 63) != 0 {
             normal.0 >>= 4;
             normal.1 >>= 4;
