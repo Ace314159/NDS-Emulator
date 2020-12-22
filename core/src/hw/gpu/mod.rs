@@ -109,7 +109,8 @@ impl GPU {
                 if self.capturing && (self.vcount as usize) < self.dispcapcnt.capture_size.height() {
                     let start_addr = self.vcount as usize * GPU::WIDTH;
                     let width = self.dispcapcnt.capture_size.width();
-                    let src_a = &if self.dispcapcnt.src_a_is_3d_only {
+                    let src_a = &if self.dispcapcnt.src_a_is_3d_only ||
+                    self.engine_a.dispcnt.display_mode != DisplayMode::Mode0 {
                         self.engine3d.pixels()
                     } else { self.engine_a.pixels() }[start_addr..start_addr + width];
                     let mut src_b = [0; 2 * GPU::WIDTH];
