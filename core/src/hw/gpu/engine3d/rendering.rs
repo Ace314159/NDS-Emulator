@@ -187,22 +187,22 @@ impl Engine3D {
         let start_vert = start_vert; // Shadow to mark these as immutable
         let end_vert = end_vert; // Shadow to mark these as immutable
 
-        let counterclockwise = |cur| if cur == vertices.len() - 1 { 0 } else { cur + 1 };
-        let clockwise = |cur| if cur == 0 { vertices.len() - 1 } else { cur - 1 };
+        let next = |cur| if cur == vertices.len() - 1 { 0 } else { cur + 1 };
+        let prev = |cur| if cur == 0 { vertices.len() - 1 } else { cur - 1 };
 
-        let (prev_vert, next_vert): (Box<dyn Fn(usize) -> usize>, Box<dyn Fn(usize) -> usize>) = if polygon.is_front {
-            (Box::new(counterclockwise), Box::new(clockwise))
+        let (next_left, next_right): (Box<dyn Fn(usize) -> usize>, Box<dyn Fn(usize) -> usize>) = if polygon.is_front {
+            (Box::new(next), Box::new(prev))
         } else {
-            (Box::new(clockwise), Box::new(counterclockwise))
+            (Box::new(prev), Box::new(next))
         };
-        let new_left_vert = prev_vert(left_vert);
+        let new_left_vert = next_left(left_vert);
         let mut left_slope = VertexSlope::from_verts(
             &vertices[left_vert],
             &vertices[new_left_vert],
         );
         let mut left_end = vertices[new_left_vert].screen_coords[1];
         left_vert = new_left_vert;
-        let new_right_vert = next_vert(right_vert);
+        let new_right_vert = next_right(right_vert);
         let mut right_slope = VertexSlope::from_verts(
             &vertices[right_vert],
             &vertices[new_right_vert],
@@ -214,13 +214,13 @@ impl Engine3D {
             // While loops to skip repeated vertices from clipping
             // TODO: Should this be fixed in clipping or rendering code?
             while y == left_end {
-                let new_left_vert = prev_vert(left_vert);
+                let new_left_vert = next_left(left_vert);
                 left_slope = VertexSlope::from_verts(&vertices[left_vert], &vertices[new_left_vert]);
                 left_end = vertices[new_left_vert].screen_coords[1];
                 left_vert = new_left_vert;
             }
             while y == right_end {
-                let new_right_vert = next_vert(right_vert);
+                let new_right_vert = next_right(right_vert);
                 right_slope = VertexSlope::from_verts(&vertices[right_vert],&vertices[new_right_vert]);
                 right_end = vertices[new_right_vert].screen_coords[1];
                 right_vert = new_right_vert;
