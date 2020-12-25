@@ -40,14 +40,20 @@ impl Engine3D {
                     f(color_a.b5() as u16, color_b.b5() as u16) as u8,
                 )
             };
-            fn combine_colors6<F>(color_a: Color, color_b: Color, f: F) -> Color where F: Fn(u16, u16) -> u16 {
-                Color::new6(
-                    f(color_a.r6() as u16, color_b.r6() as u16) as u8,
-                    f(color_a.g6() as u16, color_b.g6() as u16) as u8,
-                    f(color_a.b6() as u16, color_b.b6() as u16) as u8,
-                )
+            fn blend_tex<F>(tex_color: Option<Color>, vert_color: Color, f: F) -> Color where F: Fn(u16, u16) -> u16 {
+                if let Some(tex_color) = tex_color {
+                    Color::new6(
+                        f(tex_color.r6() as u16, vert_color.r6() as u16) as u8,
+                        f(tex_color.g6() as u16, vert_color.g6() as u16) as u8,
+                        f(tex_color.b6() as u16, vert_color.b6() as u16) as u8,
+                    )
+                } else {
+                    vert_color
+                }
             };
 
+            let disp3dcnt = &self.disp3dcnt;
+            let toon_table = &self.toon_table;
             let blend = |vert_color, s: i32, t: i32| {
                 let vram_offset = polygon.tex_params.vram_offset;
                 let pal_offset = polygon.palette_base;
@@ -71,22 +77,22 @@ impl Engine3D {
                 } else if t < 0 { 0 } else if t > size.1 { size.1 - 1 } else { t } as usize;
                 let texel = t * polygon.tex_params.size_s + s;
                 let tex_color = match polygon.tex_params.format {
-                    TextureFormat::NoTexture => vert_color,
-                    TextureFormat::A3I5 => {
+                    TextureFormat::NoTexture => None,
+                    TextureFormat::A3I5 => Some({
                         // TODO: Use alpha bits
                         let byte = vram.get_textures::<u8>(vram_offset + texel);
                         let palette_color = byte & 0x1F;
                         Color::from(vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize))
-                    },
-                    TextureFormat::Palette4 => {
+                    }),
+                    TextureFormat::Palette4 => Some({
                         let palette_color = vram.get_textures::<u8>(vram_offset + texel / 4) >> 2 * (texel % 4) & 0x3;
                         Color::from(vram.get_textures_pal::<u16>(pal_offset / 2 + 2 * palette_color as usize))
-                    }
-                    TextureFormat::Palette16 => {
+                    }),
+                    TextureFormat::Palette16 => Some({
                         let palette_color = vram.get_textures::<u8>(vram_offset + texel / 2) >> 4 * (texel % 2) & 0xF;
                         Color::from(vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize))
-                    },
-                    TextureFormat::Compressed => {
+                    }),
+                    TextureFormat::Compressed => Some({
                         let num_blocks_row = polygon.tex_params.size_s / 4;
                         let block_start_addr = t / 4 * num_blocks_row + s / 4;
                         let base_addr = vram_offset + 4 * block_start_addr;
@@ -127,24 +133,32 @@ impl Engine3D {
                             }
                             _ => unreachable!(),
                         }
-                    },
-                    TextureFormat::A5I3 => {
+                    }),
+                    TextureFormat::A5I3 => Some({
                         // TODO: Use alpha bits
                         let byte = vram.get_textures::<u8>(vram_offset + texel);
                         let palette_color = byte & 0x7;
                         Color::from(vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize))
-                    },
-                    TextureFormat::Palette256 => {
+                    }),
+                    TextureFormat::Palette256 => Some({
                         let palette_color = vram.get_textures::<u8>(vram_offset + texel);
                         Color::from(vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize))
-                    },
-                    TextureFormat::DirectColor => Color::from(vram.get_textures::<u16>(vram_offset + 2 * texel)),
+                    }),
+                    TextureFormat::DirectColor => Some(Color::from(vram.get_textures::<u16>(vram_offset + 2 * texel))),
                 };
+                let modulation_blend = |val1, val2| ((val1 + 1) * (val2 + 1) - 1) / 64;
                 match polygon.attrs.mode {
-                    PolygonMode::Modulation => combine_colors6(tex_color, vert_color,
-                        |val1, val2| ((val1 + 1) * (val2 + 1) - 1) / 64
+                    PolygonMode::Modulation => blend_tex(tex_color, vert_color,modulation_blend),
+                    PolygonMode::ToonHighlight if disp3dcnt.highlight_shading =>
+                    blend_tex(tex_color, vert_color,
+                        |val1, val2| std::cmp::max(modulation_blend(val1, val2) + val2, 0x3F)
                     ),
-                    PolygonMode::Shadow => tex_color, // TODO: Use decal blending
+                    PolygonMode::ToonHighlight => {
+                        let toon_color = toon_table[vert_color.r5() as usize];
+                        blend_tex(tex_color, toon_color, modulation_blend)
+                    },
+                    // TODO: Use decal blending
+                    PolygonMode::Shadow => tex_color.unwrap_or_else(|| Color::new5(0, 0, 0)), 
                     _ => todo!(),
                 }
             };

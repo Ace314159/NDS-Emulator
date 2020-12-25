@@ -66,6 +66,8 @@ pub struct Engine3D {
     palette_base: usize,
     raw_tex_coord: [i16; 2], // 1 + 11 + 4 fixed point
     tex_coord: [i16; 2], // 1 + 11 + 4 fixed point
+    // Toon
+    toon_table: [Color; 0x20],
 }
 
 impl Engine3D {
@@ -126,6 +128,8 @@ impl Engine3D {
             palette_base: 0,
             raw_tex_coord: [0; 2], // 1 + 11 + 4 fixed point
             tex_coord: [0; 2], // 1 + 11 + 4 fixed point
+            // Toon
+            toon_table: [Color::new5(0, 0, 0); 0x20],
         }
     }
 
@@ -169,6 +173,7 @@ impl Engine3D {
         match addr & 0xFFF {
             0x350 ..= 0x353 => self.clear_color.write(scheduler, addr as usize & 0x3, value),
             0x354 ..= 0x355 => self.clear_depth.write(scheduler, addr as usize & 0x1, value),
+            0x380 ..= 0x3BF => self.write_toon_table(addr as usize & (2 * self.toon_table.len() - 1), value),
             0x600 ..= 0x603 => self.write_gxstat(scheduler, (addr as usize) & 0x3, value),
             _ => warn!("Ignoring Engine3D Write 0x{:08X} = {:02X}", addr, value),
         }

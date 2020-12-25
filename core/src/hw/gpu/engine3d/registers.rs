@@ -1,18 +1,18 @@
-use super::{GPU, Engine3D, math::Vec4, IORegister, Scheduler};
+use super::{GPU, Engine3D, Color, math::Vec4, IORegister, Scheduler};
 
 pub struct DISP3DCNT {
-    texture_mapping: bool,
-    highlight_shading: bool,
-    alpha_test: bool,
-    alpha_blending: bool,
-    antia_aliasing: bool,
-    edge_marking: bool,
-    fog_alpha_only: bool,
-    fog_master_enable: bool,
-    fog_depth_shift: u8,
-    color_buffer_underflow: bool,
-    poly_vert_ram_overflow: bool,
-    rear_plane_bitmap: bool,
+    pub texture_mapping: bool,
+    pub highlight_shading: bool,
+    pub alpha_test: bool,
+    pub alpha_blending: bool,
+    pub antia_aliasing: bool,
+    pub edge_marking: bool,
+    pub fog_alpha_only: bool,
+    pub fog_master_enable: bool,
+    pub fog_depth_shift: u8,
+    pub color_buffer_underflow: bool,
+    pub poly_vert_ram_overflow: bool,
+    pub rear_plane_bitmap: bool,
 }
 
 impl DISP3DCNT {
@@ -148,6 +148,16 @@ impl Engine3D {
 
     pub(super) fn read_clip_mat(&self, byte: usize) -> u8 {
         ((self.clip_mat[byte / 4].raw() as u32) >> (8 * (byte % 4))) as u8
+    }
+
+    pub(super) fn write_toon_table(&mut self, addr: usize, value: u8) {
+        let index = addr / 2;
+        let old_value = self.toon_table[index].as_u16();
+        self.toon_table[index] = Color::from(if addr & 0x1 == 0 {
+            old_value & !0x00FF | (value as u16) << 0
+        } else {
+            old_value & !0xFF00 | (value as u16) << 8
+        });
     }
 }
 
@@ -372,7 +382,7 @@ impl PolygonAttributes {
 pub enum PolygonMode {
     Modulation = 0,
     Decal = 1,
-    Toon = 2,
+    ToonHighlight = 2,
     Shadow = 3,
 }
 
@@ -381,7 +391,7 @@ impl From<u32> for PolygonMode {
         match value {
             0 => PolygonMode::Modulation,
             1 => PolygonMode::Decal,
-            2 => PolygonMode::Toon,
+            2 => PolygonMode::ToonHighlight,
             3 => PolygonMode::Shadow,
             _ => unreachable!(),
         }
