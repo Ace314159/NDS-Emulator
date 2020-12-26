@@ -128,6 +128,7 @@ impl Instr {
     fn get(value: u8) -> Self {
         match value {
             0x00 => Instr::IR,
+            0x08 => Instr::IR,
             0x03 => Instr::READ(3, 0),
             0x05 => Instr::RDSR,
             0x06 => Instr::WREN,
