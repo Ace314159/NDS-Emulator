@@ -31,7 +31,7 @@ impl Display {
         glfw.set_error_callback(glfw::FAIL_ON_ERRORS);
 
         let width = (Display::WIDTH * Display::SCALE) as u32;
-        let height = (Display::HEIGHT * Display::SCALE) as u32;
+        let height = 19 + (Display::HEIGHT * Display::SCALE) as u32; // TODO: Don't hardcode main menu bar height
         let (mut window, events) = glfw.create_window(width, height,
             "GBA Emulator", glfw::WindowMode::Windowed).expect("Failed to create GLFW window!");
         window.make_current();
@@ -153,9 +153,11 @@ impl Display {
         }
     }
 
-    pub fn render_main(&mut self, nds: &mut NDS, imgui: &mut imgui::Context) -> (HashSet<glfw::Key>, Vec<PathBuf>) {
+    pub fn render_main(&mut self, nds: &mut NDS, imgui: &mut imgui::Context, main_menu_height: f32) ->
+        (HashSet<glfw::Key>, Vec<PathBuf>) {
         let screens = nds.get_screens();
         let (width, height) = self.window.get_size();
+        let height = height - main_menu_height as i32;
 
         let (tex_x, tex_y) = if width * Display::HEIGHT as i32 > height * Display::WIDTH as i32 {
             let scaled_width = (Display::WIDTH as f32 / Display::HEIGHT as f32 * height as f32) as i32;
@@ -179,7 +181,7 @@ impl Display {
             gl::TexSubImage2D(gl::TEXTURE_2D, 0, 0, nds::HEIGHT as i32, nds::WIDTH as i32, nds::HEIGHT as i32,
                 gl::RGBA, gl::UNSIGNED_SHORT_1_5_5_5_REV, screens[1].as_ptr() as *const std::ffi::c_void);
             // Flip y_end and y_start because OpenGL wants the texture flipped vertically
-            gl::BlitFramebuffer(0, 0, Display::WIDTH as i32, Display::HEIGHT as i32,
+            gl::BlitFramebuffer(0, main_menu_height as i32, Display::WIDTH as i32, Display::HEIGHT as i32,
                 x_start, y_end, x_end, y_start, gl::COLOR_BUFFER_BIT, gl::NEAREST);
         }
 
@@ -234,7 +236,7 @@ impl Display {
     }
 
     pub fn render_imgui<F>(&mut self, imgui: &mut imgui::Context, keys_pressed: HashSet<glfw::Key>,
-        imgui_draw: F) where F: FnOnce(&imgui::Ui, HashSet<glfw::Key>){
+        imgui_draw: F) where F: FnOnce(&imgui::Ui, HashSet<glfw::Key>) {
         let io = imgui.io_mut();
         self.prepare_frame(io);
         io.update_delta_time(Instant::now() - self.prev_frame_time);

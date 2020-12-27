@@ -62,6 +62,7 @@ fn main() {
     
     let mut nds = load_rom(&bios7_path, &bios9_path, &firmware_path, &rom_path);
 
+    let mut main_menu_height = 0.0;
     let mut palettes_window = DebugWindow::<PalettesWindowState>::new("Palettes");
     let mut maps_window = DebugWindow::<MapsWindowState>::new("Maps");
     let mut tiles_window = DebugWindow::<TilesWindowState>::new("Tiles");
@@ -70,9 +71,8 @@ fn main() {
     while !display.should_close() {
         nds.emulate_frame();
         
-        let (keys_pressed, files_dropped) = display.render_main(&mut nds, &mut imgui);
-        display.render_imgui(&mut imgui, keys_pressed,
-            |ui, keys_pressed| {
+        let (keys_pressed, files_dropped) = display.render_main(&mut nds, &mut imgui, main_menu_height);
+        display.render_imgui(&mut imgui, keys_pressed, |ui, keys_pressed| {
             ui.main_menu_bar(|| {
                 ui.menu(im_str!("Debug Windows"), true, || {
                     palettes_window.menu_item(ui);
@@ -80,6 +80,7 @@ fn main() {
                     tiles_window.menu_item(ui);
                     vram_window.menu_item(ui);
                 });
+                main_menu_height = ui.window_size()[1];
             });
 
             palettes_window.render(&mut nds, ui, &keys_pressed);
