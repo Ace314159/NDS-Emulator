@@ -177,7 +177,6 @@ impl Engine3D {
 
     fn render_polygon<B, D>(blend: B, depth_test: D, polygon: &Polygon, vertices: &[Vertex], pixels: &mut Vec<u16>, depth_buffer: &mut Vec<u32>)
     where B: Fn(Color, i32, i32) -> Color, D: Fn(u32, u32) -> bool {
-        assert!(vertices.len() >= 3);
         if polygon.attrs.mode == PolygonMode::Shadow { return }
         // Find top left and bottom right vertices
         let (mut start_vert, mut end_vert) = (0, 0);
@@ -241,21 +240,29 @@ impl Engine3D {
             }
             let x_start = left_slope.next_x() as usize;
             let x_end = right_slope.next_x() as usize;
-            let num_steps = x_end - x_start;
+            let w_start = left_slope.next_w() as i16;
+            let w_end = right_slope.next_w() as i16;
+            let num_steps = x_end.wrapping_sub(x_start);
             let mut color = ColorSlope::new(
                 &left_slope.next_color(),
                 &right_slope.next_color(),
                 num_steps,
+                w_start,
+                w_end,
             );
-            let mut s = Slope::new(
+            let mut s = PerspectiveSlope::new(
                 left_slope.next_s(),
                 right_slope.next_s(),
                 num_steps,
+                w_start,
+                w_end,
             );
-            let mut t = Slope::new(
+            let mut t = PerspectiveSlope::new(
                 left_slope.next_t(),
                 right_slope.next_t(),
                 num_steps,
+                w_start,
+                w_end,
             );
             let mut depth = Slope::new(
                 left_slope.next_depth(),
@@ -272,6 +279,110 @@ impl Engine3D {
                 }
             }
         }
+    }
+}
+
+struct VertexSlope {
+    x: Slope,
+    w: Slope,
+    s: PerspectiveSlope,
+    t: PerspectiveSlope,
+    depth: Slope,
+    color: ColorSlope,
+}
+
+impl VertexSlope {
+    pub fn from_verts(start: &Vertex, end: &Vertex) -> VertexSlope {
+        let num_steps = end.screen_coords[1] - start.screen_coords[1];
+        // TODO: Implement w-buffer
+        let w_start = start.normalized_w;
+        let w_end = end.normalized_w;
+        VertexSlope {
+            x: Slope::new(start.screen_coords[0] as f32, end.screen_coords[0] as f32, num_steps),
+            w: Slope::new(w_start as f32, w_end as f32, num_steps),
+            s: PerspectiveSlope::new(start.tex_coord[0] as f32, end.tex_coord[0] as f32, num_steps, w_start, w_end),
+            t: PerspectiveSlope::new(start.tex_coord[1] as f32, end.tex_coord[1] as f32, num_steps, w_start, w_end),
+            depth: Slope::new(start.z_depth as f32, end.z_depth as f32, num_steps),
+            color: ColorSlope::new(&start.color, &end.color, num_steps, w_start, w_end),
+        }
+    }
+
+    pub fn next_x(&mut self) -> f32 {
+        self.x.next()
+    }
+
+    pub fn next_w(&mut self) -> f32 {
+        self.w.next()
+    }
+
+    pub fn next_s(&mut self) -> f32 {
+        self.s.next()
+    }
+
+    pub fn next_t(&mut self) -> f32 {
+        self.t.next()
+    }
+
+    pub fn next_depth(&mut self) -> f32 {
+        self.depth.next()
+    }
+
+    pub fn next_color(&mut self) -> Color {
+        self.color.next()
+    }
+}
+
+struct ColorSlope {
+    r: PerspectiveSlope,
+    g: PerspectiveSlope,
+    b: PerspectiveSlope,
+}
+
+impl ColorSlope {
+    pub fn new(start_color: &Color, end_color: &Color, num_steps: usize, w_start: i16, w_end: i16) -> Self {
+        ColorSlope {
+            r: PerspectiveSlope::new(start_color.r8() as f32, end_color.r8() as f32, num_steps, w_start, w_end),
+            g: PerspectiveSlope::new(start_color.g8() as f32, end_color.g8() as f32, num_steps, w_start, w_end),
+            b: PerspectiveSlope::new(start_color.b8() as f32, end_color.b8() as f32, num_steps, w_start, w_end),
+        }
+    }
+
+    pub fn next(&mut self) -> Color {
+        Color::new8(
+            self.r.next() as u8,
+            self.g.next() as u8,
+            self.b.next() as u8,
+        )
+    }
+}
+
+struct PerspectiveSlope {
+    cur: usize,
+    start: f32,
+    diff: f32,
+    num_steps: f32,
+    w_start: f32,
+    w_end: f32,
+}
+
+impl PerspectiveSlope {
+    pub fn new(start: f32, end: f32, num_steps: usize, w_start: i16, w_end: i16) -> Self {
+        PerspectiveSlope {
+            cur: 0,
+            start,
+            diff: end - start,
+            num_steps: num_steps as f32,
+            w_start: w_start as f32,
+            w_end: w_end as f32,
+        }
+    }
+
+    pub fn next(&mut self) -> f32 {
+        // TODO: Use linear interpolation for same w values
+        let factor_fn = |cur| (cur * self.w_start) / (((self.num_steps - cur) * self.w_end) + (cur * self.w_start));
+        let factor = (factor_fn)(self.cur as f32);
+        self.cur += 1;
+        self.start + factor * self.diff
     }
 }
 
@@ -296,72 +407,4 @@ impl Slope {
     }
 }
 
-struct VertexSlope {
-    x: Slope,
-    s: Slope,
-    t: Slope,
-    depth: Slope,
-    color: ColorSlope,
-}
 
-impl VertexSlope {
-    pub fn from_verts(start: &Vertex, end: &Vertex) -> Self {
-        let num_steps = end.screen_coords[1] - start.screen_coords[1];
-        // TODO: Implement w-buffer
-        VertexSlope {
-            x: Slope::new(start.screen_coords[0] as f32, end.screen_coords[0] as f32, num_steps),
-            s: Slope::new(start.tex_coord[0] as f32, end.tex_coord[0] as f32, num_steps),
-            t: Slope::new(start.tex_coord[1] as f32, end.tex_coord[1] as f32, num_steps),
-            depth: Slope::new(start.z_depth as f32, end.z_depth as f32, num_steps),
-            color: ColorSlope::new(
-                &start.color,
-                &end.color,
-                end.screen_coords[1] - start.screen_coords[1],
-            ),
-        }
-    }
-
-    pub fn next_x(&mut self) -> f32 {
-        self.x.next()
-    }
-
-    pub fn next_s(&mut self) -> f32 {
-        self.s.next()
-    }
-
-    pub fn next_t(&mut self) -> f32 {
-        self.t.next()
-    }
-
-    pub fn next_depth(&mut self) -> f32 {
-        self.depth.next()
-    }
-
-    pub fn next_color(&mut self) -> Color {
-        self.color.next()
-    }
-}
-
-struct ColorSlope {
-    r: Slope,
-    g: Slope,
-    b: Slope,
-}
-
-impl ColorSlope {
-    pub fn new(start_color: &Color, end_color: &Color, num_steps: usize) -> Self {
-        ColorSlope {
-            r: Slope::new(start_color.r8() as f32, end_color.r8() as f32, num_steps),
-            g: Slope::new(start_color.g8() as f32, end_color.g8() as f32, num_steps),
-            b: Slope::new(start_color.b8() as f32, end_color.b8() as f32, num_steps),
-        }
-    }
-
-    pub fn next(&mut self) -> Color {
-        Color::new8(
-            self.r.next() as u8,
-            self.g.next() as u8,
-            self.b.next() as u8,
-        )
-    }
-}

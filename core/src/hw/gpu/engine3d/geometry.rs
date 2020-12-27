@@ -338,6 +338,7 @@ impl Engine3D {
             clip_coords,
             screen_coords: [0, 0], // Temp - Calculated after clipping
             z_depth: 0, // Temp - Calculated after clipping
+            normalized_w: 0, // Temp - Calculated after clipping
             color: self.color,
             tex_coord: self.tex_coord,
         });
@@ -427,15 +428,24 @@ impl Engine3D {
             palette_base: self.palette_base,
             is_front,
         });
+        let mut w_size = 0;
+        for vert in self.cur_poly_verts.iter() {
+            let w = vert.clip_coords[3].raw() as u32;
+            while w >> w_size != 0 {
+                w_size += 4;
+                assert!(w_size < 32);
+            }
+        }
         for vert in self.cur_poly_verts.drain(..) {
             let z = vert.clip_coords[2].raw() as i64;
-            let w = vert.clip_coords[3].raw() as i64;
+            let w = vert.clip_coords[3].raw();
             self.vertices.push(Vertex {
                 screen_coords: [
                     self.viewport.screen_x(&vert.clip_coords),
                     self.viewport.screen_y(&vert.clip_coords),
                 ],
-                z_depth: ((((z * 0x4000 / w) + 0x3FFF) * 0x200) & 0xFFFFFF) as u32,
+                z_depth: ((((z * 0x4000 / w as i64) + 0x3FFF) * 0x200) & 0xFFFFFF) as u32,
+                normalized_w: if w_size < 16 { w << (16 - w_size) }  else { w >> (w_size - 16) } as i16,
                 ..vert
             });
         }
@@ -512,6 +522,7 @@ impl Engine3D {
             ),
             screen_coords: [0, 0], // Calcluated after
             z_depth: 0, // Calculated after
+            normalized_w: 0, // Calculated after
             color: Color::new8(
                 interpolate(inside.color.r as i64, out.color.r as i64) as u8,
                 interpolate(inside.color.g as i64, out.color.g as i64) as u8,
@@ -854,6 +865,7 @@ pub struct Vertex {
     pub clip_coords: Vec4,
     pub screen_coords: [usize; 2],
     pub z_depth: u32, // 24 bit depth
+    pub normalized_w: i16,
     pub color: Color,
     pub tex_coord: [i16; 2], // 1 + 11 + 4 fixed point
 }
@@ -864,6 +876,7 @@ impl Vertex {
             clip_coords: Vec4::new(FixedPoint::zero(), FixedPoint::zero(), FixedPoint::zero(), FixedPoint::zero()),
             screen_coords: [0, 0],
             z_depth: 0,
+            normalized_w: 0,
             color: Color::new8(0, 0, 0),
             tex_coord: [0, 0],
         }
