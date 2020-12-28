@@ -1,6 +1,7 @@
 pub mod mmu;
 mod scheduler;
 mod gpu;
+mod spu;
 mod keypad;
 mod interrupt_controller;
 mod dma;
@@ -17,6 +18,7 @@ pub use mmu::{AccessType, MemoryValue};
 use mmu::{CP15, EXMEM, HALTCNT, POWCNT2, WRAMCNT};
 use scheduler::{Scheduler, Event};
 pub use gpu::{GPU, EngineA, EngineB};
+use spu::SPU;
 use keypad::Keypad;
 pub use keypad::Key;
 use interrupt_controller::{InterruptController, InterruptRequest};
@@ -40,6 +42,7 @@ pub struct HW {
     shared_wram: Vec<u8>,
     // Devices
     pub gpu: GPU,
+    spu: SPU,
     keypad: Keypad,
     interrupts7: InterruptController,
     interrupts9: InterruptController,
@@ -86,6 +89,7 @@ impl HW {
             shared_wram: vec![0; HW::SHARED_WRAM_SIZE],
             // Devices
             gpu: GPU::new(&mut scheduler),
+            spu: SPU::new(),
             keypad: Keypad::new(),
             interrupts7: InterruptController::new(),
             interrupts9: InterruptController::new(),
