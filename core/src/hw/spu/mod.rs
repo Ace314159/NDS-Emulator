@@ -1,23 +1,43 @@
 mod registers;
+mod audio;
 
-use super::Scheduler;
+use super::{Event, Scheduler};
 use crate::hw::mmu::IORegister;
 
 use registers::*;
+use audio::Audio;
 
 pub struct SPU {
+    // Sound Generation
+    audio: Audio,
+    clocks_per_sample: usize,
+    // Channels
     base_channels: [Channel<BaseChannel>; 8],
     psg_channels: [Channel<PSGChannel>; 6],
     noise_channels: [Channel<NoiseChannel>; 2],
 }
 
 impl SPU {
-    pub fn new() -> Self {
+    pub fn new(scheduler: &mut Scheduler) -> Self {
+        let audio = Audio::new();
+        // TODO: Sample at 32.768 kHz and resample to device sample rate
+        let clocks_per_sample = crate::nds::NDS::CLOCK_RATE / audio.sample_rate();
+        scheduler.schedule(Event::GenerateAudioSample, clocks_per_sample);
+
         SPU {
+            // Sound Generation
+            audio,
+            clocks_per_sample,
+            // Channels
             base_channels: [Channel::<BaseChannel>::new(); 8],
             psg_channels: [Channel::<PSGChannel>::new(); 6],
             noise_channels: [Channel::<NoiseChannel>::new(); 2],
         }
+    }
+
+    pub fn generate_sample(&mut self, scheduler: &mut Scheduler) {
+        self.audio.push_sample(0.0, 0.0);
+        scheduler.schedule(Event::GenerateAudioSample, self.clocks_per_sample);
     }
 
     pub fn read_channels(&self, addr: u32) -> u8 {

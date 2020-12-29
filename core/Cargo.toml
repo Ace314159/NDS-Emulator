@@ -6,8 +6,10 @@ edition = "2018"
 
 [dependencies]
 bitflags = "1.2.1"
+cpal = "0.13.1"
 log = "0.4.11"
 num-traits = "0.2.12"
 num-integer = "0.1.43"
 priority-queue = "1.0.0"
+ringbuf = "0.2.2"
 simplelog = "0.8.0"

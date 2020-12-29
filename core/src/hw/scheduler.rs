@@ -100,6 +100,7 @@ impl HW {
                 let interrupts = if is_arm7 { &mut self.interrupts7 } else { &mut self.interrupts9 };
                 interrupts.request |= InterruptRequest::GAME_CARD_TRANSFER_COMPLETION;
             },
+            Event::GenerateAudioSample => self.spu.generate_sample(&mut self.scheduler),
         }
     }
 
@@ -230,4 +231,5 @@ pub enum Event {
     TimerOverflow(bool, usize),
     ROMWordTransfered,
     ROMBlockEnded(bool),
+    GenerateAudioSample,
 }

@@ -89,7 +89,7 @@ impl HW {
             shared_wram: vec![0; HW::SHARED_WRAM_SIZE],
             // Devices
             gpu: GPU::new(&mut scheduler),
-            spu: SPU::new(),
+            spu: SPU::new(&mut scheduler),
             keypad: Keypad::new(),
             interrupts7: InterruptController::new(),
             interrupts9: InterruptController::new(),

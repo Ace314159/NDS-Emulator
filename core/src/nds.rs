@@ -18,6 +18,8 @@ pub struct NDS {
 }
 
 impl NDS {
+    pub const CLOCK_RATE: usize = 33513982;
+
     pub fn new(bios7: Vec<u8>, bios9: Vec<u8>, firmware: Vec<u8>, rom: Vec<u8>, save_file: PathBuf) -> Self {
         let mut hw = HW::new(bios7, bios9, firmware, rom, save_file);
         NDS {
