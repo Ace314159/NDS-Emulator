@@ -8,6 +8,7 @@ use super::{
     mmu::MemoryValue,
     interrupt_controller::{InterruptController, InterruptRequest},
     gpu::{DISPSTAT, DISPSTATFlags, POWCNT1},
+    spu,
     HW
 };
 
@@ -101,6 +102,29 @@ impl HW {
                 interrupts.request |= InterruptRequest::GAME_CARD_TRANSFER_COMPLETION;
             },
             Event::GenerateAudioSample => self.spu.generate_sample(&mut self.scheduler),
+            Event::StepAudioChannel(channel_spec) => match channel_spec {
+                spu::ChannelSpec::Base(num) => {
+                    let format = self.spu.base_channels[num].format();
+                    match format {
+                        spu::Format::PCM8 => {
+                            if let Some(addr) = self.spu.base_channels[num].next_addr::<u8>() {
+                                self.spu.base_channels[num].schedule(&mut self.scheduler);
+                                let sample = self.arm7_read::<u8>(addr);
+                                self.spu.base_channels[num].set_sample(sample);
+                            }
+                        },
+                        spu::Format::PCM16 => {
+                            if let Some(addr) = self.spu.base_channels[num].next_addr::<u16>() {
+                                self.spu.base_channels[num].schedule(&mut self.scheduler);
+                                let sample = self.arm7_read::<u16>(addr);
+                                self.spu.base_channels[num].set_sample(sample);
+                            }
+                        },
+                        _ => todo!(),
+                    }
+                },
+                _ => todo!(),
+            },
         }
     }
 
@@ -232,4 +256,5 @@ pub enum Event {
     ROMWordTransfered,
     ROMBlockEnded(bool),
     GenerateAudioSample,
+    StepAudioChannel(spu::ChannelSpec),
 }

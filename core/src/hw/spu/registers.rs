@@ -1,18 +1,17 @@
 use std::marker::PhantomData;
 
-use super::{IORegister, Scheduler};
+use super::{ChannelType, IORegister, Scheduler};
 
-#[derive(Clone, Copy)]
 pub struct ChannelControl<T: ChannelType> {
-    volume_mul: u8,
-    volume_div: u8,
-    hold: bool,
-    panning: u8,
-    wave_duty: u8,
-    repeat_mode: RepeatMode,
-    format: Format,
-    busy: bool,
-    channel_type: PhantomData<T>,
+    pub volume_mul: u8,
+    pub volume_div: u8,
+    pub hold: bool,
+    pub panning: u8,
+    pub wave_duty: u8,
+    pub repeat_mode: RepeatMode,
+    pub format: Format,
+    pub busy: bool,
+    pub channel_type: PhantomData<T>,
 }
 
 impl<T: ChannelType> IORegister for ChannelControl<T> {
@@ -38,10 +37,7 @@ impl<T: ChannelType> IORegister for ChannelControl<T> {
                 self.wave_duty = value & 0x7;
                 self.repeat_mode = RepeatMode::from(value >> 3 & 0x3);
                 self.format = Format::from(value >> 5 & 0x3);
-                let new_busy = value >> 7 & 0x1 != 0;
-                if !self.busy && new_busy {
-                    // TODO: Start channel
-                }
+                self.busy = value >> 7 & 0x1 != 0;
             },
             _ => unreachable!(),
         }
@@ -65,7 +61,7 @@ impl<T: ChannelType> ChannelControl<T> {
 }
 
 #[derive(Clone, Copy)]
-enum RepeatMode {
+pub enum RepeatMode {
     Manual = 0,
     Loop = 1,
     OneShot = 2,
@@ -83,8 +79,8 @@ impl From<u8> for RepeatMode {
     }
 }
 
-#[derive(Clone, Copy)]
-enum Format {
+#[derive(Clone, Copy, PartialEq)]
+pub enum Format {
     PCM8 = 0,
     PCM16 = 1,
     ADPCM = 2,
@@ -102,30 +98,4 @@ impl From<u8> for Format {
             _ => unreachable!(),
         }
     }
-}
-
-pub trait ChannelType {
-    fn supports_psg() -> bool;
-    fn supports_noise() -> bool;
-}
-#[derive(Clone, Copy)]
-pub struct BaseChannel {}
-#[derive(Clone, Copy)]
-pub struct PSGChannel {}
-#[derive(Clone, Copy)]
-pub struct NoiseChannel {}
-
-impl ChannelType for BaseChannel {
-    fn supports_psg() -> bool { return false }
-    fn supports_noise() -> bool { return false }
-}
-
-impl ChannelType for PSGChannel {
-    fn supports_psg() -> bool { return true }
-    fn supports_noise() -> bool { return false }
-}
-
-impl ChannelType for NoiseChannel {
-    fn supports_psg() -> bool { return false }
-    fn supports_noise() -> bool { return true }
 }
