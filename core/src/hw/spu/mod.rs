@@ -50,18 +50,15 @@ impl SPU {
         scheduler.schedule(Event::GenerateAudioSample, self.clocks_per_sample);
 
         let mut sample = (0, 0);
-        for channel in self.base_channels.iter() {
-            channel.generate_sample(&mut sample);
-        }
-        for channel in self.psg_channels.iter() {
-            channel.generate_sample(&mut sample);
-        }
-        for channel in self.noise_channels.iter() {
-            channel.generate_sample(&mut sample);
-        }
+        for channel in self.base_channels.iter() { channel.generate_sample(&mut sample) }
+        for channel in self.psg_channels.iter() { channel.generate_sample(&mut sample) }
+        for channel in self.noise_channels.iter() { channel.generate_sample(&mut sample) }
+        sample = (
+            sample.0 * self.
+        );
         let sample = (
-            cpal::Sample::from::<i16>(&sample.0),
-            cpal::Sample::from::<i16>(&sample.1),
+            cpal::Sample::from::<i16>(&((sample.0 >> 16) as i16)),
+            cpal::Sample::from::<i16>(&((sample.1 >> 16) as i16)),
         );
         self.audio.push_sample(sample.0, sample.1);
     }
@@ -175,10 +172,14 @@ impl<T: ChannelType> Channel<T> {
         }
     }
 
-    fn generate_sample(&self, sample: &mut (i16, i16)) {
+    fn generate_sample(&self, sample: &mut (i32, i32)) {
         // TODO: Use volume and panning
-        sample.0 += self.sample;
-        sample.1 += self.sample;
+        sample.0 += ((self.sample as i32) >> self.cnt.volume_shift()) *
+            self.cnt.volume_factor() *
+            (128 - self.cnt.pan_factor());
+        sample.1 += ((self.sample as i32) >> self.cnt.volume_shift()) *
+            self.cnt.volume_factor() *
+            (self.cnt.pan_factor());
     }
 
     pub fn next_addr<M: super::MemoryValue>(&mut self) -> Option<u32> {

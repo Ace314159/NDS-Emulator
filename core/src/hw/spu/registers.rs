@@ -3,15 +3,15 @@ use std::marker::PhantomData;
 use super::{ChannelType, IORegister, Scheduler};
 
 pub struct ChannelControl<T: ChannelType> {
-    pub volume_mul: u8,
-    pub volume_div: u8,
+    volume_mul: u8,
+    volume_div: u8,
     pub hold: bool,
-    pub panning: u8,
+    panning: u8,
     pub wave_duty: u8,
     pub repeat_mode: RepeatMode,
     pub format: Format,
     pub busy: bool,
-    pub channel_type: PhantomData<T>,
+    channel_type: PhantomData<T>,
 }
 
 impl<T: ChannelType> IORegister for ChannelControl<T> {
@@ -27,7 +27,7 @@ impl<T: ChannelType> IORegister for ChannelControl<T> {
 
     fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8) {
         match byte {
-            0 => self.volume_mul = value & 0x3F,
+            0 => self.volume_mul = value & 0x7F,
             1 => {
                 self.hold = (value >> 7) & 0x1 != 0;
                 self.volume_div = value >> 0 & 0x3;
@@ -57,6 +57,18 @@ impl<T: ChannelType> ChannelControl<T> {
             busy: false,
             channel_type: PhantomData,
         }
+    }
+
+    pub fn volume_shift(&self) -> usize {
+        [0, 1, 2, 4][self.volume_div as usize]
+    }
+
+    pub fn volume_factor(&self) -> i32 {
+        if self.volume_mul == 127 { 128 } else { self.volume_mul as i32 }
+    }
+
+    pub fn pan_factor(&self) -> i32 {
+        if self.panning == 127 { 128 } else { self.panning as i32 }
     }
 }
 
