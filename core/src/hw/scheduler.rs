@@ -111,14 +111,14 @@ impl HW {
                                 self.spu.base_channels[num].schedule(&mut self.scheduler);
                                 let sample = self.arm7_read::<u8>(addr);
                                 self.spu.base_channels[num].set_sample(sample);
-                            }
+                            } else { self.spu.base_channels[num].use_last_sample() };
                         },
                         spu::Format::PCM16 => {
                             if let Some(addr) = self.spu.base_channels[num].next_addr::<u16>() {
                                 self.spu.base_channels[num].schedule(&mut self.scheduler);
                                 let sample = self.arm7_read::<u16>(addr);
                                 self.spu.base_channels[num].set_sample(sample);
-                            }
+                            } else { self.spu.base_channels[num].use_last_sample() };
                         },
                         _ => todo!(),
                     }
