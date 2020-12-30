@@ -51,18 +51,35 @@ impl SPU {
     pub fn generate_sample(&mut self, scheduler: &mut Scheduler) {
         scheduler.schedule(Event::GenerateAudioSample, self.clocks_per_sample);
 
-        let mut sample = (0, 0);
-        for channel in self.base_channels.iter() { channel.generate_sample(&mut sample) }
-        for channel in self.psg_channels.iter() { channel.generate_sample(&mut sample) }
-        for channel in self.noise_channels.iter() { channel.generate_sample(&mut sample) }
-        sample = (
-            sample.0 * self.
+        let mut mixer = (0, 0);
+        for i in (0..1).chain(2..3).chain(4..self.base_channels.len()) { self.base_channels[i].generate_sample(&mut mixer) }
+        for channel in self.psg_channels.iter() { channel.generate_sample(&mut mixer) }
+        for channel in self.noise_channels.iter() { channel.generate_sample(&mut mixer) }
+        let (mut ch1, mut ch3) = ((0, 0), (0, 0));
+        self.base_channels[1].generate_sample(&mut ch1);
+        self.base_channels[3].generate_sample(&mut ch3);
+        if self.cnt.output_1 { mixer.0 += ch1.0; mixer.1 += ch1.1 }
+        if self.cnt.output_3 { mixer.0 += ch3.0; mixer.1 += ch3.1 }
+        let left_sample = match self.cnt.left_output {
+            ChannelOutput::Mixer => mixer.0,
+            ChannelOutput::Ch1 => ch1.0,
+            ChannelOutput::Ch3 => ch3.0,
+            ChannelOutput::Ch1Ch3 => todo!(),
+        } >> 16;
+        let right_sample = match self.cnt.right_output {
+            ChannelOutput::Mixer => mixer.1,
+            ChannelOutput::Ch1 => ch1.1,
+            ChannelOutput::Ch3 => ch3.1,
+            ChannelOutput::Ch1Ch3 => todo!(),
+        } >> 16;
+        let final_sample = (
+            ((left_sample * self.cnt.master_volume()) >> 7) as i16,
+            ((right_sample * self.cnt.master_volume()) >> 7) as i16,
         );
-        let sample = (
-            cpal::Sample::from::<i16>(&((sample.0 >> 16) as i16)),
-            cpal::Sample::from::<i16>(&((sample.1 >> 16) as i16)),
+        self.audio.push_sample(
+            cpal::Sample::from::<i16>(&final_sample.0),
+            cpal::Sample::from::<i16>(&final_sample.1),
         );
-        self.audio.push_sample(sample.0, sample.1);
     }
 
     pub fn read_channels(&self, addr: usize) -> u8 {

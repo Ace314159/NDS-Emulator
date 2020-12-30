@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use super::{ChannelType, IORegister, Scheduler};
 
 pub struct SoundControl {
-    pub master_volume: u8,
+    master_volume: u8,
     pub left_output: ChannelOutput,
     pub right_output: ChannelOutput,
     pub output_1: bool,
@@ -48,6 +48,10 @@ impl SoundControl {
             output_3: false,
             enable: false,
         }
+    }
+
+    pub fn master_volume(&self) -> i32 {
+        if self.master_volume == 127 { 128 } else { self.master_volume as i32 }
     }
 }
 
