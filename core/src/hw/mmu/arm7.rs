@@ -99,8 +99,7 @@ impl HW {
             0x0400_0305 => self.powcnt2.read(1),
             0x0400_0306 => self.powcnt2.read(2),
             0x0400_0307 => self.powcnt2.read(3),
-            0x0400_0400 ..= 0x0400_04FF => self.spu.read_channels(addr & 0xFF),
-            0x0400_0400 ..= 0x0400_051D => 0, // TODO: Sound Registers
+            0x0400_0400 ..= 0x0400_051D => self.spu.read(addr as usize & 0xFFF),
             0x0480_4000 ..= 0x0480_5FFF => 0, // TODO: WiFi RAM
             0x0480_8000 ..= 0x0480_8FFF => 0, // TOOD: WiFi Registers
             _ => { warn!("Ignoring ARM7 IO Register Read at 0x{:08X}", addr); 0 }
@@ -162,8 +161,7 @@ impl HW {
             0x0400_0305 => self.powcnt2.write(&mut self.scheduler, 1, value),
             0x0400_0306 => self.powcnt2.write(&mut self.scheduler, 2, value),
             0x0400_0307 => self.powcnt2.write(&mut self.scheduler, 3, value),
-            0x0400_0400 ..= 0x0400_04FF => self.spu.write_channels(&mut self.scheduler, addr & 0xFF, value),
-            0x0400_0400 ..= 0x0400_051D => (), // TODO: Sound Registers
+            0x0400_0400 ..= 0x0400_051D => self.spu.write(&mut self.scheduler, addr as usize & 0xFFF, value),
             0x0480_4000 ..= 0x0480_5FFF => (), // TODO: WiFi RAM
             0x0480_8000 ..= 0x0480_8FFF => (), // TOOD: WiFi Registers
             _ => warn!("Ignoring ARM7 IO Register Write 0x{:08X} = {:02X}", addr, value),

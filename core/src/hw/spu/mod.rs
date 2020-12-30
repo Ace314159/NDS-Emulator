@@ -10,6 +10,7 @@ use registers::*;
 use audio::Audio;
 
 pub struct SPU {
+    cnt: SoundControl,
     // Sound Generation
     audio: Audio,
     clocks_per_sample: usize,
@@ -36,6 +37,7 @@ impl SPU {
         let clocks_per_sample = crate::nds::NDS::CLOCK_RATE / audio.sample_rate();
         scheduler.schedule(Event::GenerateAudioSample, clocks_per_sample);
         SPU {
+            cnt: SoundControl::new(),
             // Sound Generation
             audio,
             clocks_per_sample,
@@ -63,7 +65,7 @@ impl SPU {
         self.audio.push_sample(sample.0, sample.1);
     }
 
-    pub fn read_channels(&self, addr: u32) -> u8 {
+    pub fn read_channels(&self, addr: usize) -> u8 {
         let addr = addr as usize;
         let channel = (addr >> 4) & 0xF;
         let byte = addr & 0xF;
@@ -75,7 +77,7 @@ impl SPU {
         }
     }
 
-    pub fn write_channels(&mut self, scheduler: &mut Scheduler, addr: u32, value: u8) {
+    pub fn write_channels(&mut self, scheduler: &mut Scheduler, addr: usize, value: u8) {
         let addr = addr as usize;
         let channel = (addr >> 4) & 0xF;
         let byte = addr & 0xF;
@@ -84,6 +86,24 @@ impl SPU {
             0x8 ..= 0xD => self.psg_channels[channel - 0x8].write(scheduler, byte, value),
             0xE ..= 0xF => self.noise_channels[channel - 0xE].write(scheduler, byte, value),
             _ => unreachable!(),
+        }
+    }
+}
+
+impl IORegister for SPU {
+    fn read(&self, addr: usize) -> u8 {
+        match addr {
+            0x400 ..= 0x4FF => self.read_channels(addr),
+            0x500 ..= 0x503 => self.cnt.read(addr & 0x3),
+            _ => { warn!("Ignoring SPU Register Read at 0x04000{:03X}", addr); 0 }
+        }
+    }
+
+    fn write(&mut self, scheduler: &mut Scheduler, addr: usize, value: u8) {
+        match addr {
+            0x400 ..= 0x4FF => self.write_channels(scheduler, addr & 0xFF, value),
+            0x500 ..= 0x503 => self.cnt.write(scheduler, addr & 0x3, value),
+            _ => warn!("Ignoring SPU Register Write at 0x04000{:03X}", addr)
         }
     }
 }

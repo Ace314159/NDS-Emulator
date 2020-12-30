@@ -2,6 +2,76 @@ use std::marker::PhantomData;
 
 use super::{ChannelType, IORegister, Scheduler};
 
+pub struct SoundControl {
+    pub master_volume: u8,
+    pub left_output: ChannelOutput,
+    pub right_output: ChannelOutput,
+    pub output_1: bool,
+    pub output_3: bool,
+    pub enable: bool,
+}
+
+impl IORegister for SoundControl {
+    fn read(&self, byte: usize) -> u8 {
+        match byte {
+            0 => self.master_volume,
+            1 => (self.enable as u8) << 7 | (self.output_3 as u8) << 5 | (self.output_1 as u8) << 4 |
+                (self.right_output as u8) << 2 | (self.left_output as u8),
+            2 | 3 => 0,
+            _ => unreachable!(),
+        }
+    }
+
+    fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8) {
+        match byte {
+            0 => self.master_volume = value & 0x7F,
+            1 => {
+                self.left_output = ChannelOutput::from(value >> 0 & 0x3);
+                self.right_output = ChannelOutput::from(value >> 2 & 0x3);
+                self.output_1 = value >> 4 != 0;
+                self.output_3 = value >> 5 != 0;
+                self.enable = value >> 7 != 0;
+            },
+            2 | 3 => (),
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl SoundControl {
+    pub fn new() -> Self {
+        SoundControl {
+            master_volume: 0,
+            left_output: ChannelOutput::Mixer,
+            right_output: ChannelOutput::Mixer,
+            output_1: false,
+            output_3: false,
+            enable: false,
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub enum ChannelOutput {
+    Mixer = 0,
+    Ch1 = 1,
+    Ch3 = 2,
+    Ch1Ch3 = 3,
+}
+
+impl From<u8> for ChannelOutput {
+    fn from(value: u8) -> Self {
+        use ChannelOutput::*;
+        match value {
+            0 => Mixer,
+            1 => Ch1,
+            2 => Ch3,
+            3 => Ch1Ch3,
+            _ => unreachable!(),
+        }
+    }
+}
+
 pub struct ChannelControl<T: ChannelType> {
     volume_mul: u8,
     volume_div: u8,
