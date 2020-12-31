@@ -107,23 +107,26 @@ impl HW {
                     let format = self.spu.base_channels[num].format();
                     match format {
                         spu::Format::PCM8 => {
-                            if let Some(addr) = self.spu.base_channels[num].next_addr::<u8>() {
-                                self.spu.base_channels[num].schedule(&mut self.scheduler);
-                                let sample = self.arm7_read::<u8>(addr);
-                                self.spu.base_channels[num].set_sample(sample);
-                            } else { self.spu.base_channels[num].use_last_sample() };
+                            let (addr, reset) = self.spu.base_channels[num].next_addr::<u8>();
+                            self.spu.base_channels[num].schedule(&mut self.scheduler, reset);
+                            let sample = self.arm7_read::<u8>(addr);
+                            self.spu.base_channels[num].set_sample(sample);
                         },
                         spu::Format::PCM16 => {
-                            if let Some(addr) = self.spu.base_channels[num].next_addr::<u16>() {
-                                self.spu.base_channels[num].schedule(&mut self.scheduler);
-                                let sample = self.arm7_read::<u16>(addr);
-                                self.spu.base_channels[num].set_sample(sample);
-                            } else { self.spu.base_channels[num].use_last_sample() };
+                            let (addr, reset) = self.spu.base_channels[num].next_addr::<u16>();
+                            self.spu.base_channels[num].schedule(&mut self.scheduler, reset);
+                            let sample = self.arm7_read::<u16>(addr);
+                            self.spu.base_channels[num].set_sample(sample);
                         },
                         _ => todo!(),
                     }
                 },
                 _ => todo!(),
+            },
+            Event::ResetAudioChannel(channel_spec) => match channel_spec {
+                spu::ChannelSpec::Base(num) => self.spu.base_channels[num].reset_sample(),
+                spu::ChannelSpec::PSG(num) => self.spu.psg_channels[num].reset_sample(),
+                spu::ChannelSpec::Noise(num) => self.spu.noise_channels[num].reset_sample(),
             },
         }
     }
@@ -257,4 +260,5 @@ pub enum Event {
     ROMBlockEnded(bool),
     GenerateAudioSample,
     StepAudioChannel(spu::ChannelSpec),
+    ResetAudioChannel(spu::ChannelSpec),
 }

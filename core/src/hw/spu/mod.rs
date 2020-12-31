@@ -137,7 +137,6 @@ pub struct Channel<T: ChannelType> {
     addr: u32,
     num_bytes_left: usize,
     sample: i16,
-    last_sample: Option<i16>,
 }
 
 impl<T: ChannelType> IORegister for Channel<T> {
@@ -165,10 +164,8 @@ impl<T: ChannelType> IORegister for Channel<T> {
                 let prev_busy = self.cnt.busy;
                 self.cnt.write(scheduler, byte & 0x3, value);
                 if !prev_busy && self.cnt.busy {
-                    self.last_sample = None;
-                    self.schedule(scheduler);
+                    self.schedule(scheduler, false);
                 } else if !self.cnt.busy {
-                    self.last_sample = None;
                     scheduler.remove(Event::StepAudioChannel(self.spec));
                 }
             }
@@ -179,7 +176,7 @@ impl<T: ChannelType> IORegister for Channel<T> {
             },
             0x8 ..= 0x9 => {
                 self.timer_val = self.timer_val & !mask16 | value16;
-                self.schedule(scheduler);
+                self.schedule(scheduler, false);
             },
             0xA ..= 0xB => self.loop_start = self.loop_start & !mask16 | value16,
             0xC ..= 0xF => {
@@ -205,7 +202,6 @@ impl<T: ChannelType> Channel<T> {
             addr: 0,
             num_bytes_left: 0,
             sample: 0,
-            last_sample: None,
         }
     }
 
@@ -219,32 +215,31 @@ impl<T: ChannelType> Channel<T> {
             (self.cnt.pan_factor());
     }
 
-    pub fn next_addr<M: super::MemoryValue>(&mut self) -> Option<u32> {
-        if self.num_bytes_left != 0 {
-            let return_addr = self.addr;
-            self.addr += std::mem::size_of::<M>() as u32;
-            self.num_bytes_left -= std::mem::size_of::<M>();
-            if self.num_bytes_left == 0 {
-                let (last_sample, new_busy) = match self.cnt.repeat_mode {
-                    RepeatMode::Manual => (0, false),
-                    RepeatMode::Loop => {
-                        self.addr = self.src_addr;
-                        self.num_bytes_left = self.len as usize * 4;
-                        (0, true)
-                    },
-                    RepeatMode::OneShot => (self.sample, false),
-                };
-                self.last_sample = Some(last_sample);
-                self.cnt.busy = new_busy;
-            }
-            Some(return_addr)
-        } else {
-            None
-        }
+    pub fn next_addr<M: super::MemoryValue>(&mut self) -> (u32, bool) {
+        assert!(self.num_bytes_left > 0);
+        let return_addr = self.addr;
+        self.addr += std::mem::size_of::<M>() as u32;
+        self.num_bytes_left -= std::mem::size_of::<M>();
+        let reset = if self.num_bytes_left == 0 {
+            // TODO: Verify out timing of busy bit for other modes
+            let (reset, new_busy) = match self.cnt.repeat_mode {
+                RepeatMode::Manual => (true, true),
+                RepeatMode::Loop => {
+                    self.addr = self.src_addr;
+                    self.num_bytes_left = self.len as usize * 4;
+                    (false, true)
+                },
+                RepeatMode::OneShot => (true, false),
+            };
+            self.cnt.busy = new_busy;
+            reset
+        } else { false };
+        (return_addr, reset)
     }
 
-    pub fn use_last_sample(&mut self) {
-       self.sample = self.last_sample.take().unwrap();
+    pub fn reset_sample(&mut self) {
+        self.sample = 0;
+        self.cnt.busy = false;
     }
 
     pub fn set_sample<M: super::MemoryValue>(&mut self, sample: M) {
@@ -256,9 +251,13 @@ impl<T: ChannelType> Channel<T> {
         self.cnt.format
     }
 
-    pub fn schedule(&mut self, scheduler: &mut Scheduler) {
+    pub fn schedule(&mut self, scheduler: &mut Scheduler, reset: bool) {
         if self.timer_val != 0 {
-            scheduler.schedule(Event::StepAudioChannel(self.spec), (-(self.timer_val as i16) as u16) as usize);
+            if reset {
+                scheduler.schedule(Event::ResetAudioChannel(self.spec), (-(self.timer_val as i16) as u16) as usize);
+            } else {
+                scheduler.schedule(Event::StepAudioChannel(self.spec), (-(self.timer_val as i16) as u16) as usize);
+            }
         }
     }
 }
