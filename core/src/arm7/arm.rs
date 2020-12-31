@@ -1,6 +1,6 @@
 use super::{
     ARM7, HW,
-    instructions::{InstructionFlag, InstructionHandler, InstrFlagSet, InstrFlagClear},
+    instructions::InstructionHandler,
     registers::{Reg, Mode}
 };
 
@@ -49,20 +49,20 @@ impl ARM7 {
     }
 
     // ARM.4: Branch and Branch with Link (B, BL)
-    fn branch_branch_with_link<L: InstructionFlag>(&mut self, hw: &mut HW, instr: u32) {
+    fn branch_branch_with_link<const L: bool>(&mut self, hw: &mut HW, instr: u32) {
         let offset = instr & 0xFF_FFFF;
         let offset = if (offset >> 23) == 1 { 0xFF00_0000 | offset } else { offset };
 
         self.instruction_prefetch::<u32>(hw, AccessType::N);
-        if L::num() == 1 { self.regs.set_reg(Reg::R14, self.regs.pc.wrapping_sub(4)) } // Branch with Link
+        if L { self.regs.set_reg(Reg::R14, self.regs.pc.wrapping_sub(4)) } // Branch with Link
         self.regs.pc = self.regs.pc.wrapping_add(offset << 2);
         self.fill_arm_instr_buffer(hw);
     }
 
     // ARM.5: Data Processing
-    fn data_proc<I: InstructionFlag, S: InstructionFlag>(&mut self, hw: &mut HW, instr: u32) {
-        let immediate_op2 = I::bool();
-        let change_status = S::bool();
+    fn data_proc<const I: bool, const S: bool>(&mut self, hw: &mut HW, instr: u32) {
+        let immediate_op2 = I;
+        let change_status = S;
         let mut temp_inc_pc = false;
         let opcode = (instr >> 21) & 0xF;
         let dest_reg = (instr >> 12) & 0xF;
@@ -129,12 +129,12 @@ impl ARM7 {
     }
 
     // ARM.6: PSR Transfer (MRS, MSR)
-    fn psr_transfer<I: InstructionFlag, P: InstructionFlag, L: InstructionFlag>(&mut self, hw: &mut HW, instr: u32) {
+    fn psr_transfer<const I: bool, const P: bool, const L: bool>(&mut self, hw: &mut HW, instr: u32) {
         assert_eq!(instr >> 26 & 0b11, 0b00);
-        let immediate_operand = I::bool();
+        let immediate_operand = I;
         assert_eq!(instr >> 23 & 0b11, 0b10);
-        let status_reg = if P::bool() { Reg::SPSR } else { Reg::CPSR };
-        let msr = L::bool();
+        let status_reg = if P { Reg::SPSR } else { Reg::CPSR };
+        let msr = L;
         assert_eq!(instr >> 20 & 0b1, 0b0);
         self.instruction_prefetch::<u32>(hw, AccessType::S);
 
@@ -162,10 +162,10 @@ impl ARM7 {
     }
     
     // ARM.7: Multiply and Multiply-Accumulate (MUL, MLA)
-    fn mul_mula<A: InstructionFlag, S: InstructionFlag>(&mut self, hw: &mut HW, instr: u32) {
+    fn mul_mula<const A: bool, const S: bool>(&mut self, hw: &mut HW, instr: u32) {
         assert_eq!(instr >> 22 & 0x3F, 0b000000);
-        let accumulate = A::bool();
-        let change_status = S::bool();
+        let accumulate = A;
+        let change_status = S;
         let dest_reg = instr >> 16 & 0xF;
         let op1_reg = instr >> 12 & 0xF;
         let op1 = self.regs.get_reg_i(op1_reg);
@@ -190,11 +190,11 @@ impl ARM7 {
     }
 
     // ARM.8: Multiply Long and Multiply-Accumulate Long (MULL, MLAL)
-    fn mul_long<U: InstructionFlag, A: InstructionFlag, S: InstructionFlag>(&mut self, hw: &mut HW, instr: u32) {
+    fn mul_long<const U: bool, const A: bool, const S: bool>(&mut self, hw: &mut HW, instr: u32) {
         assert_eq!(instr >> 23 & 0x1F, 0b00001);
-        let signed = U::bool();
-        let accumulate = A::bool();
-        let change_status = S::bool();
+        let signed = U;
+        let accumulate = A;
+        let change_status = S;
         let src_dest_reg_high = instr >> 16 & 0xF;
         let src_dest_reg_low = instr >> 12 & 0xF;
         let op1 = self.regs.get_reg_i(instr >> 8 & 0xF);
@@ -220,15 +220,15 @@ impl ARM7 {
     }
 
     // ARM.9: Single Data Transfer (LDR, STR)
-    fn single_data_transfer<I: InstructionFlag, P: InstructionFlag, U: InstructionFlag,
-                            B: InstructionFlag, W: InstructionFlag, L: InstructionFlag>(&mut self, hw: &mut HW, instr: u32) {
+    fn single_data_transfer<const I: bool, const P: bool, const U: bool,
+                            const B: bool, const W: bool, const L: bool>(&mut self, hw: &mut HW, instr: u32) {
         assert_eq!(instr >> 26 & 0b11, 0b01);
-        let shifted_reg_offset = I::bool();
-        let pre_offset = P::bool();
-        let add_offset = U::bool();
-        let transfer_byte = B::bool();
-        let mut write_back = W::bool() || !pre_offset;
-        let load = L::bool();
+        let shifted_reg_offset = I;
+        let pre_offset = P;
+        let add_offset = U;
+        let transfer_byte = B;
+        let mut write_back = W || !pre_offset;
+        let load = L;
         let base_reg = instr >> 16 & 0xF;
         let base = self.regs.get_reg_i(base_reg);
         let src_dest_reg = instr >> 12 & 0xF;
@@ -281,21 +281,21 @@ impl ARM7 {
     }
 
     // ARM.10: Halfword and Signed Data Transfer (STRH,LDRH,LDRSB,LDRSH)
-    fn halfword_and_signed_data_transfer<P: InstructionFlag, U: InstructionFlag, I: InstructionFlag, W: InstructionFlag,
-        L: InstructionFlag, S: InstructionFlag, H: InstructionFlag>(&mut self, hw: &mut HW, instr: u32) {
+    fn halfword_and_signed_data_transfer<const P: bool, const U: bool, const I: bool, const W: bool,
+                                         const L: bool, const S: bool, const H: bool>(&mut self, hw: &mut HW, instr: u32) {
         assert_eq!(instr >> 25 & 0x7, 0b000);
-        let pre_offset = P::bool();
-        let add_offset = U::bool();
-        let immediate_offset = I::bool();
-        let mut write_back = W::bool() || !pre_offset;
-        let load = L::bool();
+        let pre_offset = P;
+        let add_offset = U;
+        let immediate_offset = I;
+        let mut write_back = W || !pre_offset;
+        let load = L;
         let base_reg = instr >> 16 & 0xF;
         let base = self.regs.get_reg_i(base_reg);
         let src_dest_reg = instr >> 12 & 0xF;
         let offset_hi = instr >> 8 & 0xF;
         assert_eq!(instr >> 7 & 0x1, 1);
-        let signed = S::bool();
-        let halfword = H::bool();
+        let signed = S;
+        let halfword = H;
         let opcode = (signed as u8) << 1 | (halfword as u8);
         assert_eq!(instr >> 4 & 0x1, 1);
         let offset_low = instr & 0xF;
@@ -340,14 +340,14 @@ impl ARM7 {
     }
 
     // ARM.11: Block Data Transfer (LDM,STM)
-    fn block_data_transfer<P: InstructionFlag, U: InstructionFlag, S: InstructionFlag, W: InstructionFlag, L: InstructionFlag>
-        (&mut self, hw: &mut HW, instr: u32) {
+    fn block_data_transfer<const P: bool, const U: bool, const S: bool, const W: bool, const L: bool>
+                          (&mut self, hw: &mut HW, instr: u32) {
         assert_eq!(instr >> 25 & 0x7, 0b100);
-        let add_offset = U::bool();
-        let pre_offset = P::bool() ^ !add_offset;
-        let psr_force_usr = S::bool();
-        let write_back = W::bool();
-        let load = L::bool();
+        let add_offset = U;
+        let pre_offset = P ^ !add_offset;
+        let psr_force_usr = S;
+        let write_back = W;
+        let load = L;
         let base_reg = instr >> 16 & 0xF;
         assert_ne!(base_reg, 0xF);
         let base = self.regs.get_reg_i(base_reg);
@@ -404,9 +404,9 @@ impl ARM7 {
     }
 
     // ARM.12: Single Data Swap (SWP)
-    fn single_data_swap<B: InstructionFlag>(&mut self, hw: &mut HW, instr: u32) {
+    fn single_data_swap<const B: bool>(&mut self, hw: &mut HW, instr: u32) {
         assert_eq!(instr >> 23 & 0x1F, 0b00010);
-        let byte = B::bool();
+        let byte = B;
         assert_eq!(instr >> 20 & 0x3, 0b00);
         let base = self.regs.get_reg_i(instr >> 16 & 0xF);
         let dest_reg = instr >> 12 & 0xF;

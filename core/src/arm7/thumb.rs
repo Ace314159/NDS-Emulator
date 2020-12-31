@@ -1,6 +1,6 @@
 use super::{
     ARM7, HW,
-    instructions::{InstructionFlag, InstructionHandler, InstrFlagSet, InstrFlagClear},
+    instructions::InstructionHandler,
     registers::{Reg, Mode}
 };
 
@@ -36,9 +36,9 @@ impl ARM7 {
     }
     
     // THUMB.1: move shifted register
-    fn move_shifted_reg<OpH: InstructionFlag, OpL: InstructionFlag>(&mut self, hw: &mut HW, instr: u16) {
+    fn move_shifted_reg<const OP_H: bool, const OP_L: bool>(&mut self, hw: &mut HW, instr: u16) {
         assert_eq!(instr >> 13, 0b000);
-        let opcode = OpH::num() << 1 | OpL::num();
+        let opcode = (OP_H as u32) << 1 | (OP_L as u32);
         let offset = (instr >> 6 & 0x1F) as u32;
         let src = self.regs.get_reg_i((instr >> 3 & 0x7) as u32);
         let dest_reg = (instr & 0x7) as u32;
@@ -52,10 +52,10 @@ impl ARM7 {
     }
 
     // THUMB.2: add/subtract
-    fn add_sub<I: InstructionFlag, SUB: InstructionFlag>(&mut self, hw: &mut HW, instr: u16) {
+    fn add_sub<const I: bool, const SUB: bool>(&mut self, hw: &mut HW, instr: u16) {
         assert_eq!(instr >> 11, 0b00011);
-        let immediate = I::bool();
-        let sub = SUB::bool();
+        let immediate = I;
+        let sub = SUB;
         let operand = (instr >> 6 & 0x7) as u32;
         let operand = if immediate { operand } else { self.regs.get_reg_i(operand) };
         let src = self.regs.get_reg_i((instr >> 3 & 0x7) as u32);
@@ -71,11 +71,11 @@ impl ARM7 {
     }
 
     // THUMB.3: move/compare/add/subtract immediate
-    fn immediate<OpH: InstructionFlag, OpL: InstructionFlag, Rd2: InstructionFlag, Rd1: InstructionFlag, Rd0: InstructionFlag>
+    fn immediate<const OP_H: bool, const OP_L: bool, const RD2: bool, const RD1: bool, const RD0: bool>
         (&mut self, hw: &mut HW, instr: u16) {
         assert_eq!(instr >> 13, 0b001);
-        let opcode = OpH::num() << 1 | OpL::num();
-        let dest_reg = Rd2::num() << 2 | Rd1::num() << 1 | Rd0::num();
+        let opcode = (OP_H as u8) << 1 | (OP_L as u8);
+        let dest_reg = (RD2 as u8) << 2 | (RD1 as u8) << 1 | (RD0 as u8);
         let immediate = (instr & 0xFF) as u32;
         let op1 = self.regs.get_reg_i(dest_reg as u32);
         let result = match opcode {
@@ -126,9 +126,9 @@ impl ARM7 {
     }
 
     // THUMB.5: Hi register operations/branch exchange
-    fn hi_reg_bx<OpH: InstructionFlag, OpL: InstructionFlag>(&mut self, hw: &mut HW, instr: u16) {
+    fn hi_reg_bx<const OP_H: bool, const OP_L: bool>(&mut self, hw: &mut HW, instr: u16) {
         assert_eq!(instr >> 10, 0b010001);
-        let opcode = OpH::num() << 1 | OpL::num();
+        let opcode = (OP_H as u8) << 1 | (OP_L as u8);
         let dest_reg_msb = instr >> 7 & 0x1;
         let src_reg_msb = instr >> 6 & 0x1;
         let src = self.regs.get_reg_i((src_reg_msb << 3 | instr >> 3 & 0x7) as u32);
@@ -162,9 +162,9 @@ impl ARM7 {
     }
 
     // THUMB.6: load PC-relative
-    fn load_pc_rel<Rd2: InstructionFlag, Rd1: InstructionFlag, Rd0: InstructionFlag>(&mut self, hw: &mut HW, instr: u16) {
+    fn load_pc_rel<const RD2: bool, const RD1: bool, const RD0: bool>(&mut self, hw: &mut HW, instr: u16) {
         assert_eq!(instr >> 11, 0b01001);
-        let dest_reg = Rd2::num() << 2 | Rd1::num() << 1 | Rd0::num();
+        let dest_reg = (RD2 as u32) << 2 | (RD1 as u32) << 1 | (RD0 as u32);
         let offset = (instr & 0xFF) as u32;
         let addr = (self.regs.pc & !0x2).wrapping_add(offset * 4);
         self.instruction_prefetch::<u16>(hw, AccessType::N);
@@ -174,9 +174,9 @@ impl ARM7 {
     }
 
     // THUMB.7: load/store with register offset
-    fn load_store_reg_offset<OpH: InstructionFlag, OpL: InstructionFlag>(&mut self, hw: &mut HW, instr: u16) {
+    fn load_store_reg_offset<const OP_H: bool, const OP_L: bool>(&mut self, hw: &mut HW, instr: u16) {
         assert_eq!(instr >> 12, 0b0101);
-        let opcode = OpH::num() << 1 | OpL::num(); 
+        let opcode = (OP_H as u8) << 1 | (OP_L as u8); 
         assert_eq!(instr >> 9 & 0x1, 0);
         let offset_reg = (instr >> 6 & 0x7) as u32;
         let base_reg = (instr >> 3 & 0x7) as u32;
@@ -201,9 +201,9 @@ impl ARM7 {
     }
 
     // THUMB.8: load/store sign-extended byte/halfword
-    fn load_store_sign_ext<OpH: InstructionFlag, OpL: InstructionFlag>(&mut self, hw: &mut HW, instr: u16) {
+    fn load_store_sign_ext<const OP_H: bool, const OP_L: bool>(&mut self, hw: &mut HW, instr: u16) {
         assert_eq!(instr >> 12, 0b0101);
-        let opcode = OpH::num() << 1 | OpL::num();
+        let opcode = (OP_H as u8) << 1 | (OP_L as u8);
         assert_eq!(instr >> 9 & 0x1, 1);
         let offset_reg = (instr >> 6 & 0x7) as u32;
         let base_reg = (instr >> 3 & 0x7) as u32;
@@ -228,10 +228,10 @@ impl ARM7 {
     }
 
     // THUMB.9: load/store with immediate offset
-    fn load_store_imm_offset<B: InstructionFlag, H: InstructionFlag>(&mut self, hw: &mut HW, instr: u16) {
+    fn load_store_imm_offset<const B: bool, const H: bool>(&mut self, hw: &mut HW, instr: u16) {
         assert_eq!(instr >> 13, 0b011);
-        let byte = B::bool();
-        let load = H::bool();
+        let byte = B;
+        let load = H;
         let offset = (instr >> 6 & 0x1F) as u32;
         let base = self.regs.get_reg_i((instr >> 3 & 0x7) as u32);
         let src_dest_reg = (instr & 0x7) as u32;
@@ -260,9 +260,9 @@ impl ARM7 {
     }
 
     // THUMB.10: load/store halfword
-    fn load_store_halfword<L: InstructionFlag>(&mut self, hw: &mut HW, instr: u16) {
+    fn load_store_halfword<const L: bool>(&mut self, hw: &mut HW, instr: u16) {
         assert_eq!(instr >> 12, 0b1000);
-        let load = L::bool();
+        let load = L;
         let offset = (instr >> 6 & 0x1F) as u32;
         let base = self.regs.get_reg_i((instr >> 3 & 0x7) as u32);
         let src_dest_reg = (instr & 0x7) as u32;
@@ -279,11 +279,11 @@ impl ARM7 {
     }
 
     // THUMB.11: load/store SP-relative
-    fn load_store_sp_rel<L: InstructionFlag, Rd2: InstructionFlag, Rd1: InstructionFlag, Rd0: InstructionFlag>
+    fn load_store_sp_rel<const L: bool, const RD2: bool, const RD1: bool, const RD0: bool>
         (&mut self, hw: &mut HW, instr: u16) {
         assert_eq!(instr >> 12 & 0xF, 0b1001);
-        let load = L::bool();
-        let src_dest_reg = Rd2::num() << 2 | Rd1::num() << 1 | Rd0::num();
+        let load = L;
+        let src_dest_reg = (RD2 as u32) << 2 | (RD1 as u32) << 1 | (RD0 as u32);
         let offset = (instr & 0xFF) * 4;
         let addr = self.regs.get_reg(Reg::R13).wrapping_add(offset as u32);
         self.instruction_prefetch::<u16>(hw, AccessType::N);
@@ -297,15 +297,15 @@ impl ARM7 {
     }
 
     // THUMB.12: get relative address
-    fn get_rel_addr<SP: InstructionFlag, Rd2: InstructionFlag, Rd1: InstructionFlag, Rd0: InstructionFlag>
+    fn get_rel_addr<const SP: bool, const RD2: bool, const RD1: bool, const RD0: bool>
         (&mut self, hw: &mut HW, instr: u16) {
         assert_eq!(instr >> 12 & 0xF, 0b1010);
-        let src = if SP::bool() { // SP
+        let src = if SP { // SP
             self.regs.get_reg(Reg::R13)
         } else { // PC
             self.regs.pc & !0x2
         };
-        let dest_reg = Rd2::num() << 2 | Rd1::num() << 1 | Rd0::num();
+        let dest_reg = (RD2 as u32) << 2 | (RD1 as u32) << 1 | (RD0 as u32);
         let offset = (instr & 0xFF) as u32;
         self.regs.set_reg_i(dest_reg, src.wrapping_add(offset * 4));
         self.instruction_prefetch::<u16>(hw, AccessType::S);
@@ -323,11 +323,11 @@ impl ARM7 {
     }
 
     // THUMB.14: push/pop registers
-    fn push_pop_regs<L: InstructionFlag, R: InstructionFlag>(&mut self, hw: &mut HW, instr: u16) {
+    fn push_pop_regs<const L: bool, const R: bool>(&mut self, hw: &mut HW, instr: u16) {
         assert_eq!(instr >> 12 & 0xF, 0b1011);
-        let pop = L::bool();
+        let pop = L;
         assert_eq!(instr >> 9 & 0x3, 0b10);
-        let pc_lr = R::bool();
+        let pc_lr = R;
         let mut r_list = (instr & 0xFF) as u8;
         self.instruction_prefetch::<u16>(hw, AccessType::N);
         if pop {
@@ -379,11 +379,11 @@ impl ARM7 {
     }
 
     // THUMB.15: multiple load/store
-    fn multiple_load_store<L: InstructionFlag, Rb2: InstructionFlag,
-        Rb1: InstructionFlag, Rb0: InstructionFlag>(&mut self, hw: &mut HW, instr: u16) {
+    fn multiple_load_store<const L: bool, const RB2: bool,
+        const RB1: bool, const RB0: bool>(&mut self, hw: &mut HW, instr: u16) {
         assert_eq!(instr >> 12, 0b1100);
-        let load = L::bool();
-        let base_reg = Rb2::num() << 2 | Rb1::num() << 1 | Rb0::num();
+        let load = L;
+        let base_reg = (RB2 as u32) << 2 | (RB1 as u32) << 1 | (RB0 as u32);
         let mut base = self.regs.get_reg_i(base_reg);
         let base_offset = base & 0x3;
         base -= base_offset;
@@ -429,13 +429,13 @@ impl ARM7 {
     }
 
     // THUMB.16: conditional branch
-    fn cond_branch<C3: InstructionFlag, C2: InstructionFlag, C1: InstructionFlag, C0: InstructionFlag>
+    fn cond_branch<const C3: bool, const C2: bool, const C1: bool, const C0: bool>
         (&mut self, hw: &mut HW, instr: u16) {
         assert_eq!(instr >> 12, 0b1101);
-        let condition = C3::num() << 3 | C2::num() << 2 | C1::num() << 1 | C0::num();
+        let condition = (C3 as u32) << 3 | (C2 as u32) << 2 | (C1 as u32) << 1 | (C0 as u32);
         assert_eq!(condition < 0xE, true);
         let offset = (instr & 0xFF) as i8 as u32;
-        if self.should_exec(condition as u32) {
+        if self.should_exec(condition) {
             self.instruction_prefetch::<u16>(hw, AccessType::N);
             self.regs.pc = self.regs.pc.wrapping_add(offset.wrapping_mul(2));
             self.fill_thumb_instr_buffer(hw);
@@ -468,10 +468,10 @@ impl ARM7 {
     }
 
     // THUMB.19: long branch with link
-    fn branch_with_link<H: InstructionFlag>(&mut self, hw: &mut HW, instr: u16) {
+    fn branch_with_link<const H: bool>(&mut self, hw: &mut HW, instr: u16) {
         assert_eq!(instr >> 12, 0xF);
         let offset = (instr & 0x7FF) as u32;
-        if H::bool() { // Second Instruction
+        if H { // Second Instruction
             self.instruction_prefetch::<u16>(hw, AccessType::N);
             let next_instr_pc = self.regs.pc.wrapping_sub(2);
             self.regs.pc = self.regs.get_reg(Reg::R14).wrapping_add(offset << 1);
