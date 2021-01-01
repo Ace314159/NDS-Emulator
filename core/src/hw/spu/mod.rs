@@ -137,6 +137,7 @@ pub struct Channel<T: ChannelType> {
     addr: u32,
     num_bytes_left: usize,
     sample: i16,
+    loop_started: bool,
 }
 
 impl<T: ChannelType> IORegister for Channel<T> {
@@ -164,6 +165,7 @@ impl<T: ChannelType> IORegister for Channel<T> {
                 let prev_busy = self.cnt.busy;
                 self.cnt.write(scheduler, byte & 0x3, value);
                 if !prev_busy && self.cnt.busy {
+                    self.loop_started = false;
                     self.schedule(scheduler, false);
                 } else if !self.cnt.busy {
                     scheduler.remove(Event::StepAudioChannel(self.spec));
@@ -202,6 +204,7 @@ impl<T: ChannelType> Channel<T> {
             addr: 0,
             num_bytes_left: 0,
             sample: 0,
+            loop_started: false,
         }
     }
 
@@ -220,7 +223,14 @@ impl<T: ChannelType> Channel<T> {
         let return_addr = self.addr;
         self.addr += std::mem::size_of::<M>() as u32;
         self.num_bytes_left -= std::mem::size_of::<M>();
-        let reset = if self.num_bytes_left == 0 {
+        let reset = if !self.loop_started && self.addr - self.src_addr == self.loop_start as u32 {
+            self.loop_started = true;
+            self.addr = match self.cnt.repeat_mode {
+                RepeatMode::Manual => self.addr,
+                RepeatMode::Loop | RepeatMode::OneShot => self.src_addr,
+            };
+            false
+        } else if self.num_bytes_left == 0 {
             // TODO: Verify out timing of busy bit for other modes
             let (reset, new_busy) = match self.cnt.repeat_mode {
                 RepeatMode::Manual => (true, true),
