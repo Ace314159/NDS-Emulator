@@ -88,8 +88,8 @@ impl SPU {
         let byte = addr & 0xF;
         match channel {
             0x0 ..= 0x7 => self.base_channels[channel].read(byte),
-            0x8 ..= 0xD => self.psg_channels[channel - 8].read(byte),
-            0xE ..= 0xF => self.noise_channels[channel - 14].read(byte),
+            0x8 ..= 0xD => self.psg_channels[channel - 0x8].read(byte),
+            0xE ..= 0xF => self.noise_channels[channel - 0xE].read(byte),
             _ => unreachable!(),
         }
     }
@@ -158,6 +158,7 @@ impl<T: ChannelType> IORegister for Channel<T> {
         let mask32 = 0xFF << shift32;
         let value16 = (value as u16) << shift16;
         let value32 = (value as u32) << shift32;
+        // TODO: Fix inaccurate scheduling timing for maxmod interpolated mode
         match byte {
             0x0 ..= 0x2 => self.cnt.write(scheduler, byte & 0x3, value),
             0x3 => {
@@ -176,15 +177,17 @@ impl<T: ChannelType> IORegister for Channel<T> {
             },
             0x8 ..= 0x9 => {
                 self.timer_val = self.timer_val & !mask16 | value16;
-                self.schedule(scheduler, false);
+                if self.cnt.busy { self.schedule(scheduler, false) }
             },
             0xA ..= 0xB => {
                 self.loop_start = self.loop_start & !mask16 | value16;
                 self.num_bytes_left = (self.loop_start as usize + self.len as usize) * 4;
+                if self.cnt.busy { self.schedule(scheduler, false) }
             },
             0xC ..= 0xF => {
                 self.len = (self.len & !mask32 | value32) & 0x3F_FFFF;
                 self.num_bytes_left = (self.loop_start as usize + self.len as usize) * 4;
+                if self.cnt.busy { self.schedule(scheduler, false) }
             },
             _ => unreachable!(),
         }
@@ -255,7 +258,7 @@ impl<T: ChannelType> Channel<T> {
     }
 
     pub fn schedule(&mut self, scheduler: &mut Scheduler, reset: bool) {
-        if self.timer_val != 0 {
+        if self.timer_val != 0 && self.len + self.loop_start as u32 != 0 {
             if reset {
                 scheduler.schedule(Event::ResetAudioChannel(self.spec), (-(self.timer_val as i16) as u16) as usize);
             } else {
