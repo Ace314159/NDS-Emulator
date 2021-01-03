@@ -32,6 +32,18 @@ macro_rules! create_channels {
 }
 
 impl SPU {
+    pub const ADPCM_INDEX_TABLE: [i32; 8] = [-1,-1,-1,-1,2,4,6,8];
+    pub const ADPCM_TABLE: [i16; 89] = [
+        0x0007, 0x0008, 0x0009, 0x000A, 0x000B, 0x000C, 0x000D, 0x000E, 0x0010, 0x0011, 0x0013, 0x0015,
+        0x0017, 0x0019, 0x001C, 0x001F, 0x0022, 0x0025, 0x0029, 0x002D, 0x0032, 0x0037, 0x003C, 0x0042,
+        0x0049, 0x0050, 0x0058, 0x0061, 0x006B, 0x0076, 0x0082, 0x008F, 0x009D, 0x00AD, 0x00BE, 0x00D1,
+        0x00E6, 0x00FD, 0x0117, 0x0133, 0x0151, 0x0173, 0x0198, 0x01C1, 0x01EE, 0x0220, 0x0256, 0x0292,
+        0x02D4, 0x031C, 0x036C, 0x03C3, 0x0424, 0x048E, 0x0502, 0x0583, 0x0610, 0x06AB, 0x0756, 0x0812,
+        0x08E0, 0x09C3, 0x0ABD, 0x0BD0, 0x0CFF, 0x0E4C, 0x0FBA, 0x114C, 0x1307, 0x14EE, 0x1706, 0x1954,
+        0x1BDC, 0x1EA5, 0x21B6, 0x2515, 0x28CA, 0x2CDF, 0x315B, 0x364B, 0x3BB9, 0x41B2, 0x4844, 0x4F7E,
+        0x5771, 0x602F, 0x69CE, 0x7462, 0x7FFF
+    ];
+
     pub fn new(scheduler: &mut Scheduler) -> Self {
         let audio = Audio::new();
         // TODO: Sample at 32.768 kHz and resample to device sample rate
@@ -184,6 +196,13 @@ pub struct Channel<T: ChannelType> {
     addr: u32,
     num_bytes_left: usize,
     sample: i16,
+    // ADPCM
+    adpcm_in_header: bool,
+    adpcm_low_nibble: bool,
+    adpcm_index: i32,
+    adpcm_value: i16,
+    initial_adpcm_index: i32,
+    initial_adpcm_value: i16,
 }
 
 impl<T: ChannelType> IORegister for Channel<T> {
@@ -212,6 +231,8 @@ impl<T: ChannelType> IORegister for Channel<T> {
                 let prev_busy = self.cnt.busy;
                 self.cnt.write(scheduler, byte & 0x3, value);
                 if !prev_busy && self.cnt.busy {
+                    self.adpcm_in_header = true;
+                    self.adpcm_low_nibble = true;
                     self.schedule(scheduler, false);
                 } else if !self.cnt.busy {
                     scheduler.remove(Event::StepAudioChannel(self.spec));
@@ -255,6 +276,13 @@ impl<T: ChannelType> Channel<T> {
             addr: 0,
             num_bytes_left: 0,
             sample: 0,
+            // ADPCM
+            adpcm_in_header: true,
+            adpcm_low_nibble: true,
+            adpcm_index: 0,
+            adpcm_value: 0,
+            initial_adpcm_index: 0,
+            initial_adpcm_value: 0,
         }
     }
 
@@ -268,26 +296,29 @@ impl<T: ChannelType> Channel<T> {
             (self.cnt.pan_factor());
     }
 
-    pub fn next_addr<M: super::MemoryValue>(&mut self) -> (u32, bool) {
+    pub fn next_addr_pcm<M: super::MemoryValue>(&mut self) -> (u32, bool) {
         assert!(self.num_bytes_left > 0);
         let return_addr = self.addr;
         self.addr += std::mem::size_of::<M>() as u32;
         self.num_bytes_left -= std::mem::size_of::<M>();
-        let reset = if self.num_bytes_left == 0 {
-            // TODO: Verify out timing of busy bit for other modes
-            let (reset, new_busy) = match self.cnt.repeat_mode {
-                RepeatMode::Manual => (true, true),
-                RepeatMode::Loop => {
-                    self.addr = self.src_addr + self.loop_start as u32 * 4;
-                    self.num_bytes_left = self.len as usize * 4;
-                    (false, true)
-                },
-                RepeatMode::OneShot => (true, false),
-            };
-            self.cnt.busy = new_busy;
-            reset
-        } else { false };
+        let reset = if self.num_bytes_left == 0 { self.handle_end() } else { false };
         (return_addr, reset)
+    }
+
+    fn handle_end(&mut self) -> bool {
+        // TODO: Verify out timing of busy bit for other modes
+        let (reset, new_busy) = match self.cnt.repeat_mode {
+            RepeatMode::Manual => (true, true),
+            RepeatMode::Loop => {
+                self.addr = self.src_addr + self.loop_start as u32 * 4;
+                self.adpcm_low_nibble = true;
+                self.num_bytes_left = self.len as usize * 4;
+                (false, true)
+            },
+            RepeatMode::OneShot => (true, false),
+        };
+        self.cnt.busy = new_busy;
+        reset
     }
 
     pub fn reset_sample(&mut self) {
@@ -298,6 +329,60 @@ impl<T: ChannelType> Channel<T> {
     pub fn set_sample<M: super::MemoryValue>(&mut self, sample: M) {
         let sample = num_traits::cast::<M, u16>(sample).unwrap();
         self.sample = if std::mem::size_of::<M>() == 1 { sample << 8 } else { sample } as i16;
+    }
+
+    pub fn initial_adpcm_addr(&mut self) -> Option<u32> {
+        if self.adpcm_in_header {
+            assert_eq!(self.src_addr, self.addr);
+            self.adpcm_in_header = false;
+            let return_addr = self.addr;
+            self.addr += std::mem::size_of::<u32>() as u32;
+            self.num_bytes_left -= std::mem::size_of::<u32>();
+            Some(return_addr)
+        } else { None }
+    }
+
+    pub fn next_addr_adpcm(&mut self) -> (u32, bool) {
+        assert!(self.num_bytes_left > 0);
+        let return_addr = self.addr;
+        let reset = if self.adpcm_low_nibble { false } else {
+            self.addr += 1;
+            self.num_bytes_left -= 1;
+            if self.num_bytes_left == 0 { self.handle_end() } else { false }
+        };
+        (return_addr, reset)
+    }
+
+    pub fn set_adpcm_data(&mut self, value: u8) {
+        let data = if self.adpcm_low_nibble { value & 0xF } else { value >> 4 & 0xF };
+        self.adpcm_low_nibble = !self.adpcm_low_nibble;
+        let table_val = SPU::ADPCM_TABLE[self.adpcm_index as usize];
+        let mut diff = table_val / 8;
+        if data & 0x1 != 0 { diff += table_val / 4 }
+        if data & 0x2 != 0 { diff += table_val / 2 }
+        if data & 0x4 != 0 { diff += table_val / 1 }
+        if data & 0x8 == 0 {
+            self.adpcm_value += diff;
+            self.adpcm_value = std::cmp::max(self.adpcm_value, 0x7FFF);
+        } else {
+            self.adpcm_value -= diff;
+            self.adpcm_value = std::cmp::min(self.adpcm_value, -0x7FFF);
+        }
+        self.adpcm_index += SPU::ADPCM_INDEX_TABLE[data as usize & 0x7];
+        self.adpcm_index = self.adpcm_index.clamp(0, 88);
+        
+        self.sample = self.adpcm_value;
+    }
+
+    pub fn set_initial_adpcm(&mut self, value: u32) {
+        self.initial_adpcm_index = (value >> 16 & 0x7F).clamp(0, 88) as i32;
+        self.initial_adpcm_value = value as u16 as i16;
+        self.reset_adpcm();
+    }
+
+    pub fn reset_adpcm(&mut self) {
+        self.adpcm_index = self.initial_adpcm_index;
+        self.adpcm_value = self.initial_adpcm_value;
     }
 
     pub fn format(&self) -> Format {
