@@ -11,6 +11,7 @@ use audio::Audio;
 
 pub struct SPU {
     cnt: SoundControl,
+    captures: [Capture; 2],
     // Sound Generation
     audio: Audio,
     clocks_per_sample: usize,
@@ -38,6 +39,7 @@ impl SPU {
         scheduler.schedule(Event::GenerateAudioSample, clocks_per_sample);
         SPU {
             cnt: SoundControl::new(),
+            captures: [Capture::new(), Capture::new()],
             // Sound Generation
             audio,
             clocks_per_sample,
@@ -48,9 +50,7 @@ impl SPU {
         }
     }
 
-    pub fn generate_sample(&mut self, scheduler: &mut Scheduler) {
-        scheduler.schedule(Event::GenerateAudioSample, self.clocks_per_sample);
-
+    fn generate_mixer(&self) -> ((i32, i32), (i32, i32), (i32, i32)) {
         let mut mixer = (0, 0);
         for i in (0..1).chain(2..3).chain(4..self.base_channels.len()) { self.base_channels[i].generate_sample(&mut mixer) }
         for channel in self.psg_channels.iter() { channel.generate_sample(&mut mixer) }
@@ -60,6 +60,13 @@ impl SPU {
         self.base_channels[3].generate_sample(&mut ch3);
         if self.cnt.output_1 { mixer.0 += ch1.0; mixer.1 += ch1.1 }
         if self.cnt.output_3 { mixer.0 += ch3.0; mixer.1 += ch3.1 }
+        (mixer, ch1, ch3)
+    }
+
+    pub fn generate_sample(&mut self, scheduler: &mut Scheduler) {
+        scheduler.schedule(Event::GenerateAudioSample, self.clocks_per_sample);
+
+        let (mixer, ch1, ch3) = self.generate_mixer();
         let left_sample = match self.cnt.left_output {
             ChannelOutput::Mixer => mixer.0,
             ChannelOutput::Ch1 => ch1.0,
@@ -80,6 +87,42 @@ impl SPU {
             cpal::Sample::from::<i16>(&final_sample.0),
             cpal::Sample::from::<i16>(&final_sample.1),
         );
+    }
+
+    pub fn capture_addr(&mut self, num: usize) -> Option<(u32, usize, bool)> {
+        let capture_i = match num {
+            1 => 0,
+            3 => 1,
+            _ => return None,
+        };
+        let capture = &mut self.captures[capture_i];
+        if capture.num_bytes_left == 0 || !capture.cnt.busy { return None }
+        if capture.cnt.use_pcm8 {
+            Some((capture.next_addr::<u8>(), capture_i, true))
+        } else {
+            Some((capture.next_addr::<u16>(), capture_i, false))
+        }
+    }
+
+    pub fn capture_data<T: super::MemoryValue>(&self, capture_i: usize) -> T {
+        let capture_value = if self.captures[capture_i].cnt.use_channel {
+            // TODO: Implement bugged behavior
+            todo!()
+        } else {
+            let (mixer, _, _) = self.generate_mixer();
+            let mixer_value = (if capture_i == 0 { mixer.0 } else { mixer.1 } >> 16) as u16;
+            if std::mem::size_of::<T>() == 1 {
+                mixer_value >> 8
+            } else {
+                mixer_value
+            }
+        };
+        if self.captures[capture_i].cnt.add {
+            // TODO: Implement adding channel
+            todo!()
+        } else {
+            num_traits::cast(capture_value).unwrap()
+        }
     }
 
     pub fn read_channels(&self, addr: usize) -> u8 {
@@ -112,6 +155,8 @@ impl IORegister for SPU {
         match addr {
             0x400 ..= 0x4FF => self.read_channels(addr),
             0x500 ..= 0x503 => self.cnt.read(addr & 0x3),
+            0x508 ..= 0x509 => self.captures[addr & 0x1].cnt.read(),
+            0x510 ..= 0x51F => self.captures[addr >> 3 & 0x1].read(addr & 0xF),
             _ => { warn!("Ignoring SPU Register Read at 0x04000{:03X}", addr); 0 }
         }
     }
@@ -120,6 +165,8 @@ impl IORegister for SPU {
         match addr {
             0x400 ..= 0x4FF => self.write_channels(scheduler, addr & 0xFF, value),
             0x500 ..= 0x503 => self.cnt.write(scheduler, addr & 0x3, value),
+            0x508 ..= 0x509 => self.captures[addr & 0x1].write_cnt(value),
+            0x510 ..= 0x51F => self.captures[addr >> 3 & 0x1].write(addr & 0x7, value),
             _ => warn!("Ignoring SPU Register Write at 0x04000{:03X}", addr)
         }
     }
@@ -264,6 +311,74 @@ impl<T: ChannelType> Channel<T> {
             } else {
                 scheduler.schedule(Event::StepAudioChannel(self.spec), (-(self.timer_val as i16) as u16) as usize);
             }
+        }
+    }
+}
+
+struct Capture {
+    // Registers
+    cnt: CaptureControl,
+    dest_addr: u32,
+    len: usize,
+    // Sound Capturing
+    addr: u32,
+    num_bytes_left: usize,
+}
+
+impl Capture {
+    pub fn new() -> Self {
+        Capture {
+            // Registers
+            cnt: CaptureControl::new(),
+            dest_addr: 0,
+            len: 0,
+            // Sound Capturing
+            addr: 0,
+            num_bytes_left: 0,
+        }
+    }
+
+    pub fn next_addr<T: super::MemoryValue>(&mut self) -> u32 {
+        assert!(self.num_bytes_left > 0);
+        self.num_bytes_left -= std::mem::size_of::<T>();
+        self.cnt.busy = self.num_bytes_left > 0;
+        let return_addr = self.addr;
+        self.addr += std::mem::size_of::<T>() as u32;
+        return_addr
+    }
+
+    pub fn read(&self, byte: usize) -> u8 {
+        let shift = (byte & 0x3) * 8;
+        match byte {
+            0x0 ..= 0x3 => (self.addr >> shift) as u8,
+            0x4 ..= 0x7 => { warn!("Reading from Write-Only Sound Capture Register: Dest Addr"); 0 },
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn write_cnt(&mut self, value: u8) {
+        let prev_busy = self.cnt.busy;
+        self.cnt.write(value);
+        if !prev_busy && self.cnt.busy {
+            self.num_bytes_left = self.len * 4;
+            self.addr = self.dest_addr;
+        }
+    }
+
+    pub fn write(&mut self, byte: usize, value: u8) {
+        let shift = (byte & 0x3) * 8;
+        let mask = 0xFF << shift;
+        let value = (value as u32) << shift;
+        match byte {
+            0x0 ..= 0x3 => {
+                self.dest_addr = (value & !mask | value) & 0x7FF_FFFF;
+                self.addr = self.dest_addr;
+            },
+            0x4 ..= 0x7 => {
+                self.len = (self.len & !(mask as usize) | (value as usize)) as u16 as usize;
+                self.num_bytes_left = self.len * 4;
+            },
+            _ => unreachable!(),
         }
     }
 }

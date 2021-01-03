@@ -185,3 +185,36 @@ impl From<u8> for Format {
         }
     }
 }
+
+pub struct CaptureControl {
+    pub add: bool,
+    pub use_channel: bool,
+    pub no_repeat: bool,
+    pub use_pcm8: bool,
+    pub busy: bool,
+}
+
+impl CaptureControl {
+    pub fn new() -> Self {
+        CaptureControl {
+            add: false,
+            use_channel: false,
+            no_repeat: false,
+            use_pcm8: false,
+            busy: false,
+        }
+    }
+
+    pub fn read(&self) -> u8 {
+        (self.busy as u8) << 7 | (self.use_pcm8 as u8) << 3| (self.no_repeat as u8) << 2 | (self.use_channel as u8) << 1 |
+        (self.add as u8)
+    }
+
+    pub fn write(&mut self, value: u8) {
+        self.add = value >> 0 & 0x1 != 0;
+        self.use_channel = value >> 1 & 0x1 != 0;
+        self.no_repeat = value >> 2 & 0x1 != 0;
+        self.use_pcm8 = value >> 3 & 0x1 != 0;
+        self.busy = value >> 7 & 0x1 != 0;
+    }
+}

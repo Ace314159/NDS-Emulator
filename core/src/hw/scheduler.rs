@@ -121,6 +121,15 @@ impl HW {
                         },
                         _ => todo!(),
                     }
+                    if let Some((addr, capture_i, use_pcm8)) = self.spu.capture_addr(num) {
+                        if use_pcm8 {
+                            let value = self.spu.capture_data(capture_i);
+                            self.arm7_write::<u8>(addr, value);
+                        } else {
+                            let value = self.spu.capture_data(capture_i);
+                            self.arm7_write::<u16>(addr, value);
+                        }
+                    }
                 },
                 spu::ChannelSpec::PSG(num) => {
                     let format = self.spu.psg_channels[num].format();
