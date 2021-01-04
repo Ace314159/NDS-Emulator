@@ -180,9 +180,9 @@ impl Display {
                 gl::RGBA, gl::UNSIGNED_SHORT_1_5_5_5_REV, screens[0].as_ptr() as *const std::ffi::c_void);
             gl::TexSubImage2D(gl::TEXTURE_2D, 0, 0, nds::HEIGHT as i32, nds::WIDTH as i32, nds::HEIGHT as i32,
                 gl::RGBA, gl::UNSIGNED_SHORT_1_5_5_5_REV, screens[1].as_ptr() as *const std::ffi::c_void);
-            // Flip y_end and y_start because OpenGL wants the texture flipped vertically
-            gl::BlitFramebuffer(0, main_menu_height as i32, Display::WIDTH as i32, Display::HEIGHT as i32,
-                x_start, y_end, x_end, y_start, gl::COLOR_BUFFER_BIT, gl::NEAREST);
+            // Flip src0 and src1 because OpenGL wants the texture flipped vertically
+            gl::BlitFramebuffer(0, Display::HEIGHT as i32, Display::WIDTH as i32, 0,
+                x_start, y_start, x_end, y_end, gl::COLOR_BUFFER_BIT, gl::NEAREST);
         }
 
         let io = imgui.io_mut();
@@ -222,10 +222,10 @@ impl Display {
                 },
                 glfw::WindowEvent::MouseButton(glfw::MouseButtonLeft, Action::Press, _) |
                 glfw::WindowEvent::MouseButton(glfw::MouseButtonLeft, Action::Release, _) if !io.want_capture_mouse =>
-                    self.check_stylus(nds, x_start, y_start,
+                    self.check_stylus(nds, main_menu_height as f64, x_start, y_start,
                     x_end - x_start, y_end - y_start),
                 glfw::WindowEvent::CursorPos(_, _) if old_mouse_pressed && !io.want_capture_mouse =>
-                    self.check_stylus(nds, x_start, y_start,
+                    self.check_stylus(nds, main_menu_height as f64, x_start, y_start,
                     x_end - x_start, y_end - y_start),
                 glfw::WindowEvent::FileDrop(paths) => files_dropped = paths,
                 _ => (),
@@ -290,10 +290,11 @@ impl Display {
         }
     }
 
-    fn check_stylus(&self, nds: &mut NDS, tex_x: i32, tex_y: i32, tex_width: i32, tex_height: i32) {
+    fn check_stylus(&self, nds: &mut NDS, main_menu_height: f64, tex_x: i32, tex_y: i32, tex_width: i32, tex_height: i32) {
         let pressed = self.window.get_mouse_button(glfw::MouseButtonLeft) == Action::Press;
         if !pressed { nds.release_screen(); return }
         let (cursor_x, cursor_y) = self.window.get_cursor_pos();
+        let cursor_y = cursor_y - main_menu_height;
 
         let (width_factor, height_factor) = (
             tex_width as f64 / Display::WIDTH as f64,
