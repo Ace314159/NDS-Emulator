@@ -57,24 +57,22 @@ impl Engine3D {
             let blend = |vert_color, s: i32, t: i32| {
                 let vram_offset = polygon.tex_params.vram_offset;
                 let pal_offset = polygon.palette_base;
-                let size = (polygon.tex_params.size_s as i32, polygon.tex_params.size_t as i32);
+                let size = (polygon.tex_params.size_s as u32, polygon.tex_params.size_t as u32);
+                let size_shift = (polygon.tex_params.size_s_shift, polygon.tex_params.size_t_shift);
+                let mask = (size.0 - 1, size.1 - 1);
                 // TODO: Avoid code repitition
                 let s = if polygon.tex_params.repeat_s {
-                    let repeated = s.rem_euclid(size.0);
-                    if polygon.tex_params.flip_s {
-                        let num = if s < 0 { -s / size.0 + 1 } else { s / size.0 };
-                        if num.rem_euclid(2) == 0 { repeated } else { size.0 - repeated }
-                    } else { repeated }
+                    let (original_s, mask) = (s as u32, mask.0 as u32);
+                    let s = original_s & mask;
+                    if polygon.tex_params.flip_s && (original_s >> size_shift.0) % 2 == 1 { s ^ mask } else { s }
                 // TODO: Replace with clamp
-                } else if s < 0 { 0 } else if s > size.0 { size.0 - 1 } else { s } as usize;
+                } else if s < 0 { 0 } else if s as u32 > size.0 { mask.0 } else { s as u32 } as usize;
                 let t = if polygon.tex_params.repeat_t {
-                    let repeated = t.rem_euclid(size.1);
-                    if polygon.tex_params.flip_t {
-                        let num = if t < 0 { -t / size.0 + 1 } else { t / size.0 };
-                        if num % 2 == 0 { repeated } else { size.1 - repeated }
-                    } else { repeated }
+                    let (original_t, mask) = (t as u32, mask.1 as u32);
+                    let t = original_t & mask;
+                    if polygon.tex_params.flip_t && (original_t >> size_shift.1) % 2 == 1 { t ^ mask } else { t }
                 // TODO: Replace with clamp
-                } else if t < 0 { 0 } else if t > size.1 { size.1 - 1 } else { t } as usize;
+                } else if t < 0 { 0 } else if t as u32 > size.1 { mask.1 } else { t as u32 } as usize;
                 let texel = t * polygon.tex_params.size_s + s;
                 let tex_color = match polygon.tex_params.format {
                     TextureFormat::NoTexture => None,
