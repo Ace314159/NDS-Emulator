@@ -240,7 +240,20 @@ impl Engine3D {
             let x_end = right_slope.next_x() as usize;
             let w_start = left_slope.next_w() as i16;
             let w_end = right_slope.next_w() as i16;
-            let num_steps = x_end.wrapping_sub(x_start);
+            assert!(x_end >= x_start, "{}", (|| {
+                for vert in polygon.original_verts.iter() {
+                    println!("Clip: {:?}", vert.0);
+                    println!("OVert: {:?}", vert.1);
+                    println!("Vert: {:?}", vert.0 * super::math::Vec4::new(vert.1[0], vert.1[1], vert.1[2], super::math::FixedPoint::one()));
+                    println!("");
+                }
+                for vert in vertices.iter() {
+                    println!("Clip: {:?}", vert.clip_coords);
+                    println!("Screen: {:?}", vert.screen_coords);
+                }
+                format!("{} {}", x_start, x_end)
+            })());
+            let num_steps = x_end - x_start;
             let mut color = ColorSlope::new(
                 &left_slope.next_color(),
                 &right_slope.next_color(),

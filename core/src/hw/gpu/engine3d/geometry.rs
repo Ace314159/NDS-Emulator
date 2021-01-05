@@ -188,6 +188,7 @@ impl Engine3D {
             },
             BeginVtxs => {
                 self.cur_poly_verts.clear();
+                self.original_verts.clear();
                 self.swap_verts = false;
                 self.polygon_attrs_latch = self.polygon_attrs.clone();
                 self.vertex_primitive = VertexPrimitive::from(param & 0x3);
@@ -329,9 +330,14 @@ impl Engine3D {
     }
 
     fn submit_vertex(&mut self, x: FixedPoint, y: FixedPoint, z: FixedPoint) {
+        assert_eq!(self.original_verts.len(), self.cur_poly_verts.len());
         self.prev_pos = [x, y, z];
         let vertex_pos = Vec4::new(x, y, z, FixedPoint::one());
         let clip_coords = self.clip_mat * vertex_pos;
+        self.original_verts.push((
+            self.clip_mat,
+            self.prev_pos,
+        ));
 
         self.transform_tex_coord(TexCoordTransformationMode::Vertex, None);
         self.cur_poly_verts.push(Vertex {
@@ -357,10 +363,17 @@ impl Engine3D {
                 if self.cur_poly_verts.len() == 3 {
                     let new_vert0 = self.cur_poly_verts[1];
                     let new_vert1 = self.cur_poly_verts[2];
-                    if self.swap_verts { self.cur_poly_verts.swap(1, 2) }
+                    let original_vert0 = self.original_verts[1];
+                    let original_vert1 = self.original_verts[2];
+                    if self.swap_verts {
+                        self.cur_poly_verts.swap(1, 2);
+                        self.original_verts.swap(1, 2);
+                    }
                     self.submit_polygon();
                     self.cur_poly_verts.push(new_vert0);
                     self.cur_poly_verts.push(new_vert1);
+                    self.original_verts.push(original_vert0);
+                    self.original_verts.push(original_vert1);
                     self.swap_verts = !self.swap_verts;
                 }
             },
@@ -368,17 +381,22 @@ impl Engine3D {
                 if self.cur_poly_verts.len() == 4 {
                     let new_vert0 = self.cur_poly_verts[2];
                     let new_vert1 = self.cur_poly_verts[3];
+                    let original_vert0 = self.original_verts[2];
+                    let original_vert1 = self.original_verts[3];
                     self.cur_poly_verts.swap(2, 3);
+                    self.original_verts.swap(2, 3);
                     self.submit_polygon();
                     self.cur_poly_verts.push(new_vert0);
                     self.cur_poly_verts.push(new_vert1);
-                    self.swap_verts = !self.swap_verts;
+                    self.original_verts.push(original_vert0);
+                    self.original_verts.push(original_vert1);
                 }
             },
         }
     }
 
     fn submit_polygon(&mut self) {
+        
         // Face Culling
         let a = (
             self.cur_poly_verts[0].clip_coords[0] - self.cur_poly_verts[1].clip_coords[0],
@@ -410,13 +428,23 @@ impl Engine3D {
             _ if dot > 0 => (false, self.polygon_attrs_latch.render_back), // Back
             _ => unreachable!(),
         };
-        if !should_render { self.cur_poly_verts.clear(); return }
+        if !should_render { self.cur_poly_verts.clear(); self.original_verts.clear(); return }
 
         // Clip Polygon
         self.clip_plane(2);
         self.clip_plane(1);
         self.clip_plane(0);
-        if self.cur_poly_verts.len() == 0 { return }
+        if self.cur_poly_verts.len() == 0 { self.original_verts.clear(); return }
+        /*for vert in self.original_verts.iter() {
+            println!("Clip: {:?}", vert.0);
+            println!("OVert: {:?}", vert.1);
+            println!("Vert: {:?}", vert.0 * super::math::Vec4::new(vert.1[0], vert.1[1], vert.1[2], super::math::FixedPoint::one()));
+            println!("");
+        }
+        for vert in self.cur_poly_verts.iter() {
+            println!("{:?}", vert.clip_coords);
+        }
+        println!("");*/
 
         // TODO: Reject polygon if it doesn't fit into Vertex RAM or Polygon 
 
@@ -427,6 +455,7 @@ impl Engine3D {
             tex_params: self.tex_params,
             palette_base: self.palette_base,
             is_front,
+            original_verts: self.original_verts.drain(..).collect(),
         });
         let mut w_size = 0;
         for vert in self.cur_poly_verts.iter() {
@@ -890,4 +919,5 @@ pub struct Polygon {
     pub tex_params: TextureParams,
     pub palette_base: usize,
     pub is_front: bool,
+    pub original_verts: Vec<(Matrix, [FixedPoint; 3])>,
 }

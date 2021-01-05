@@ -57,6 +57,7 @@ pub struct Engine3D {
     cur_poly_verts: Vec<Vertex>,
     vertices: Vec<Vertex>,
     polygons: Vec<Polygon>,
+    original_verts: Vec<(Matrix, [FixedPoint; 3])>,
     // Lighting
     lights: [Light; 4],
     material: Material,
@@ -119,6 +120,7 @@ impl Engine3D {
             cur_poly_verts: Vec::with_capacity(10),
             vertices: Vec::new(),
             polygons: Vec::new(),
+            original_verts: Vec::new(),
             // Lighting
             lights: [Light::new(); 4],
             material: Material::new(),
