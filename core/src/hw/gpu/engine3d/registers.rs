@@ -425,12 +425,12 @@ impl FrameParams {
 }
 
 pub struct Viewport {
-    x1: i64,
-    y1: i64,
-    x2: i64,
-    y2: i64,
-    width: i64,
-    height: i64,
+    x1: i32,
+    y1: i32,
+    x2: i32,
+    y2: i32,
+    width: i32,
+    height: i32,
 }
 
 impl Viewport {
@@ -446,10 +446,10 @@ impl Viewport {
     }
 
     pub fn write(&mut self, value: u32) {
-        self.x1 = (value >> 0) as u8 as i64;
-        self.y1 = (value >> 8) as u8 as i64;
-        self.x2 = (value >> 16) as u8 as i64;
-        self.y2 = (value >> 24) as u8 as i64;
+        self.x1 = (value >> 0) as u8 as i32;
+        self.y1 = (value >> 8) as u8 as i32;
+        self.x2 = (value >> 16) as u8 as i32;
+        self.y2 = (value >> 24) as u8 as i32;
         assert!((self.y1 as usize) < GPU::HEIGHT);
         assert!((self.y2 as usize) < GPU::HEIGHT);
         self.width = self.x2 - self.x1 + 1;
@@ -458,13 +458,23 @@ impl Viewport {
         assert!(self.height as usize <= GPU::HEIGHT);
     }
 
-    pub fn screen_x(&self, clip_coords: &Vec4) -> usize {
-        ((clip_coords[0].raw64() + clip_coords[3].raw64()) * self.width / (2 * clip_coords[3].raw64()) + self.x1) as usize
-    }
+    pub fn screen_coords(&self, clip_coords: &Vec4) -> [u32; 2] {
+        let w = clip_coords[3].raw();
+        if w == 0 {
+            [0, 0]
+        } else {
+            let x_offset = clip_coords[0].raw() + w;
+            let y_offset = -clip_coords[1].raw() + w;
+            let (x_offset, y_offset, w) = if w > 0xFFFF { // To avoid overflow
+                (x_offset << 1, y_offset << 1, w << 1)
+            } else { (x_offset, y_offset, w) };
 
-    pub fn screen_y(&self, clip_coords: &Vec4) -> usize {
-        // Negate y because coords are flipped vertically
-        ((-clip_coords[1].raw64() + clip_coords[3].raw64()) * self.height / (2 * clip_coords[3].raw64()) + self.y1) as usize
+            let denom = 2 * w;
+            [
+                (x_offset * self.width / denom + self.x1) as u32 & 0x1FF,
+                (y_offset * self.height / denom + self.x1) as u32 & 0xFF,
+            ]
+        }
     }
 }
 

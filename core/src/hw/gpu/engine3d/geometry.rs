@@ -469,12 +469,9 @@ impl Engine3D {
             let z = vert.clip_coords[2].raw() as i64;
             let w = vert.clip_coords[3].raw();
             self.vertices.push(Vertex {
-                screen_coords: [
-                    self.viewport.screen_x(&vert.clip_coords),
-                    self.viewport.screen_y(&vert.clip_coords),
-                ],
+                screen_coords: self.viewport.screen_coords(&vert.clip_coords),
                 z_depth: ((((z * 0x4000 / w as i64) + 0x3FFF) * 0x200) & 0xFFFFFF) as u32,
-                normalized_w: if w_size < 16 { w << (16 - w_size) }  else { w >> (w_size - 16) } as i16,
+                normalized_w: if w_size < 16 { w << (16 - w_size) } else { w >> (w_size - 16) } as i16,
                 ..vert
             });
         }
@@ -892,7 +889,7 @@ impl Color {
 #[derive(Clone, Copy, Debug)]
 pub struct Vertex {
     pub clip_coords: Vec4,
-    pub screen_coords: [usize; 2],
+    pub screen_coords: [u32; 2],
     pub z_depth: u32, // 24 bit depth
     pub normalized_w: i16,
     pub color: Color,

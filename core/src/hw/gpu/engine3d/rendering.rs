@@ -282,6 +282,7 @@ impl Engine3D {
             );
 
             for x in x_start..x_end {
+                let y = y as usize;
                 let depth_val = depth.next() as u32;
                 if depth_test(depth_buffer[y * GPU::WIDTH + x], depth_val) {
                     depth_buffer[y * GPU::WIDTH + x] = depth_val;
@@ -304,7 +305,7 @@ struct VertexSlope {
 
 impl VertexSlope {
     pub fn from_verts(start: &Vertex, end: &Vertex) -> VertexSlope {
-        let num_steps = end.screen_coords[1] - start.screen_coords[1];
+        let num_steps = (end.screen_coords[1] - start.screen_coords[1]) as usize;
         // TODO: Implement w-buffer
         let w_start = start.normalized_w;
         let w_end = end.normalized_w;
