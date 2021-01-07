@@ -32,6 +32,7 @@ impl HW {
             MemoryRegion::GBAROM => self.read_gba_rom(false, addr),
             MemoryRegion::GBARAM => todo!(),
             MemoryRegion::BIOS => HW::read_mem(&self.bios9, addr & 0xFFFF),
+            MemoryRegion::Unknown => { warn!("Reading from Unknown 0x{:08X}", addr); num::zero() },
         }
     }
 
@@ -57,6 +58,7 @@ impl HW {
             MemoryRegion::GBAROM => (),
             MemoryRegion::GBARAM => todo!(),
             MemoryRegion::BIOS => warn!("Writing to BIOS9 0x{:08x} = 0x{:X}", addr, value),
+            MemoryRegion::Unknown => warn!("Writing to Unknown 0x{:08X} = 0x{:X}", addr, value),
         }
     }
 
@@ -164,6 +166,7 @@ impl HW {
             0x0400_106D => self.gpu.engine_b.master_bright.read(1),
             0x0400_106E => self.gpu.engine_b.master_bright.read(2),
             0x0400_106F => self.gpu.engine_b.master_bright.read(3),
+            0x0400_4010 ..= 0x0400_4011 => 0, // DSi register that's unused for NDS
             _ => { warn!("Ignoring ARM9 IO Register Read at 0x{:08X}", addr); 0 }
         }
     }
@@ -314,6 +317,7 @@ pub enum ARM9MemoryRegion {
     GBAROM,
     GBARAM,
     BIOS,
+    Unknown,
 }
 
 impl ARM9MemoryRegion {
@@ -331,7 +335,7 @@ impl ARM9MemoryRegion {
             0x8 | 0x9 => GBAROM,
             0xA => GBARAM,
             0xFF if addr >> 16 == 0xFFFF => BIOS,
-            _ => todo!(),
+            _ => { warn!("Uknown Memory Access: {:X}", addr); Unknown },
         }
     }
 }
