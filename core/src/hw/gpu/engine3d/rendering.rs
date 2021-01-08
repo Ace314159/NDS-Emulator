@@ -295,7 +295,7 @@ impl Engine3D {
 }
 
 struct VertexSlope {
-    x: Slope,
+    x: FPSlope,
     w: Slope,
     s: PerspectiveSlope,
     t: PerspectiveSlope,
@@ -310,7 +310,7 @@ impl VertexSlope {
         let w_start = start.normalized_w;
         let w_end = end.normalized_w;
         VertexSlope {
-            x: Slope::new(start.screen_coords[0] as f32, end.screen_coords[0] as f32, num_steps),
+            x: FPSlope::new(start.screen_coords[0] as i32, end.screen_coords[0] as i32, num_steps),
             w: Slope::new(w_start as f32, w_end as f32, num_steps),
             s: PerspectiveSlope::new(start.tex_coord[0] as f32, end.tex_coord[0] as f32, num_steps, w_start, w_end),
             t: PerspectiveSlope::new(start.tex_coord[1] as f32, end.tex_coord[1] as f32, num_steps, w_start, w_end),
@@ -319,8 +319,8 @@ impl VertexSlope {
         }
     }
 
-    pub fn next_x(&mut self) -> f32 {
-        self.x.next()
+    pub fn next_x(&mut self) -> u32 {
+        self.x.next() as u32
     }
 
     pub fn next_w(&mut self) -> f32 {
@@ -419,4 +419,47 @@ impl Slope {
     }
 }
 
+pub struct FPSlope {
+    cur: Frac::<9>,
+    step: Frac::<9>,
+}
 
+impl FPSlope {
+    pub fn new(start: i32, end: i32, num_steps: usize) -> Self {
+        let diff = Frac::new(end - start);
+        FPSlope {
+            cur: Frac::new(start),
+            step: if num_steps == 0 { Frac::zero() } else { diff / Frac::new(num_steps as i32) },
+        }
+    }
+
+    pub fn next(&mut self) -> i32 {
+        let return_val = self.cur.num();
+        self.cur += self.step;
+        return_val
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Frac<const N: u8>(i32);
+
+impl<const N: u8> Frac<N> {
+    pub fn new(num: i32) -> Self { Frac(num << N) }
+    pub fn num(&self) -> i32 { self.0 >> N }
+    pub fn zero() -> Self { Frac(0) }
+    // pub fn one() -> Self { Frac(1 << N) }
+}
+
+impl<const N: u8> std::ops::Div<Frac::<N>> for Frac<N> {
+    type Output = Self;
+
+    fn div(self, rhs: Frac::<N>) -> Self::Output {
+        Frac((self.0 << N) / rhs.0)
+    }
+}
+
+impl<const N: u8> std::ops::AddAssign<Frac::<N>> for Frac<N> {
+    fn add_assign(&mut self, rhs: Frac::<N>) {
+        self.0 += rhs.0;
+    }
+}
