@@ -156,9 +156,9 @@ impl Engine3D {
                 FixedPoint::from_frac12((param >> 16) as u16 as i16 as i32),
             ),
             VtxDiff => self.submit_vertex(
-                self.prev_pos[0] + FixedPoint::from_frac9(((param >> 0) & 0x3FF) as u16),
-                self.prev_pos[1] + FixedPoint::from_frac9(((param >> 10) & 0x3FF) as u16),
-                self.prev_pos[2] + FixedPoint::from_frac9(((param >> 20) & 0x3FF) as u16),
+                self.prev_pos[0] + FixedPoint::from_vtx_diff_param(((param >> 0) & 0x3FF) as u16),
+                self.prev_pos[1] + FixedPoint::from_vtx_diff_param(((param >> 10) & 0x3FF) as u16),
+                self.prev_pos[2] + FixedPoint::from_vtx_diff_param(((param >> 20) & 0x3FF) as u16),
             ),
             PolygonAttr => self.polygon_attrs.write(param),
             TexImageParam => self.tex_params.write(param),

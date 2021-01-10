@@ -204,6 +204,7 @@ impl FixedPoint {
     pub fn from_frac6(val: u16) -> Self { FixedPoint((val << 6) as i16 as i32) }
     pub fn from_frac9(val: u16) -> Self { FixedPoint((((val << 6) as i16) >> 3) as i32) }
     pub fn from_frac12(val: i32) -> Self { FixedPoint(val) }
+    pub fn from_vtx_diff_param(val: u16) -> Self { FixedPoint(FixedPoint::from_frac9(val).0 >> 3) }
     pub fn num(&self) -> usize { (self.0 >> 12) as usize }
     pub fn raw(&self) -> i32 { self.0 }
     pub fn raw64(&self) -> i64 { self.0 as i64 }
