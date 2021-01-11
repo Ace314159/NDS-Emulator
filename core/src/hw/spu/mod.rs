@@ -363,10 +363,10 @@ impl<T: ChannelType> Channel<T> {
         if data & 0x4 != 0 { diff += table_val / 1 }
         if data & 0x8 == 0 {
             self.adpcm_value += diff;
-            self.adpcm_value = std::cmp::max(self.adpcm_value, 0x7FFF);
+            self.adpcm_value = std::cmp::min(self.adpcm_value, 0x7FFF);
         } else {
             self.adpcm_value -= diff;
-            self.adpcm_value = std::cmp::min(self.adpcm_value, -0x7FFF);
+            self.adpcm_value = std::cmp::max(self.adpcm_value, -0x7FFF);
         }
         self.adpcm_index += SPU::ADPCM_INDEX_TABLE[data as usize & 0x7];
         self.adpcm_index = self.adpcm_index.clamp(0, 88);
