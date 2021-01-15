@@ -5,8 +5,8 @@ use priority_queue::PriorityQueue;
 
 use super::{
     dma::DMAOccasion,
-    interrupt_controller::{InterruptController, InterruptRequest},
-    gpu::{DISPSTAT, DISPSTATFlags, POWCNT1},
+    interrupt_controller::InterruptRequest,
+    gpu::{DISPSTATFlags, POWCNT1},
     spu,
     HW
 };
@@ -22,22 +22,7 @@ impl HW {
     pub fn handle_event(&mut self, event: Event) {
         match event {
             Event::DMA(_, _) => self.on_dma(event),
-            Event::StartNextLine => {
-                let (vcount, start_vblank) = self.gpu.start_next_line(&mut self.scheduler);
-                if start_vblank {
-                    self.handle_event(Event::VBlank);
-                    self.check_dispstats(&mut |dispstat, interrupts|
-                        if dispstat.contains(DISPSTATFlags::VBLANK_IRQ_ENABLE) {
-                            interrupts.request |= InterruptRequest::VBLANK;
-                        }
-                    );
-                }
-                self.check_dispstats(&mut |dispstat, interrupts|
-                    if dispstat.contains(DISPSTATFlags::VBLANK_IRQ_ENABLE) && vcount == dispstat.vcount_setting {
-                        interrupts.request |= InterruptRequest::VCOUNTER_MATCH;
-                    }
-                );
-            },
+            Event::StartNextLine => self.start_next_line(event),
             Event::HBlank => {
                 if self.gpu.start_hblank(&mut self.scheduler) { self.run_dmas(DMAOccasion::HBlank) }
                 self.check_dispstats(&mut |dispstat, interrupts|
@@ -173,10 +158,6 @@ impl HW {
                 spu::ChannelSpec::Noise(num) => self.spu.noise_channels[num].reset_sample(),
             },
         }
-    }
-
-    fn check_dispstats<F>(&mut self, check: &mut F) where F: FnMut(&mut DISPSTAT, &mut InterruptController) {
-        for i in 0..2 { check(&mut self.gpu.dispstats[i], &mut self.interrupts[i]) }
     }
 }
 

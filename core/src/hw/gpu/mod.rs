@@ -5,7 +5,9 @@ mod vram;
 pub mod debug;
 
 use crate::hw::{
-    Event, Scheduler, HW,
+    HW,
+    scheduler::{Event, Scheduler},
+    interrupt_controller::{InterruptController, InterruptRequest},
 };
 
 pub use engine2d::Engine2D;
@@ -65,8 +67,7 @@ impl GPU {
     }
 
     // Dot: 0 - TODO: Check for drift
-    pub fn start_next_line(&mut self, scheduler: &mut Scheduler) -> (u16, bool) {
-        scheduler.schedule(Event::HBlank, GPU::HBLANK_DOT * GPU::CYCLES_PER_DOT);
+    pub fn start_next_line(&mut self) {
         for dispstat in self.dispstats.iter_mut() { dispstat.remove(DISPSTATFlags::HBLANK) }
 
         if self.vcount == 262 {
@@ -77,18 +78,6 @@ impl GPU {
         if self.vcount == GPU::NUM_LINES as u16 {
             self.vcount = 0;
         }
-        
-        let start_vblank = if self.vcount == 0 {
-            self.capturing = self.dispcapcnt.enable;
-            for dispstat in self.dispstats.iter_mut() { dispstat.remove(DISPSTATFlags::VBLANK) }
-            false
-        } else if self.vcount == GPU::HEIGHT as u16 {
-            if self.capturing { self.dispcapcnt.enable = false }
-            for dispstat in self.dispstats.iter_mut() { dispstat.insert(DISPSTATFlags::VBLANK) }
-            self.rendered_frame = true;
-            true
-        } else { false };
-        (self.vcount, start_vblank)
     }
 
     // Dot: HBLANK_DOT - TODO: Check for drift
@@ -172,6 +161,39 @@ impl GPU {
         } else {
             [&self.engine_b.pixels(), &self.engine_a.pixels()]
         }
+    }
+}
+
+impl HW {
+    pub fn start_next_line(&mut self, _event: Event) {
+        self.scheduler.schedule(Event::HBlank, GPU::HBLANK_DOT * GPU::CYCLES_PER_DOT);
+        self.gpu.start_next_line();
+        if self.gpu.vcount == 0 {
+            self.gpu.capturing = self.gpu.dispcapcnt.enable;
+            for dispstat in self.gpu.dispstats.iter_mut() { dispstat.remove(DISPSTATFlags::VBLANK) }
+        } else if self.gpu.vcount == GPU::HEIGHT as u16 {
+            if self.gpu.capturing { self.gpu.dispcapcnt.enable = false }
+            for dispstat in self.gpu.dispstats.iter_mut() { dispstat.insert(DISPSTATFlags::VBLANK) }
+            self.gpu.rendered_frame = true;
+            
+            self.handle_event(Event::VBlank);
+            self.check_dispstats(&mut |dispstat, interrupts|
+                if dispstat.contains(DISPSTATFlags::VBLANK_IRQ_ENABLE) {
+                    interrupts.request |= InterruptRequest::VBLANK;
+                }
+            );
+        }
+
+        let vcount = self.gpu.vcount;
+        self.check_dispstats(&mut |dispstat, interrupts|
+            if dispstat.contains(DISPSTATFlags::VBLANK_IRQ_ENABLE) && vcount == dispstat.vcount_setting {
+                interrupts.request |= InterruptRequest::VCOUNTER_MATCH;
+            }
+        );
+    }
+
+    pub fn check_dispstats<F>(&mut self, check: &mut F) where F: FnMut(&mut DISPSTAT, &mut InterruptController) {
+        for i in 0..2 { check(&mut self.gpu.dispstats[i], &mut self.interrupts[i]) }
     }
 }
 
