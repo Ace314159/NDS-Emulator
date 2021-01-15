@@ -1,4 +1,6 @@
 use std::borrow::Cow;
+use std::collections::VecDeque;
+use std::time::Instant;
 
 use imgui::*;
 
@@ -180,5 +182,54 @@ impl DebugWindowState for VRAMWindowState {
 
     fn get_pixels(&self, nds: &mut NDS) -> (Vec<u16>, usize, usize) {
         nds.render_bank(self.bank as usize, self.ignore_alpha)
+    }
+}
+
+// TODO: Combine this and DebugWindow to avoid code duplication
+pub struct StatsWindow {
+    opened: bool,
+    frame_times: VecDeque<f32>,
+    frame_times_sum: f32,
+    prev_frame_completed: Instant,
+}
+
+impl StatsWindow {
+    pub const NUM_FRAME_TIMES: usize = 20 * 60;
+
+    pub fn new() -> Self {
+        StatsWindow {
+            opened: false,
+            frame_times: VecDeque::new(),
+            frame_times_sum: 0.0,
+            prev_frame_completed: Instant::now(),
+        }
+    }
+
+    pub fn frame_completed(&mut self) {
+        let cur_time = Instant::now();
+        let frame_time = cur_time.duration_since(self.prev_frame_completed).as_secs_f32();
+        self.prev_frame_completed = cur_time;
+        if self.frame_times.len() == Self::NUM_FRAME_TIMES {
+            self.frame_times_sum -= self.frame_times.pop_front().unwrap();
+        }
+        self.frame_times.push_back(frame_time);
+        self.frame_times_sum += frame_time;
+    }
+
+    pub fn render(&mut self, ui: &Ui) {
+        if !self.opened { return }
+        let mut opened = self.opened;
+        Window::new(im_str!("Performance Stats")) // TODO: Replace with const
+        .opened(&mut opened)
+        .build(ui, || {
+            ui.plot_lines(im_str!("Frame Times"), self.frame_times.make_contiguous()).build();
+            ui.text(format!("Average: {}", self.frame_times_sum / self.frame_times.len() as f32))
+        });
+        self.opened = opened;
+    }
+
+    pub fn menu_item(&mut self, ui: &Ui) {
+        let clicked = MenuItem::new(im_str!("Performance Stats")).selected(self.opened).build(ui);
+        if clicked { self.opened = !self.opened }
     }
 }
