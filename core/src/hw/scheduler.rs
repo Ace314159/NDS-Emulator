@@ -79,8 +79,8 @@ impl HW {
                 self.cartridge.update_word();
                 self.run_dmas(DMAOccasion::DSCartridge);
             },
-            Event::ROMBlockEnded(is_arm7) => if self.cartridge.end_block() {
-                self.interrupts[(!is_arm7) as usize].request |= InterruptRequest::GAME_CARD_TRANSFER_COMPLETION;
+            Event::ROMBlockEnded(is_arm9) => if self.cartridge.end_block() {
+                self.interrupts[(is_arm9) as usize].request |= InterruptRequest::GAME_CARD_TRANSFER_COMPLETION;
             },
             Event::GenerateAudioSample => self.spu.generate_sample(&mut self.scheduler),
             Event::StepAudioChannel(channel_spec) => match channel_spec {

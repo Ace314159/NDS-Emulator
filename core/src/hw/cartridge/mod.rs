@@ -48,7 +48,7 @@ impl Cartridge {
         }
     }
 
-    pub fn run_command(&mut self, scheduler: &mut Scheduler, is_arm7: bool) {
+    pub fn run_command(&mut self, scheduler: &mut Scheduler, is_arm9: bool) {
         //self.romctrl.key1_gap1_len = 0x10;
         //self.romctrl.key1_gap2_len = 0x10;
         //self.romctrl.key2_encrypt_data = false;
@@ -97,7 +97,7 @@ impl Cartridge {
         // TODO: Take into account WR bit
         if self.rom_bytes_left == 0 {
             // 8 command bytes transferred
-            scheduler.schedule(Event::ROMBlockEnded(is_arm7), self.transfer_byte_time() * 8);
+            scheduler.schedule(Event::ROMBlockEnded(is_arm9), self.transfer_byte_time() * 8);
         } else {
             // 8 command bytes + 4 bytes for word
             scheduler.schedule(Event::ROMWordTransfered, self.transfer_byte_time() * (8 + 4));
@@ -114,7 +114,7 @@ impl Cartridge {
         self.spicnt.transfer_ready_irq
     }
 
-    pub fn read_gamecard(&mut self, scheduler: &mut Scheduler, is_arm7: bool, has_access: bool) -> u32 {
+    pub fn read_gamecard(&mut self, scheduler: &mut Scheduler, is_arm9: bool, has_access: bool) -> u32 {
         if !has_access { warn!("No Read Access from Game Card Command"); return 0 }
         if self.romctrl.data_word_ready {
             self.romctrl.data_word_ready = false;
@@ -124,7 +124,7 @@ impl Cartridge {
                 // 1 word (4 bytes) transferred
                 scheduler.schedule(Event::ROMWordTransfered, self.transfer_byte_time() * 4);
             } else {
-                scheduler.run_now(Event::ROMBlockEnded(is_arm7));
+                scheduler.run_now(Event::ROMBlockEnded(is_arm9));
             }
         }
         self.cur_game_card_word
@@ -148,8 +148,8 @@ impl Cartridge {
         self.command[byte] = value;
     }
 
-    pub fn write_romctrl(&mut self, scheduler: &mut Scheduler, is_arm7: bool, has_access: bool, byte: usize, value: u8) {
-        if self.romctrl.write(has_access, byte, value) { self.run_command(scheduler, is_arm7) }
+    pub fn write_romctrl(&mut self, scheduler: &mut Scheduler, is_arm9: bool, has_access: bool, byte: usize, value: u8) {
+        if self.romctrl.write(has_access, byte, value) { self.run_command(scheduler, is_arm9) }
     }
 
     pub fn chip_id(&self) -> u32 { self.chip_id }

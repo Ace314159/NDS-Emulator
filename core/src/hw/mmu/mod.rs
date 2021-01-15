@@ -16,12 +16,12 @@ impl HW {
     fn ipc_fifo_recv<T: MemoryValue>(&mut self, is_arm9: bool, addr: u32) -> T {
         if addr != 0x0410_0000 || size_of::<T>() != 4 { todo!() }
         if is_arm9 {
-            let (value, interrupt) = self.ipc.arm7_recv();
-            self.interrupts[1].request |= interrupt;
-            num::cast::<u32, T>(value).unwrap()
-        } else {
             let (value, interrupt) = self.ipc.arm9_recv();
             self.interrupts[0].request |= interrupt;
+            num::cast::<u32, T>(value).unwrap()
+        } else {
+            let (value, interrupt) = self.ipc.arm7_recv();
+            self.interrupts[1].request |= interrupt;
             num::cast::<u32, T>(value).unwrap()
         }
     }
@@ -36,17 +36,17 @@ impl HW {
         }
     }
 
-    fn read_game_card<T: MemoryValue>(&mut self, is_arm7: bool, addr: u32) -> T {
+    fn read_game_card<T: MemoryValue>(&mut self, is_arm9: bool, addr: u32) -> T {
         if addr != 0x0410_0010 || size_of::<T>() != 4 { todo!() }
-        let value = self.cartridge.read_gamecard(&mut self.scheduler, is_arm7,
-            self.exmem.nds_arm7_access == is_arm7);
+        let value = self.cartridge.read_gamecard(&mut self.scheduler, is_arm9,
+            self.exmem.nds_arm7_access != is_arm9);
         num::cast::<u32, T>(value).unwrap()
     }
 
     // TODO: Replace with const generic
-    fn read_gba_rom<T: MemoryValue>(&self, is_arm7: bool, addr: u32) -> T {
-        if self.exmem.gba_arm7_access == is_arm7 {
-            let cnt = if is_arm7 { &self.exmem.gba7 } else { &self.exmem.gba9 };
+    fn read_gba_rom<T: MemoryValue>(&self, is_arm9: bool, addr: u32) -> T {
+        if self.exmem.gba_arm7_access != is_arm9 {
+            let cnt = &self.exmem.gba[is_arm9 as usize];
             let value = match cnt.rom_n_access_time {
                 0 => addr / 2 | 0xFE08,
                 1 | 2 => addr / 2,
@@ -56,7 +56,7 @@ impl HW {
             num::cast::<u32, T>(match size_of::<T>() {
                 1 => value & 0xFF,
                 2 => value,
-                4 => (self.read_gba_rom::<u16>(is_arm7, addr + 1) as u32) << 16 | value,
+                4 => (self.read_gba_rom::<u16>(is_arm9, addr + 1) as u32) << 16 | value,
                 _ => unreachable!(),
             }).unwrap()
         } else {
@@ -122,8 +122,7 @@ pub trait IORegister {
 }
 
 pub struct EXMEM {
-    gba7: ExMemGBA,
-    gba9: ExMemGBA,
+    gba: [ExMemGBA; 2],
     gba_arm7_access: bool,
     nds_arm7_access: bool,
     main_mem_interface_mode: bool,
@@ -133,8 +132,7 @@ pub struct EXMEM {
 impl EXMEM {
     pub fn new() -> Self {
         EXMEM {
-            gba7: ExMemGBA::new(),
-            gba9: ExMemGBA::new(),
+            gba: [ExMemGBA::new(), ExMemGBA::new()],
             gba_arm7_access: false,
             nds_arm7_access: false,
             main_mem_interface_mode: true,
@@ -142,15 +140,15 @@ impl EXMEM {
         }
     }
 
-    pub fn read_arm7(&self) -> u8 { (self.gba_arm7_access as u8) << 7 | self.gba7.read() }
-    pub fn read_arm9(&self) -> u8 { (self.gba_arm7_access as u8) << 7 | self.gba9.read() }
+    pub fn read_arm7(&self) -> u8 { (self.gba_arm7_access as u8) << 7 | self.gba[0].read() }
+    pub fn read_arm9(&self) -> u8 { (self.gba_arm7_access as u8) << 7 | self.gba[1].read() }
     pub fn read_common(&self) -> u8 {
         // TODO: Is bit 5 set or clear?
         (self.main_mem_arm7_priority as u8) << 7 | (self.main_mem_interface_mode as u8) << 6 |
         (self.nds_arm7_access as u8) << 3
     }
-    pub fn write_arm7(&mut self, value: u8) { self.gba7.write(value) }
-    pub fn write_arm9(&mut self, value: u8) { self.gba_arm7_access = value >> 7 & 0x1 != 0; self.gba9.write(value) }
+    pub fn write_arm7(&mut self, value: u8) { self.gba[0].write(value) }
+    pub fn write_arm9(&mut self, value: u8) { self.gba_arm7_access = value >> 7 & 0x1 != 0; self.gba[1].write(value) }
     pub fn write_common(&mut self, value: u8) {
         self.main_mem_arm7_priority = value >> 7 & 0x1 != 0;
         self.main_mem_interface_mode = value >> 6 & 0x1 != 0;
