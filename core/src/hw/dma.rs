@@ -1,7 +1,12 @@
-use super::{HW, mmu::IORegister, Scheduler, Event};
+use super::{
+    HW,
+    mmu::{AccessType, IORegister, MemoryValue},
+    interrupt_controller::InterruptRequest,
+    scheduler::{Event, Scheduler},
+};
 
 pub struct DMAController {
-    pub channels: [DMAChannel; 4],
+    channels: [DMAChannel; 4],
     pub by_type: [Vec<usize>; DMAOccasion::num()],
 }
 
@@ -57,6 +62,113 @@ impl DMAController {
         let vec = &mut self.by_type[self.channels[channel].cnt.start_timing as usize];
         let pos = vec.iter().position(|i| *i == channel);
         vec.swap_remove(pos.unwrap());
+    }
+}
+
+impl std::ops::Index<usize> for DMAController {
+    type Output = DMAChannel;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.channels[index]
+    }
+}
+
+impl std::ops::IndexMut<usize> for DMAController {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.channels[index]
+    }
+}
+
+impl HW {
+    pub fn on_dma(&mut self, event: Event) {
+        let (is_nds9, num) = match event {
+            Event::DMA(is_nds9, num) => (is_nds9, num),
+            _ => unreachable!(),
+        };
+        if self.dmas[is_nds9 as usize][num].cnt.transfer_32 {
+            if is_nds9 {
+                self.run_dma::<_, _, _, _, true>(num, &HW::arm9_get_access_time::<u32>,
+                    &HW::arm9_read::<u32>, &HW::arm9_write::<u32>);
+            } else {
+                self.run_dma::<_, _, _, _, false>(num, &HW::arm7_get_access_time::<u32>,
+                    &HW::arm7_read::<u32>, &HW::arm7_write::<u32>);
+            }
+        } else {
+            if is_nds9 {
+                self.run_dma::<_, _, _, _, true>(num, &HW::arm9_get_access_time::<u16>,
+                    &HW::arm9_read::<u16>, &HW::arm9_write::<u16>);
+            } else {
+                self.run_dma::<_, _, _, _, false>(num, &HW::arm7_get_access_time::<u16>,
+                    &HW::arm7_read::<u16>, &HW::arm7_write::<u16>);
+            }
+        }
+    }
+
+    fn run_dma<A, R, W, T: MemoryValue, const IS_NDS9: bool>(&mut self, num: usize, access_time_fn: A, read_fn: R, write_fn: W)
+        where A: Fn(&mut HW, AccessType, u32) -> usize, R: Fn(&mut HW, u32) -> T, W: Fn(&mut HW, u32, T) {
+        let i = IS_NDS9 as usize;
+        let channel = &mut self.dmas[i][num];
+        let count = channel.count_latch;
+        let mut src_addr = channel.sad_latch;
+        let mut dest_addr = channel.dad_latch;
+        let src_addr_ctrl = channel.cnt.src_addr_ctrl;
+        let dest_addr_ctrl = channel.cnt.dest_addr_ctrl;
+        let transfer_32 = channel.cnt.transfer_32;
+        let irq = channel.cnt.irq;
+        channel.cnt.enable = channel.cnt.start_timing != DMAOccasion::Immediate && channel.cnt.repeat;
+        info!("Running {:?} ARM{} DMA{}: Writing {} values to {:08X} from {:08X}, size: {}", channel.cnt.start_timing,
+        if IS_NDS9 { 9 } else { 7 }, num, count, dest_addr, src_addr, if transfer_32 { 32 } else { 16 });
+
+        let (addr_change, addr_mask) = if transfer_32 { (4, 0x3) } else { (2, 0x1) };
+        src_addr &= !addr_mask;
+        dest_addr &= !addr_mask;
+        let mut first = true;
+        let original_dest_addr = dest_addr;
+        let mut cycles_passed = 0;
+        for _ in 0..count {
+            let cycle_type = if first { AccessType::N } else { AccessType::S };
+            cycles_passed += access_time_fn(self, cycle_type, src_addr);
+            cycles_passed += access_time_fn(self, cycle_type, dest_addr);
+            let value = read_fn(self, src_addr);
+            write_fn(self, dest_addr, value);
+
+            src_addr = match src_addr_ctrl {
+                0 => src_addr.wrapping_add(addr_change),
+                1 => src_addr.wrapping_sub(addr_change),
+                2 => src_addr,
+                _ => panic!("Invalid DMA Source Address Control!"),
+            };
+            dest_addr = match dest_addr_ctrl {
+                0 | 3 => dest_addr.wrapping_add(addr_change),
+                1 => dest_addr.wrapping_sub(addr_change),
+                2 => dest_addr,
+                _ => unreachable!(),
+            };
+            first = false;
+        }
+        let channel = &mut self.dmas[i][num];
+        channel.sad_latch = src_addr;
+        channel.dad_latch = dest_addr;
+        // if channel.cnt.enable { channel.count_latch = channel.count.count as u32 } // Only reload Count - TODO: Why?
+        if dest_addr_ctrl == 3 { channel.dad_latch = original_dest_addr }
+        cycles_passed += 2; // 2 I cycles
+
+        if !channel.cnt.enable { self.dmas[i].disable(num) }
+
+        // TODO: Don't halt CPU if PC is in TCM
+        self.clock(cycles_passed);
+        
+        if irq {
+            let interrupt = match num {
+                0 => InterruptRequest::DMA0,
+                1 => InterruptRequest::DMA1,
+                2 => InterruptRequest::DMA2,
+                3 => InterruptRequest::DMA3,
+                _ => unreachable!(),
+            };
+            self.interrupts[0].request |= interrupt;
+            self.interrupts[1].request |= interrupt;
+        }
     }
 }
 

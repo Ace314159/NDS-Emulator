@@ -45,8 +45,7 @@ pub struct HW {
     spu: SPU,
     keypad: Keypad,
     interrupts: [InterruptController; 2],
-    dma7: DMAController,
-    dma9: DMAController,
+    dmas: [DMAController; 2],
     dma_fill: [u32; 4],
     timers: [Timers; 2],
     ipc: IPC,
@@ -90,8 +89,7 @@ impl HW {
             spu: SPU::new(&mut scheduler),
             keypad: Keypad::new(),
             interrupts: [InterruptController::new(), InterruptController::new()],
-            dma7: DMAController::new(false),
-            dma9: DMAController::new(true),
+            dmas: [DMAController::new(false), DMAController::new(true)],
             dma_fill: [0; 4],
             timers: [Timers::new(false), Timers::new(true)],
             ipc: IPC::new(),
@@ -121,11 +119,10 @@ impl HW {
 
     fn run_dmas(&mut self, occasion: DMAOccasion) {
         let mut events = Vec::new();
-        for num in self.dma9.by_type[occasion as usize].iter() {
-            events.push(Event::DMA(true, *num));
-        }
-        for num in self.dma7.by_type[occasion as usize].iter() {
-            events.push(Event::DMA(false, *num));
+        for dma in self.dmas.iter() {
+            for num in dma.by_type[occasion as usize].iter() {
+                events.push(Event::DMA(true, *num));
+            }
         }
         for event in events.drain(..) { self.handle_event(event) }
     }
