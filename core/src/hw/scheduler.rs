@@ -271,8 +271,7 @@ impl HW {
     }
 
     fn check_dispstats<F>(&mut self, check: &mut F) where F: FnMut(&mut DISPSTAT, &mut InterruptController) {
-        check(&mut self.gpu.dispstat7, &mut self.interrupts[0]);
-        check(&mut self.gpu.dispstat9, &mut self.interrupts[1]);
+        for i in 0..2 { check(&mut self.gpu.dispstats[i], &mut self.interrupts[i]) }
     }
 }
 

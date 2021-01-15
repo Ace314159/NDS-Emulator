@@ -81,8 +81,8 @@ impl HW {
     fn arm9_read_io_register(&self, addr: u32) -> u8 {
         match addr {
             0x0400_0000 ..= 0x0400_0003 => self.gpu.engine_a.read_register(addr),
-            0x0400_0004 => self.gpu.dispstat9.read(0),
-            0x0400_0005 => self.gpu.dispstat9.read(1),
+            0x0400_0004 => self.gpu.dispstats[1].read(0),
+            0x0400_0005 => self.gpu.dispstats[1].read(1),
             0x0400_0006 => (self.gpu.vcount >> 0) as u8,
             0x0400_0007 => (self.gpu.vcount >> 8) as u8,
             0x0400_0008 ..= 0x0400_005F => self.gpu.engine_a.read_register(addr),
@@ -174,8 +174,8 @@ impl HW {
     fn arm9_write_io_register(&mut self, addr: u32, value: u8) {
         match addr {
             0x0400_0000 ..= 0x0400_0003 => self.gpu.engine_a.write_register(&mut self.scheduler, addr, value),
-            0x0400_0004 => self.gpu.dispstat9.write(&mut self.scheduler, 0, value),
-            0x0400_0005 => self.gpu.dispstat9.write(&mut self.scheduler, 1, value),
+            0x0400_0004 => self.gpu.dispstats[1].write(&mut self.scheduler, 0, value),
+            0x0400_0005 => self.gpu.dispstats[1].write(&mut self.scheduler, 1, value),
             0x0400_0006 => (), // VCOUNT is read only
             0x0400_0007 => (), // VCOUNT is read only
             0x0400_0008 ..= 0x0400_005F => self.gpu.engine_a.write_register(&mut self.scheduler, addr, value),
