@@ -6,7 +6,7 @@ use priority_queue::PriorityQueue;
 use super::{
     dma::DMAOccasion,
     interrupt_controller::InterruptRequest,
-    gpu::{DISPSTATFlags, POWCNT1},
+    gpu::POWCNT1,
     spu,
     HW
 };
@@ -23,14 +23,7 @@ impl HW {
         match event {
             Event::DMA(_, _) => self.on_dma(event),
             Event::StartNextLine => self.start_next_line(event),
-            Event::HBlank => {
-                if self.gpu.start_hblank(&mut self.scheduler) { self.run_dmas(DMAOccasion::HBlank) }
-                self.check_dispstats(&mut |dispstat, interrupts|
-                    if dispstat.contains(DISPSTATFlags::HBLANK_IRQ_ENABLE) {
-                        interrupts.request |= InterruptRequest::HBLANK;
-                    }
-                );
-            },
+            Event::HBlank => self.on_hblank(event),
             Event::VBlank => {
                 self.run_dmas(DMAOccasion::VBlank);
                 if self.gpu.powcnt1.contains(POWCNT1::ENABLE_3D_RENDERING) {
