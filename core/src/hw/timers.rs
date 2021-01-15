@@ -1,12 +1,13 @@
-use super::{Scheduler, Event, mmu::IORegister};
+use super::{HW, Scheduler, Event, mmu::IORegister};
 use super::InterruptRequest;
 
 pub struct Timers {
-    pub timers: [Timer; 4],
+    timers: [Timer; Timers::NUM_TIMERS],
 }
 
 impl Timers {
-    pub const PRESCALERS: [usize; 4] = [1, 64, 256, 1024];
+    const NUM_TIMERS: usize = 4;
+    const PRESCALERS: [usize; Self::NUM_TIMERS] = [1, 64, 256, 1024];
 
     pub fn new(is_nds9: bool) -> Timers {
         Timers {
@@ -17,6 +18,20 @@ impl Timers {
                 Timer::new(is_nds9, 3, InterruptRequest::TIMER3_OVERFLOW),
             ],
         }
+    }
+}
+
+impl std::ops::Index<usize> for Timers {
+    type Output = Timer;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.timers[index]
+    }
+}
+
+impl std::ops::IndexMut<usize> for Timers {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.timers[index]
     }
 }
 
@@ -139,6 +154,28 @@ impl Timer {
     }
 }
 
+impl HW {
+    pub fn on_timer_overflow(&mut self, event: Event) {
+        let (is_nds9, num) = match event {
+            Event::TimerOverflow(is_nds9, num) => (is_nds9, num),
+            _ => unreachable!(),
+        };
+        let i = is_nds9 as usize;
+        if self.timers[i][num].cnt.irq {
+            self.interrupts[i].request |= self.timers[i].timers[num].interrupt
+        }
+        // Cascade Timers
+        if num + 1 < Timers::NUM_TIMERS && self.timers[i][num + 1].is_count_up() {
+            if self.timers[i][num + 1].clock() { self.handle_event(Event::TimerOverflow(is_nds9, num + 1)) }
+        }
+        // TODO: Can I move this up to avoid recreating timers
+        if !self.timers[i][num].is_count_up() {
+            self.timers[i][num].reload();
+            self.timers[i][num].create_event(&mut self.scheduler, 0);
+        }
+    }
+}
+
 
 #[derive(Clone, Copy)]
 pub struct TMCNT {
@@ -180,4 +217,8 @@ impl TMCNT {
             start: false,
         }
     }
+}
+
+impl HW {
+
 }

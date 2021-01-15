@@ -44,13 +44,11 @@ pub struct HW {
     pub gpu: GPU,
     spu: SPU,
     keypad: Keypad,
-    interrupts7: InterruptController,
-    interrupts9: InterruptController,
+    interrupts: [InterruptController; 2],
     dma7: DMAController,
     dma9: DMAController,
     dma_fill: [u32; 4],
-    timers7: Timers,
-    timers9: Timers,
+    timers: [Timers; 2],
     ipc: IPC,
     spi: SPI,
     // Registers
@@ -91,13 +89,11 @@ impl HW {
             gpu: GPU::new(&mut scheduler),
             spu: SPU::new(&mut scheduler),
             keypad: Keypad::new(),
-            interrupts7: InterruptController::new(),
-            interrupts9: InterruptController::new(),
+            interrupts: [InterruptController::new(), InterruptController::new()],
             dma7: DMAController::new(false),
             dma9: DMAController::new(true),
             dma_fill: [0; 4],
-            timers7: Timers::new(false),
-            timers9: Timers::new(true),
+            timers: [Timers::new(false), Timers::new(true)],
             ipc: IPC::new(),
             spi: SPI::new(firmware),
             // Registesr
@@ -118,7 +114,7 @@ impl HW {
     pub fn clock(&mut self, arm7_cycles: usize) {
         self.handle_events(arm7_cycles);
         if self.gpu.powcnt1.contains(gpu::POWCNT1::ENABLE_3D_GEOMETRY) &&
-            self.gpu.engine3d.clock(&mut self.interrupts9.request) {
+            self.gpu.engine3d.clock(&mut self.interrupts[1].request) {
             self.run_dmas(DMAOccasion::GeometryCommandFIFO)
         }
     }
@@ -135,13 +131,13 @@ impl HW {
     }
 
     pub fn arm7_interrupts_requested(&mut self) -> bool {
-        if self.keypad.interrupt_requested() { self.interrupts7.request |= InterruptRequest::KEYPAD }
-        self.interrupts7.interrupts_requested()
+        if self.keypad.interrupt_requested() { self.interrupts[0].request |= InterruptRequest::KEYPAD }
+        self.interrupts[0].interrupts_requested()
     }
 
     pub fn arm9_interrupts_requested(&mut self) -> bool {
-        if self.keypad.interrupt_requested() { self.interrupts9.request |= InterruptRequest::KEYPAD }
-        self.interrupts9.interrupts_requested()
+        if self.keypad.interrupt_requested() { self.interrupts[1].request |= InterruptRequest::KEYPAD }
+        self.interrupts[1].interrupts_requested()
     }
 
     pub fn rendered_frame(&mut self) -> bool {

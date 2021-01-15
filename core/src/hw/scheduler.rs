@@ -74,33 +74,13 @@ impl HW {
                     self.gpu.engine3d.render(&self.gpu.vram)
                 }
             },
-            Event::TimerOverflow(is_nds9, timer) => {
-                let (timers, interrupts) = if is_nds9 {
-                    (&mut self.timers9, &mut self.interrupts9)
-                } else {
-                    (&mut self.timers7, &mut self.interrupts7)
-                };
-                if timers.timers[timer].cnt.irq {
-                    interrupts.request |= timers.timers[timer].interrupt
-                }
-                // Cascade Timers
-                if timer + 1 < timers.timers.len() && timers.timers[timer + 1].is_count_up() {
-                    if timers.timers[timer + 1].clock() { self.handle_event(Event::TimerOverflow(is_nds9, timer + 1)) }
-                }
-                // TODO: Can I move this up to avoid recreating timers
-                let timers = if is_nds9 { &mut self.timers9 } else { &mut self.timers7 };
-                if !timers.timers[timer].is_count_up() {
-                    timers.timers[timer].reload();
-                    timers.timers[timer].create_event(&mut self.scheduler, 0);
-                }
-            },
+            Event::TimerOverflow(_, _) => self.on_timer_overflow(event),
             Event::ROMWordTransfered => {
                 self.cartridge.update_word();
                 self.run_dmas(DMAOccasion::DSCartridge);
             },
             Event::ROMBlockEnded(is_arm7) => if self.cartridge.end_block() {
-                let interrupts = if is_arm7 { &mut self.interrupts7 } else { &mut self.interrupts9 };
-                interrupts.request |= InterruptRequest::GAME_CARD_TRANSFER_COMPLETION;
+                self.interrupts[(!is_arm7) as usize].request |= InterruptRequest::GAME_CARD_TRANSFER_COMPLETION;
             },
             Event::GenerateAudioSample => self.spu.generate_sample(&mut self.scheduler),
             Event::StepAudioChannel(channel_spec) => match channel_spec {
@@ -285,18 +265,14 @@ impl HW {
                 3 => InterruptRequest::DMA3,
                 _ => unreachable!(),
             };
-            self.interrupts7.request |= interrupt;
-            self.interrupts9.request |= interrupt;
+            self.interrupts[0].request |= interrupt;
+            self.interrupts[1].request |= interrupt;
         }
     }
 
     fn check_dispstats<F>(&mut self, check: &mut F) where F: FnMut(&mut DISPSTAT, &mut InterruptController) {
-        [
-            (&mut self.gpu.dispstat7, &mut self.interrupts7),
-            (&mut self.gpu.dispstat9, &mut self.interrupts9),
-        ].iter_mut().for_each(|(dispstat, interrupts)|
-            check(dispstat, interrupts)
-        );
+        check(&mut self.gpu.dispstat7, &mut self.interrupts[0]);
+        check(&mut self.gpu.dispstat9, &mut self.interrupts[1]);
     }
 }
 

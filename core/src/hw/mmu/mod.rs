@@ -13,26 +13,26 @@ impl HW {
     const IWRAM_MASK: u32 = HW::IWRAM_SIZE as u32 - 1;
 
     // TODO: Replace with const generic
-    fn ipc_fifo_recv<T: MemoryValue>(&mut self, is_arm7: bool, addr: u32) -> T {
+    fn ipc_fifo_recv<T: MemoryValue>(&mut self, is_arm9: bool, addr: u32) -> T {
         if addr != 0x0410_0000 || size_of::<T>() != 4 { todo!() }
-        if is_arm7 {
+        if is_arm9 {
             let (value, interrupt) = self.ipc.arm7_recv();
-            self.interrupts9.request |= interrupt;
+            self.interrupts[1].request |= interrupt;
             num::cast::<u32, T>(value).unwrap()
         } else {
             let (value, interrupt) = self.ipc.arm9_recv();
-            self.interrupts7.request |= interrupt;
+            self.interrupts[0].request |= interrupt;
             num::cast::<u32, T>(value).unwrap()
         }
     }
 
-    fn ipc_fifo_send<T: MemoryValue>(&mut self, is_arm7: bool, addr: u32, value: T) {
+    fn ipc_fifo_send<T: MemoryValue>(&mut self, is_arm9: bool, addr: u32, value: T) {
         if addr != 0x0400_0188 || size_of::<T>() != 4 { todo!() }
         let value = num::cast::<T, u32>(value).unwrap();
-        if is_arm7 {
-            self.interrupts9.request |= self.ipc.arm7_send(value);
+        if is_arm9 {
+            self.interrupts[1].request |= self.ipc.arm7_send(value);
         } else {
-            self.interrupts7.request |= self.ipc.arm9_send(value);
+            self.interrupts[0].request |= self.ipc.arm9_send(value);
         }
     }
 
