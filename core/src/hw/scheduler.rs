@@ -1,4 +1,5 @@
-use std::cmp::Reverse;
+use std::cmp::{PartialEq, Eq, Reverse};
+use std::hash::Hash;
 
 use priority_queue::PriorityQueue;
 
@@ -16,7 +17,7 @@ impl HW {
     pub fn handle_events(&mut self, arm7_cycles: usize) {
         self.scheduler.cycle += arm7_cycles;
         while let Some(event) = self.scheduler.get_next_event() {
-            self.handle_event(event);
+            (event.handler)(self, event.event);
         }
     }
 
@@ -301,7 +302,7 @@ impl HW {
 
 pub struct Scheduler {
     pub cycle: usize,
-    event_queue: PriorityQueue<Event, Reverse<usize>>,
+    event_queue: PriorityQueue<EventWrapper, Reverse<usize>>,
 }
 
 impl Scheduler {
@@ -313,7 +314,7 @@ impl Scheduler {
         }
     }
 
-    pub fn get_next_event(&mut self) -> Option<Event> {
+    fn get_next_event(&mut self) -> Option<EventWrapper> {
         // There should always be at least one event in the queue
         let (_event_type, cycle) = self.event_queue.peek().unwrap();
         if Reverse(self.cycle) <= *cycle {
@@ -322,15 +323,17 @@ impl Scheduler {
     }
 
     pub fn schedule(&mut self, event: Event, delay: usize) {
-        self.event_queue.push(event, Reverse(self.cycle + delay));
+        let wrapper = EventWrapper::new(event, HW::handle_event);
+        self.event_queue.push(wrapper, Reverse(self.cycle + delay));
     }
 
     pub fn run_now(&mut self, event: Event) {
-        self.event_queue.push(event, Reverse(self.cycle));
+        self.schedule(event, 0);
     }
 
-    pub fn remove(&mut self, event_type: Event) {
-        self.event_queue.remove(&event_type);
+    pub fn remove(&mut self, event: Event) {
+        let wrapper = EventWrapper::new(event, HW::handle_event);
+        self.event_queue.remove(&wrapper);
     }
 }
 
@@ -346,4 +349,32 @@ pub enum Event {
     GenerateAudioSample,
     StepAudioChannel(spu::ChannelSpec),
     ResetAudioChannel(spu::ChannelSpec),
+}
+
+struct EventWrapper {
+    event: Event,
+    handler: fn(&mut HW, Event),
+}
+
+impl EventWrapper {
+    pub fn new(event: Event, handler: fn(&mut HW, Event)) -> Self {
+        EventWrapper {
+            event,
+            handler,
+        }
+    }
+}
+
+impl PartialEq for EventWrapper {
+    fn eq(&self, other: &Self) -> bool {
+        self.event.eq(&other.event)
+    }
+}
+
+impl Eq for EventWrapper {}
+
+impl Hash for EventWrapper {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.event.hash(state);
+    }
 }

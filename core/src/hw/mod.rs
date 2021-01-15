@@ -131,7 +131,7 @@ impl HW {
         for num in self.dma7.by_type[occasion as usize].iter() {
             events.push(Event::DMA(false, *num));
         }
-        for event in events.iter() { self.handle_event(*event) }
+        for event in events.drain(..) { self.handle_event(event) }
     }
 
     pub fn arm7_interrupts_requested(&mut self) -> bool {
