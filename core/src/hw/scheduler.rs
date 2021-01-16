@@ -10,9 +10,22 @@ type EventHandler = fn(&mut HW, Event);
 impl HW {
     pub fn handle_events(&mut self, arm7_cycles: usize) {
         self.scheduler.cycle += arm7_cycles;
-        while let Some(event) = self.scheduler.get_next_event() {
-            (event.handler)(self, event.event);
+        while let Some(wrapper) = self.scheduler.get_next_event() {
+            (wrapper.handler)(self, wrapper.event);
         }
+    }
+
+    pub fn clock_until_event(&mut self) {
+        let (_, Reverse(cycle)) = self.scheduler.event_queue.peek().unwrap();
+        if self.scheduler.cycle > *cycle { return }
+        let (wrapper, Reverse(cycle)) = self.scheduler.event_queue.pop().unwrap();
+        self.scheduler.cycle = cycle;
+        (wrapper.handler)(self, wrapper.event);
+    }
+
+    pub fn cycles_until_event(&self) -> usize {
+        let (_wrapper, Reverse(cycle)) = self.scheduler.event_queue.peek().unwrap();
+        if self.scheduler.cycle > *cycle { 0 } else { cycle - self.scheduler.cycle }
     }
 
     fn dummy_handler(&mut self, _event: Event) { unreachable!() }
@@ -34,8 +47,8 @@ impl Scheduler {
 
     fn get_next_event(&mut self) -> Option<EventWrapper> {
         // There should always be at least one event in the queue
-        let (_event_type, cycle) = self.event_queue.peek().unwrap();
-        if Reverse(self.cycle) <= *cycle {
+        let (_event_type, Reverse(cycle)) = self.event_queue.peek().unwrap();
+        if self.cycle >= *cycle {
             Some(self.event_queue.pop().unwrap().0)
         } else { None }
     }
