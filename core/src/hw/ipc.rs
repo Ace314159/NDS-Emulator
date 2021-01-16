@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use super::InterruptRequest;
+use super::interrupt_controller::InterruptRequest;
 
 pub struct IPC {
     fifocnt7: FIFOCNT,

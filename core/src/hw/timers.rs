@@ -1,5 +1,9 @@
-use super::{HW, Scheduler, Event, mmu::IORegister};
-use super::InterruptRequest;
+use super::{
+    HW,
+    scheduler::{Event, Scheduler},
+    mmu::IORegister,
+    interrupt_controller::InterruptRequest,
+};
 
 pub struct Timers {
     timers: [Timer; Timers::NUM_TIMERS],

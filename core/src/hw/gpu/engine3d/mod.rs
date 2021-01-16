@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use crate::hw::mmu::IORegister;
-use super::{GPU, Scheduler, super::InterruptRequest};
+use super::{GPU, Scheduler, InterruptRequest};
 
 mod registers;
 mod math;

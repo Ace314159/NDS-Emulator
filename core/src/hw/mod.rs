@@ -16,7 +16,7 @@ use std::path::PathBuf;
 
 pub use mmu::{AccessType, MemoryValue};
 use mmu::{CP15, EXMEM, HALTCNT, POWCNT2, WRAMCNT};
-use scheduler::{Scheduler, Event};
+use scheduler::Scheduler;
 pub use gpu::{GPU, EngineA, EngineB};
 use spu::SPU;
 use keypad::Keypad;
