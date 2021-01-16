@@ -49,7 +49,7 @@ impl GPU {
     const NUM_LINES: usize = 263;
 
     pub fn new(scheduler: &mut Scheduler) -> GPU {
-        scheduler.schedule(Event::HBlank, GPU::HBLANK_DOT * GPU::CYCLES_PER_DOT);
+        scheduler.schedule(Event::HBlank, HW::on_hblank, GPU::HBLANK_DOT * GPU::CYCLES_PER_DOT);
         GPU {
             // Registers and Values Shared between Engines
             dispstats: [DISPSTAT::new(), DISPSTAT::new()],
@@ -164,8 +164,8 @@ impl GPU {
 }
 
 impl HW {
-    pub fn start_next_line(&mut self, _event: Event) {
-        self.scheduler.schedule(Event::HBlank, GPU::HBLANK_DOT * GPU::CYCLES_PER_DOT);
+    fn start_next_line(&mut self, _event: Event) {
+        self.scheduler.schedule(Event::HBlank, HW::on_hblank, GPU::HBLANK_DOT * GPU::CYCLES_PER_DOT);
         self.gpu.start_next_line();
         if self.gpu.vcount == 0 {
             self.gpu.capturing = self.gpu.dispcapcnt.enable;
@@ -175,7 +175,7 @@ impl HW {
             for dispstat in self.gpu.dispstats.iter_mut() { dispstat.insert(DISPSTATFlags::VBLANK) }
             self.gpu.rendered_frame = true;
             
-            self.handle_event(Event::VBlank);
+            self.on_vblank(Event::VBlank);
             self.check_dispstats(&mut |dispstat, interrupts|
                 if dispstat.contains(DISPSTATFlags::VBLANK_IRQ_ENABLE) {
                     interrupts.request |= InterruptRequest::VBLANK;
@@ -191,8 +191,12 @@ impl HW {
         );
     }
 
-    pub fn on_hblank(&mut self, _event: Event) {
-        self.scheduler.schedule(Event::StartNextLine, (GPU::DOTS_PER_LINE - GPU::HBLANK_DOT) * GPU::CYCLES_PER_DOT);
+    fn on_hblank(&mut self, _event: Event) {
+        self.scheduler.schedule(
+            Event::StartNextLine,
+            HW::start_next_line,
+            (GPU::DOTS_PER_LINE - GPU::HBLANK_DOT) * GPU::CYCLES_PER_DOT
+        );
         for dispstat in self.gpu.dispstats.iter_mut() { dispstat.insert(DISPSTATFlags::HBLANK) }
         if self.gpu.vcount < GPU::HEIGHT as u16 {
             self.gpu.render_line();
@@ -205,7 +209,7 @@ impl HW {
         );
     }
 
-    pub fn on_vblank(&mut self, _event: Event) {
+    fn on_vblank(&mut self, _event: Event) {
         self.run_dmas(DMAOccasion::VBlank);
         // TODO: Render using multiple threads
         if self.gpu.powcnt1.contains(POWCNT1::ENABLE_3D_RENDERING) {
@@ -213,7 +217,7 @@ impl HW {
         }
     }
 
-    pub fn check_dispstats<F>(&mut self, check: &mut F) where F: FnMut(&mut DISPSTAT, &mut InterruptController) {
+    fn check_dispstats<F>(&mut self, check: &mut F) where F: FnMut(&mut DISPSTAT, &mut InterruptController) {
         for i in 0..2 { check(&mut self.gpu.dispstats[i], &mut self.interrupts[i]) }
     }
 }

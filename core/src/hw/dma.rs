@@ -53,7 +53,7 @@ impl DMAController {
             channel.cnt.start_timing, if channel.is_nds9 { 9 } else { 7 }, channel.num, channel.cnt.count,
             channel.dad.addr, channel.sad.addr, if channel.cnt.transfer_32 { 32 } else { 16 });
             if channel.cnt.start_timing == DMAOccasion::Immediate {
-                scheduler.run_now(Event::DMA(channel.is_nds9, channel.num))
+                scheduler.run_now(Event::DMA(channel.is_nds9, channel.num), HW::on_dma)
             }
         }
     }
@@ -80,7 +80,7 @@ impl std::ops::IndexMut<usize> for DMAController {
 }
 
 impl HW {
-    pub fn on_dma(&mut self, event: Event) {
+    fn on_dma(&mut self, event: Event) {
         let (is_nds9, num) = match event {
             Event::DMA(is_nds9, num) => (is_nds9, num),
             _ => unreachable!(),
@@ -169,6 +169,16 @@ impl HW {
             self.interrupts[0].request |= interrupt;
             self.interrupts[1].request |= interrupt;
         }
+    }
+
+    pub fn run_dmas(&mut self, occasion: DMAOccasion) {
+        let mut events = Vec::new();
+        for dma in self.dmas.iter() {
+            for num in dma.by_type[occasion as usize].iter() {
+                events.push(Event::DMA(true, *num));
+            }
+        }
+        for event in events.drain(..) { self.on_dma(event) }
     }
 }
 

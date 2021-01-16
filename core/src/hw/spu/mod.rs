@@ -49,7 +49,7 @@ impl SPU {
         let audio = Audio::new();
         // TODO: Sample at 32.768 kHz and resample to device sample rate
         let clocks_per_sample = crate::nds::NDS::CLOCK_RATE / audio.sample_rate();
-        scheduler.schedule(Event::GenerateAudioSample, clocks_per_sample);
+        scheduler.schedule(Event::GenerateAudioSample, HW::generate_audio_sample, clocks_per_sample);
         SPU {
             cnt: SoundControl::new(),
             captures: [Capture::new(), Capture::new()],
@@ -184,12 +184,12 @@ impl IORegister for SPU {
 }
 
 impl HW {
-    pub fn generate_audio_sample(&mut self, _event: Event) {
-        self.scheduler.schedule(Event::GenerateAudioSample, self.spu.clocks_per_sample);
+    fn generate_audio_sample(&mut self, _event: Event) {
+        self.scheduler.schedule(Event::GenerateAudioSample, HW::generate_audio_sample, self.spu.clocks_per_sample);
         self.spu.generate_sample();
     }
 
-    pub fn step_audio_channel(&mut self, event: Event) {
+    fn step_audio_channel(&mut self, event: Event) {
         let channel_spec = match event {
             Event::StepAudioChannel(channel_spec) => channel_spec,
             _ => unreachable!(),
@@ -302,7 +302,7 @@ impl HW {
         }
     }
 
-    pub fn reset_audio_channel(&mut self, event: Event) {
+    fn reset_audio_channel(&mut self, event: Event) {
         let channel_spec = match event {
             Event::ResetAudioChannel(channel_spec) => channel_spec,
             _ => unreachable!(),
@@ -523,9 +523,15 @@ impl<T: ChannelType> Channel<T> {
     pub fn schedule(&mut self, scheduler: &mut Scheduler, reset: bool) {
         if self.timer_val != 0 && self.len + self.loop_start as u32 != 0 {
             if reset {
-                scheduler.schedule(Event::ResetAudioChannel(self.spec), (-(self.timer_val as i16) as u16) as usize);
+                scheduler.schedule(
+                    Event::ResetAudioChannel(self.spec),
+                    HW::reset_audio_channel,
+                    (-(self.timer_val as i16) as u16) as usize);
             } else {
-                scheduler.schedule(Event::StepAudioChannel(self.spec), (-(self.timer_val as i16) as u16) as usize);
+                scheduler.schedule(
+                    Event::StepAudioChannel(self.spec),
+                    HW::step_audio_channel,
+                    (-(self.timer_val as i16) as u16) as usize);
             }
         }
     }

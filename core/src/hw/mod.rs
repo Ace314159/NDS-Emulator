@@ -117,16 +117,6 @@ impl HW {
         }
     }
 
-    fn run_dmas(&mut self, occasion: DMAOccasion) {
-        let mut events = Vec::new();
-        for dma in self.dmas.iter() {
-            for num in dma.by_type[occasion as usize].iter() {
-                events.push(Event::DMA(true, *num));
-            }
-        }
-        for event in events.drain(..) { self.handle_event(event) }
-    }
-
     pub fn arm7_interrupts_requested(&mut self) -> bool {
         if self.keypad.interrupt_requested() { self.interrupts[0].request |= InterruptRequest::KEYPAD }
         self.interrupts[0].interrupts_requested()

@@ -5,6 +5,8 @@ use priority_queue::PriorityQueue;
 
 use super::{HW, spu};
 
+type EventHandler = fn(&mut HW, Event);
+
 impl HW {
     pub fn handle_events(&mut self, arm7_cycles: usize) {
         self.scheduler.cycle += arm7_cycles;
@@ -13,20 +15,7 @@ impl HW {
         }
     }
 
-    pub fn handle_event(&mut self, event: Event) {
-        match event {
-            Event::DMA(_, _) => self.on_dma(event),
-            Event::StartNextLine => self.start_next_line(event),
-            Event::HBlank => self.on_hblank(event),
-            Event::VBlank => self.on_vblank(event),
-            Event::TimerOverflow(_, _) => self.on_timer_overflow(event),
-            Event::ROMWordTransfered => self.on_rom_word_transfered(event),
-            Event::ROMBlockEnded(_) => self.on_rom_block_ended(event),
-            Event::GenerateAudioSample => self.generate_audio_sample(event),
-            Event::StepAudioChannel(_) => self.step_audio_channel(event),
-            Event::ResetAudioChannel(_) => self.reset_audio_channel(event),
-        }
-    }
+    fn dummy_handler(&mut self, _event: Event) { unreachable!() }
 }
 
 pub struct Scheduler {
@@ -51,17 +40,17 @@ impl Scheduler {
         } else { None }
     }
 
-    pub fn schedule(&mut self, event: Event, delay: usize) {
-        let wrapper = EventWrapper::new(event, HW::handle_event);
+    pub fn schedule(&mut self, event: Event, handler: EventHandler, delay: usize) {
+        let wrapper = EventWrapper::new(event, handler);
         self.event_queue.push(wrapper, Reverse(self.cycle + delay));
     }
 
-    pub fn run_now(&mut self, event: Event) {
-        self.schedule(event, 0);
+    pub fn run_now(&mut self, event: Event, handler: EventHandler) {
+        self.schedule(event, handler, 0);
     }
 
     pub fn remove(&mut self, event: Event) {
-        let wrapper = EventWrapper::new(event, HW::handle_event);
+        let wrapper = EventWrapper::new(event, HW::dummy_handler);
         self.event_queue.remove(&wrapper);
     }
 }
@@ -82,11 +71,11 @@ pub enum Event {
 
 struct EventWrapper {
     event: Event,
-    handler: fn(&mut HW, Event),
+    handler: EventHandler,
 }
 
 impl EventWrapper {
-    pub fn new(event: Event, handler: fn(&mut HW, Event)) -> Self {
+    pub fn new(event: Event, handler: EventHandler) -> Self {
         EventWrapper {
             event,
             handler,

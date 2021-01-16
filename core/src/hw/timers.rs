@@ -105,6 +105,7 @@ impl Timer {
         self.timer_len = prescaler * (0x10000 - self.reload as usize - 1);
         scheduler.schedule(
             Event::TimerOverflow(self.is_nds9, self.index),
+            HW::on_timer_overflow,
             delay + self.time_till_first_clock + self.timer_len
         );
     }
@@ -155,7 +156,7 @@ impl Timer {
 }
 
 impl HW {
-    pub fn on_timer_overflow(&mut self, event: Event) {
+    fn on_timer_overflow(&mut self, event: Event) {
         let (is_nds9, num) = match event {
             Event::TimerOverflow(is_nds9, num) => (is_nds9, num),
             _ => unreachable!(),
@@ -166,7 +167,7 @@ impl HW {
         }
         // Cascade Timers
         if num + 1 < Timers::NUM_TIMERS && self.timers[i][num + 1].is_count_up() {
-            if self.timers[i][num + 1].clock() { self.handle_event(Event::TimerOverflow(is_nds9, num + 1)) }
+            if self.timers[i][num + 1].clock() { self.on_timer_overflow(Event::TimerOverflow(is_nds9, num + 1)) }
         }
         // TODO: Can I move this up to avoid recreating timers
         if !self.timers[i][num].is_count_up() {

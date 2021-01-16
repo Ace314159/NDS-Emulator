@@ -102,10 +102,18 @@ impl Cartridge {
         // TODO: Take into account WR bit
         if self.rom_bytes_left == 0 {
             // 8 command bytes transferred
-            scheduler.schedule(Event::ROMBlockEnded(is_arm9), self.transfer_byte_time() * 8);
+            scheduler.schedule(
+                Event::ROMBlockEnded(is_arm9),
+                HW::on_rom_block_ended,
+                self.transfer_byte_time() * 8
+            );
         } else {
             // 8 command bytes + 4 bytes for word
-            scheduler.schedule(Event::ROMWordTransfered, self.transfer_byte_time() * (8 + 4));
+            scheduler.schedule(
+                Event::ROMWordTransfered,
+                HW::on_rom_word_transfered,
+                self.transfer_byte_time() * (8 + 4)
+            );
         }
     }
 
@@ -117,9 +125,13 @@ impl Cartridge {
 
             if self.rom_bytes_left > 0 {
                 // 1 word (4 bytes) transferred
-                scheduler.schedule(Event::ROMWordTransfered, self.transfer_byte_time() * 4);
+                scheduler.schedule(
+                    Event::ROMWordTransfered,
+                    HW::on_rom_word_transfered,
+                    self.transfer_byte_time() * 4
+                );
             } else {
-                scheduler.run_now(Event::ROMBlockEnded(is_arm9));
+                scheduler.run_now(Event::ROMBlockEnded(is_arm9), HW::on_rom_block_ended);
             }
         }
         self.cur_game_card_word
@@ -156,13 +168,13 @@ impl Cartridge {
 }
 
 impl HW {
-    pub fn on_rom_word_transfered(&mut self, _event: Event) {
+    fn on_rom_word_transfered(&mut self, _event: Event) {
         self.cartridge.cur_game_card_word = self.cartridge.game_card_words.pop_front().unwrap();
         self.cartridge.romctrl.data_word_ready = true;
         self.run_dmas(DMAOccasion::DSCartridge);
     }
 
-    pub fn on_rom_block_ended(&mut self, event: Event) {
+    fn on_rom_block_ended(&mut self, event: Event) {
         let is_arm9 = match event {
             Event::ROMBlockEnded(is_arm9) => is_arm9,
             _ => unreachable!(),
