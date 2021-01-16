@@ -205,6 +205,14 @@ impl HW {
         );
     }
 
+    pub fn on_vblank(&mut self, _event: Event) {
+        self.run_dmas(DMAOccasion::VBlank);
+        // TODO: Render using multiple threads
+        if self.gpu.powcnt1.contains(POWCNT1::ENABLE_3D_RENDERING) {
+            self.gpu.engine3d.render(&self.gpu.vram)
+        }
+    }
+
     pub fn check_dispstats<F>(&mut self, check: &mut F) where F: FnMut(&mut DISPSTAT, &mut InterruptController) {
         for i in 0..2 { check(&mut self.gpu.dispstats[i], &mut self.interrupts[i]) }
     }

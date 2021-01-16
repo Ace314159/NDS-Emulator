@@ -3,12 +3,7 @@ use std::hash::Hash;
 
 use priority_queue::PriorityQueue;
 
-use super::{
-    dma::DMAOccasion,
-    gpu::POWCNT1,
-    spu,
-    HW
-};
+use super::{HW, spu};
 
 impl HW {
     pub fn handle_events(&mut self, arm7_cycles: usize) {
@@ -23,12 +18,7 @@ impl HW {
             Event::DMA(_, _) => self.on_dma(event),
             Event::StartNextLine => self.start_next_line(event),
             Event::HBlank => self.on_hblank(event),
-            Event::VBlank => {
-                self.run_dmas(DMAOccasion::VBlank);
-                if self.gpu.powcnt1.contains(POWCNT1::ENABLE_3D_RENDERING) {
-                    self.gpu.engine3d.render(&self.gpu.vram)
-                }
-            },
+            Event::VBlank => self.on_vblank(event),
             Event::TimerOverflow(_, _) => self.on_timer_overflow(event),
             Event::ROMWordTransfered => self.on_rom_word_transfered(event),
             Event::ROMBlockEnded(_) => self.on_rom_block_ended(event),
