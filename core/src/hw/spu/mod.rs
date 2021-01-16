@@ -1,10 +1,11 @@
 mod registers;
 mod audio;
 
-pub use registers::Format;
-
-use super::{Event, Scheduler};
-use crate::hw::mmu::IORegister;
+use super::{
+    HW,
+    mmu::IORegister,
+    scheduler::{Event, Scheduler},
+};
 
 use registers::*;
 use audio::Audio;
@@ -75,9 +76,7 @@ impl SPU {
         (mixer, ch1, ch3)
     }
 
-    pub fn generate_sample(&mut self, scheduler: &mut Scheduler) {
-        scheduler.schedule(Event::GenerateAudioSample, self.clocks_per_sample);
-
+    pub fn generate_sample(&mut self) {
         let (mixer, ch1, ch3) = self.generate_mixer();
         let left_sample = match self.cnt.left_output {
             ChannelOutput::Mixer => mixer.0,
@@ -180,6 +179,138 @@ impl IORegister for SPU {
             0x508 ..= 0x509 => self.captures[addr & 0x1].write_cnt(value),
             0x510 ..= 0x51F => self.captures[addr >> 3 & 0x1].write(addr & 0x7, value),
             _ => warn!("Ignoring SPU Register Write at 0x04000{:03X}", addr)
+        }
+    }
+}
+
+impl HW {
+    pub fn generate_audio_sample(&mut self, _event: Event) {
+        self.scheduler.schedule(Event::GenerateAudioSample, self.spu.clocks_per_sample);
+        self.spu.generate_sample();
+    }
+
+    pub fn step_audio_channel(&mut self, event: Event) {
+        let channel_spec = match event {
+            Event::StepAudioChannel(channel_spec) => channel_spec,
+            _ => unreachable!(),
+        };
+        match channel_spec {
+            // TODO: Figure out how to avoid code duplication
+            // TODO: Use SPU FIFO
+            ChannelSpec::Base(num) => {
+                let format = self.spu.base_channels[num].format();
+                match format {
+                    Format::PCM8 => {
+                        let (addr, reset) = self.spu.base_channels[num].next_addr_pcm::<u8>();
+                        self.spu.base_channels[num].schedule(&mut self.scheduler, reset);
+                        let sample = self.arm7_read::<u8>(addr);
+                        self.spu.base_channels[num].set_sample(sample);
+                    },
+                    Format::PCM16 => {
+                        let (addr, reset) = self.spu.base_channels[num].next_addr_pcm::<u16>();
+                        self.spu.base_channels[num].schedule(&mut self.scheduler, reset);
+                        let sample = self.arm7_read::<u16>(addr);
+                        self.spu.base_channels[num].set_sample(sample);
+                    },
+                    Format::ADPCM => {
+                        let reset = if let Some(addr) = self.spu.base_channels[num].initial_adpcm_addr() {
+                            let value = self.arm7_read::<u32>(addr);
+                            self.spu.base_channels[num].set_initial_adpcm(value);
+                            false
+                        } else {
+                            let (addr, reset) = self.spu.base_channels[num].next_addr_adpcm();
+                            let value = self.arm7_read(addr);
+                            self.spu.base_channels[num].set_adpcm_data(value);
+                            reset
+                        };
+                        self.spu.base_channels[num].schedule(&mut self.scheduler, reset);
+                    },
+                    _ => todo!(),
+                }
+                if let Some((addr, capture_i, use_pcm8)) = self.spu.capture_addr(num) {
+                    if use_pcm8 {
+                        let value = self.spu.capture_data(capture_i);
+                        self.arm7_write::<u8>(addr, value);
+                    } else {
+                        let value = self.spu.capture_data(capture_i);
+                        self.arm7_write::<u16>(addr, value);
+                    }
+                }
+            },
+            ChannelSpec::PSG(num) => {
+                let format = self.spu.psg_channels[num].format();
+                match format {
+                    Format::PCM8 => {
+                        let (addr, reset) = self.spu.psg_channels[num].next_addr_pcm::<u8>();
+                        self.spu.psg_channels[num].schedule(&mut self.scheduler, reset);
+                        let sample = self.arm7_read::<u8>(addr);
+                        self.spu.psg_channels[num].set_sample(sample);
+                    },
+                    Format::PCM16 => {
+                        let (addr, reset) = self.spu.psg_channels[num].next_addr_pcm::<u16>();
+                        self.spu.psg_channels[num].schedule(&mut self.scheduler, reset);
+                        let sample = self.arm7_read::<u16>(addr);
+                        self.spu.psg_channels[num].set_sample(sample);
+                    },
+                    Format::ADPCM => {
+                        let reset = if let Some(addr) = self.spu.psg_channels[num].initial_adpcm_addr() {
+                            let value = self.arm7_read::<u32>(addr);
+                            self.spu.psg_channels[num].set_initial_adpcm(value);
+                            false
+                        } else {
+                            let (addr, reset) = self.spu.psg_channels[num].next_addr_adpcm();
+                            let value = self.arm7_read(addr);
+                            self.spu.psg_channels[num].set_adpcm_data(value);
+                            reset
+                        };
+                        self.spu.psg_channels[num].schedule(&mut self.scheduler, reset);
+                    },
+                    _ => todo!(),
+                }
+            },
+            ChannelSpec::Noise(num) => {
+                let format = self.spu.noise_channels[num].format();
+                match format {
+                    Format::PCM8 => {
+                        let (addr, reset) = self.spu.noise_channels[num].next_addr_pcm::<u8>();
+                        self.spu.noise_channels[num].schedule(&mut self.scheduler, reset);
+                        let sample = self.arm7_read::<u8>(addr);
+                        self.spu.noise_channels[num].set_sample(sample);
+                    },
+                    Format::PCM16 => {
+                        let (addr, reset) = self.spu.noise_channels[num].next_addr_pcm::<u16>();
+                        self.spu.noise_channels[num].schedule(&mut self.scheduler, reset);
+                        let sample = self.arm7_read::<u16>(addr);
+                        self.spu.noise_channels[num].set_sample(sample);
+                    },
+                    Format::ADPCM => {
+                        let reset = if let Some(addr) = self.spu.noise_channels[num].initial_adpcm_addr() {
+                            let value = self.arm7_read::<u32>(addr);
+                            self.spu.noise_channels[num].set_initial_adpcm(value);
+                            false
+                        } else {
+                            let (addr, reset) = self.spu.noise_channels[num].next_addr_adpcm();
+                            let value = self.arm7_read(addr);
+                            self.spu.noise_channels[num].set_adpcm_data(value);
+                            reset
+                        };
+                        self.spu.noise_channels[num].schedule(&mut self.scheduler, reset);
+                    },
+                    _ => todo!(),
+                }
+            },
+        }
+    }
+
+    pub fn reset_audio_channel(&mut self, event: Event) {
+        let channel_spec = match event {
+            Event::ResetAudioChannel(channel_spec) => channel_spec,
+            _ => unreachable!(),
+        };
+        match channel_spec {
+            ChannelSpec::Base(num) => self.spu.base_channels[num].reset_sample(),
+            ChannelSpec::PSG(num) => self.spu.psg_channels[num].reset_sample(),
+            ChannelSpec::Noise(num) => self.spu.noise_channels[num].reset_sample(),
         }
     }
 }
