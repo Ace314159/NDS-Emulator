@@ -45,6 +45,7 @@ pub struct HW {
     spu: SPU,
     keypad: Keypad,
     interrupts: [InterruptController; 2],
+    in_dma: bool,
     dmas: [DMAController; 2],
     dma_fill: [u32; 4],
     timers: [Timers; 2],
@@ -89,6 +90,7 @@ impl HW {
             spu: SPU::new(&mut scheduler),
             keypad: Keypad::new(),
             interrupts: [InterruptController::new(), InterruptController::new()],
+            in_dma: false,
             dmas: [DMAController::new(false), DMAController::new(true)],
             dma_fill: [0; 4],
             timers: [Timers::new(false), Timers::new(true)],
@@ -111,10 +113,7 @@ impl HW {
 
     pub fn clock(&mut self, arm7_cycles: usize) {
         self.handle_events(arm7_cycles);
-        if self.gpu.powcnt1.contains(gpu::POWCNT1::ENABLE_3D_GEOMETRY) &&
-            self.gpu.engine3d.clock(&mut self.interrupts[1].request) {
-            self.run_dmas(DMAOccasion::GeometryCommandFIFO)
-        }
+        self.gpu.engine3d.check_interrupts(&mut self.interrupts[1].request);
     }
 
     pub fn arm7_interrupts_requested(&mut self) -> bool {

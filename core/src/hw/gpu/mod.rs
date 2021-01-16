@@ -213,7 +213,12 @@ impl HW {
         self.run_dmas(DMAOccasion::VBlank);
         // TODO: Render using multiple threads
         if self.gpu.powcnt1.contains(POWCNT1::ENABLE_3D_RENDERING) {
-            self.gpu.engine3d.render(&self.gpu.vram)
+            self.gpu.engine3d.render(&self.gpu.vram);
+            
+            self.gpu.engine3d.exec_commands();
+            if self.gpu.engine3d.should_run_fifo() {
+                self.run_dmas(DMAOccasion::GeometryCommandFIFO);
+            }
         }
     }
 

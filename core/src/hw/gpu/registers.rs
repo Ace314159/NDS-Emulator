@@ -13,7 +13,7 @@ bitflags! {
         const ENABLE_LCDS = 1 << 0;
         const ENABLE_ENGINE_A = 1 << 1;
         const ENABLE_3D_RENDERING = 1 << 2;
-        const ENABLE_3D_GEOMETRY = 1 << 3;
+        const ENABLE_3D_GEOMETRY = 1 << 3; // TODO: Check what this affects
         const ENABLE_ENGINE_B = 1 << 9;
         const TOP_A = 1 << 15;
     }

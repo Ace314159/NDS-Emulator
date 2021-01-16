@@ -172,6 +172,7 @@ impl HW {
     }
 
     pub fn run_dmas(&mut self, occasion: DMAOccasion) {
+        self.in_dma = true;
         let mut events = Vec::new();
         for dma in self.dmas.iter() {
             for num in dma.by_type[occasion as usize].iter() {
@@ -179,6 +180,7 @@ impl HW {
             }
         }
         for event in events.drain(..) { self.on_dma(event) }
+        self.in_dma = false;
     }
 }
 

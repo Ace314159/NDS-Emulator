@@ -135,20 +135,7 @@ impl Engine3D {
         }
     }
 
-    pub fn clock(&mut self, interrupts: &mut InterruptRequest) -> bool {
-        self.check_interrupts(interrupts);
-        if self.polygons_submitted {
-            false
-        } else {
-            while let Some(entry) = self.gxfifo.pop_front() {
-                self.exec_command(entry);
-                if self.polygons_submitted { break }
-            }
-            self.gxfifo.len() < Engine3D::FIFO_LEN / 2
-        }
-    }
-
-    fn check_interrupts(&self, interrupts: &mut InterruptRequest) {
+    pub fn check_interrupts(&self, interrupts: &mut InterruptRequest) {
         if match self.gxstat.command_fifo_irq {
             CommandFifoIRQ::Never => false,
             CommandFifoIRQ::LessHalf => self.gxfifo.len() < Engine3D::FIFO_LEN / 2,

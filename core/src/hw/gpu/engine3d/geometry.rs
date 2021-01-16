@@ -1,18 +1,36 @@
-use super::Engine3D;
-use super::math::{FixedPoint, Vec4, Matrix};
-use super::registers::*;
+use super::{
+    Engine3D,
+    math::{FixedPoint, Vec4, Matrix},
+    registers::*,
+};
 
 
 impl Engine3D {
+    pub fn should_run_fifo(&self) -> bool {
+        !self.polygons_submitted && self.gxfifo.len() < Engine3D::FIFO_LEN / 2
+    }
+
     fn push_geometry_command(&mut self, command: GeometryCommand, param: u32) {
         let entry = GeometryCommandEntry::new(command, param);
         self.gxfifo.push_back(entry);
+        self.exec_commands();
+    }
+
+    pub fn exec_commands(&mut self) {
+        if !self.polygons_submitted {
+            while let Some(entry) = self.gxfifo.pop_front() {
+                self.exec_command(entry);
+                if self.polygons_submitted { break }
+            }
+        }
         self.bus_stalled = self.gxfifo.len() >= Engine3D::FIFO_LEN;
     }
 
-    pub fn exec_command(&mut self, command_entry: GeometryCommandEntry) {
-        self.gxstat.geometry_engine_busy = false;
-        self.bus_stalled = false;
+    fn exec_command(&mut self, command_entry: GeometryCommandEntry) {
+        if self.gxfifo.len() < Engine3D::FIFO_LEN {
+            self.gxstat.geometry_engine_busy = false;
+            self.bus_stalled = false;
+        }
         self.params.push(command_entry.param);
         if self.params.len() < command_entry.command.num_params() {
             if self.params.len() > 1 { assert_eq!(self.prev_command, command_entry.command) }
