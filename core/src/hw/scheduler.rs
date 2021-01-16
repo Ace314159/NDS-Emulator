@@ -5,7 +5,6 @@ use priority_queue::PriorityQueue;
 
 use super::{
     dma::DMAOccasion,
-    interrupt_controller::InterruptRequest,
     gpu::POWCNT1,
     spu,
     HW
@@ -31,13 +30,8 @@ impl HW {
                 }
             },
             Event::TimerOverflow(_, _) => self.on_timer_overflow(event),
-            Event::ROMWordTransfered => {
-                self.cartridge.update_word();
-                self.run_dmas(DMAOccasion::DSCartridge);
-            },
-            Event::ROMBlockEnded(is_arm9) => if self.cartridge.end_block() {
-                self.interrupts[(is_arm9) as usize].request |= InterruptRequest::GAME_CARD_TRANSFER_COMPLETION;
-            },
+            Event::ROMWordTransfered => self.on_rom_word_transfered(event),
+            Event::ROMBlockEnded(_) => self.on_rom_block_ended(event),
             Event::GenerateAudioSample => self.spu.generate_sample(&mut self.scheduler),
             Event::StepAudioChannel(channel_spec) => match channel_spec {
                 // TODO: Figure out how to avoid code duplication

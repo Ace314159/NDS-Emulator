@@ -6,7 +6,12 @@ use std::collections::VecDeque;
 use std::ops::Range;
 use std::path::PathBuf;
 
-use super::scheduler::{Event, Scheduler};
+use super::{
+    HW,
+    scheduler::{Event, Scheduler},
+    dma::DMAOccasion,
+    interrupt_controller::InterruptRequest,
+};
 
 use header::Header;
 
@@ -104,16 +109,6 @@ impl Cartridge {
         }
     }
 
-    pub fn update_word(&mut self) {
-        self.cur_game_card_word = self.game_card_words.pop_front().unwrap();
-        self.romctrl.data_word_ready = true;
-    }
-
-    pub fn end_block(&mut self) -> bool {
-        self.romctrl.block_busy = false;
-        self.spicnt.transfer_ready_irq
-    }
-
     pub fn read_gamecard(&mut self, scheduler: &mut Scheduler, is_arm9: bool, has_access: bool) -> u32 {
         if !has_access { warn!("No Read Access from Game Card Command"); return 0 }
         if self.romctrl.data_word_ready {
@@ -158,6 +153,25 @@ impl Cartridge {
     pub fn save_backup(&mut self) { self.backup.save() }
 
     fn transfer_byte_time(&self) -> usize { if self.romctrl.transfer_clk_rate { 8 } else { 5 } }
+}
+
+impl HW {
+    pub fn on_rom_word_transfered(&mut self, _event: Event) {
+        self.cartridge.cur_game_card_word = self.cartridge.game_card_words.pop_front().unwrap();
+        self.cartridge.romctrl.data_word_ready = true;
+        self.run_dmas(DMAOccasion::DSCartridge);
+    }
+
+    pub fn on_rom_block_ended(&mut self, event: Event) {
+        let is_arm9 = match event {
+            Event::ROMBlockEnded(is_arm9) => is_arm9,
+            _ => unreachable!(),
+        };
+        self.cartridge.romctrl.block_busy = false;
+        if self.cartridge.spicnt.transfer_ready_irq {
+            self.interrupts[(is_arm9) as usize].request |= InterruptRequest::GAME_CARD_TRANSFER_COMPLETION;
+        }
+    }
 }
 
 pub struct SPICNT {
