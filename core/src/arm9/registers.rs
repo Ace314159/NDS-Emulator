@@ -1,27 +1,6 @@
 use bitflags::*;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Reg {
-    R0 = 0,
-    R1 = 1,
-    R2 = 2,
-    R3 = 3,
-    R4 = 4,
-    R5 = 5,
-    R6 = 6,
-    R7 = 7,
-    R8 = 8,
-    R9 = 9,
-    R10 = 10,
-    R11 = 11,
-    R12 = 12,
-    R13 = 13, // SP
-    R14 = 14, // LR
-    R15 = 15, // PC
-    CPSR,
-    SPSR,
-}
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Mode {
     USR = 0b10000,
     FIQ = 0b10001,
@@ -75,143 +54,118 @@ impl StatusReg {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RegValues {
-    usr: [u32; 15],
-    fiq: [u32; 7],
-    svc: [u32; 2],
-    abt: [u32; 2],
-    irq: [u32; 2],
-    und: [u32; 2],
-    pub pc: u32,
+    regs: [u32; 16],
+    usr: [u32; 2], // R13 and R14
+    svc: [u32; 2], // R13 and R14
+    irq: [u32; 2], // R13 and R14
     cpsr: StatusReg,
-    spsr: [StatusReg; 5],
+    spsr: [StatusReg; 2], // SVC and IRQ
 }
 
 impl RegValues {
     pub fn new() -> RegValues {
         RegValues {
-            usr: [0; 15],
-            fiq: [0; 7],
-            abt: [0; 2],
-            svc: [0; 2],
-            irq: [0; 2],
-            und: [0; 2],
-            pc: 0,
+            regs: [0; 16],
+            usr: [0; 2], // R13 and R14
+            svc: [0; 2], // R13 and R14
+            irq: [0; 2], // R13 and R14
             cpsr: StatusReg::reset(),
-            spsr: [StatusReg::reset(); 5],
+            spsr: [StatusReg::reset(); 2], // SVC and IRQ
         }
     }
 
     pub fn no_bios(pc: u32) -> RegValues {
         let mut reg_values = RegValues::new();
-        reg_values.usr[12] = pc;
-        reg_values.usr[13] = 0x03003FC0;
+        reg_values.regs[12] = pc;
+        reg_values.regs[13] = 0x03003FC0;
+        reg_values.regs[15] = pc;
         reg_values.irq[0] = 0x03003F80; // R13
         reg_values.svc[0] = 0x03002F7C; // R13
         reg_values.svc[1] = pc; // R14
-        reg_values.pc = pc;
         reg_values.cpsr.bits = 0xD3;
         reg_values
     }
 
-    pub fn get_reg(&self, reg: Reg) -> u32 {
-        let mode = self.cpsr.get_mode();
-        use Reg::*;
-        match reg {
-            R0 | R1 | R2 | R3 | R4 | R5 | R6 | R7 => self.usr[reg as usize],
-            R8 | R9 | R10 | R11 | R12 => match mode {
-                Mode::FIQ => self.fiq[reg as usize - 8],
-                _ => self.usr[reg as usize],
-            },
-            R13 | R14 => match mode {
-                Mode::FIQ => self.fiq[reg as usize - 8],
-                Mode::SVC => self.svc[reg as usize - 13],
-                Mode::ABT => self.abt[reg as usize - 13],
-                Mode::IRQ => self.irq[reg as usize - 13],
-                Mode::UND => self.und[reg as usize - 13],
-                _ => self.usr[reg as usize],
-            },
-            R15 => self.pc,
-            CPSR => self.cpsr.bits,
-            SPSR => match mode {
-                Mode::FIQ => self.spsr[0].bits(),
-                Mode::SVC => self.spsr[1].bits(),
-                Mode::ABT => self.spsr[2].bits(),
-                Mode::IRQ => self.spsr[3].bits(),
-                Mode::UND => self.spsr[4].bits(),
-                _ => self.cpsr.bits(),
-            },
-        }
+    pub fn change_mode(&mut self, mode: Mode) {
+        self.save_banked();
+        let cpsr = self.cpsr();
+        self.cpsr.set_mode(mode);
+        self.load_banked(mode);
+        *self.spsr_mut() = cpsr;
     }
 
-    pub fn set_reg(&mut self, reg: Reg, value: u32) {
-        let mode = self.cpsr.get_mode();
-        use Reg::*;
-        match reg {
-            R0 | R1 | R2 | R3 | R4 | R5 | R6 | R7 => self.usr[reg as usize] = value,
-            R8 | R9 | R10 | R11 | R12 => match mode {
-                Mode::FIQ => self.fiq[reg as usize - 8] = value,
-                _ => self.usr[reg as usize] = value,
-            },
-            R13 | R14 => match mode {
-                Mode::FIQ => self.fiq[reg as usize - 8] = value,
-                Mode::SVC => self.svc[reg as usize - 13] = value,
-                Mode::ABT => self.abt[reg as usize - 13] = value,
-                Mode::IRQ => self.irq[reg as usize - 13] = value,
-                Mode::UND => self.und[reg as usize - 13] = value,
-                _ => self.usr[reg as usize] = value,
-            },
-            R15 => self.pc = value,
-            CPSR => self.cpsr.bits = value,
-            SPSR => match mode {
-                Mode::FIQ => self.spsr[0] = StatusReg::from_bits(value).unwrap(),
-                Mode::SVC => self.spsr[1] = StatusReg::from_bits(value).unwrap(),
-                Mode::ABT => self.spsr[2] = StatusReg::from_bits(value).unwrap(),
-                Mode::IRQ => self.spsr[3] = StatusReg::from_bits(value).unwrap(),
-                Mode::UND => self.spsr[4] = StatusReg::from_bits(value).unwrap(),
-                _ => (),
-            },
-        }
+    pub fn set_mode(&mut self, mode: Mode) {
+        self.save_banked();
+        self.cpsr.set_mode(mode);
+        self.load_banked(mode);
     }
 
     pub fn restore_cpsr(&mut self) {
-        self.cpsr.bits = self.get_reg(Reg::SPSR);
+        self.save_banked();
+        self.cpsr.bits = self.spsr();
+        self.load_banked(self.cpsr.get_mode());
     }
 
-    pub fn get_reg_i(&self, reg: u32) -> u32 {
-        self.get_reg(self.get_reg_from_u32(reg))
-    }
-
-    pub fn set_reg_i(&mut self, reg: u32, value: u32) {
-        self.set_reg(self.get_reg_from_u32(reg), value);
-    }
-
-    fn get_reg_from_u32(&self, reg: u32) -> Reg {
-        use Reg::*;
-        match reg {
-            0 => R0,
-            1 => R1,
-            2 => R2,
-            3 => R3,
-            4 => R4,
-            5 => R5,
-            6 => R6,
-            7 => R7,
-            8 => R8,
-            9 => R9,
-            10 => R10,
-            11 => R11,
-            12 => R12,
-            13 => R13,
-            14 => R14,
-            15 => R15,
-            _ => unreachable!(),
+    pub fn save_banked(&mut self) {
+        match self.cpsr.get_mode() {
+            Mode::USR | Mode::SYS  => self.usr.copy_from_slice(&self.regs[13..15]),
+            Mode::SVC => self.svc.copy_from_slice(&self.regs[13..15]),
+            Mode::IRQ => self.irq.copy_from_slice(&self.regs[13..15]),
+            _ => unreachable!(), // Unused modes (hopefully)
         }
     }
 
-    pub fn change_mode(&mut self, mode: Mode) {
-        let cpsr = self.get_reg(Reg::CPSR);
-        self.set_mode(mode);
-        self.set_reg(Reg::SPSR, cpsr);
+    pub fn load_banked(&mut self, mode: Mode) {
+        assert_eq!(self.cpsr.get_mode(), mode);
+        let banked = match mode {
+            Mode::USR | Mode::SYS => &self.usr,
+            Mode::SVC => &self.svc,
+            Mode::IRQ => &self.irq,
+            _ => unreachable!(), // Unused modes (hopefully)
+        };
+        self.regs[13..15].copy_from_slice(banked);
+    }
+
+    pub fn spsr(&self) -> u32 {
+        match self.cpsr.get_mode() {
+            Mode::SVC => self.spsr[0].bits,
+            Mode::IRQ => self.spsr[1].bits,
+            Mode::FIQ | Mode::ABT | Mode::UND => unreachable!(), // Unused modes (hopefully)
+            _ => self.cpsr.bits,
+        }
+    }
+
+    pub fn spsr_mut(&mut self) -> &mut u32 {
+        match self.cpsr.get_mode() {
+            Mode::SVC => &mut self.spsr[0].bits,
+            Mode::IRQ => &mut self.spsr[1].bits,
+            Mode::FIQ | Mode::ABT | Mode::UND => unreachable!(), // Unused modes (hopefully)
+            _ => &mut self.cpsr.bits,
+        }
+    }
+
+    pub fn cpsr(&self) -> u32 {
+        self.cpsr.bits
+    }
+
+    pub fn cpsr_mut(&mut self) -> &mut u32 {
+        &mut self.cpsr.bits
+    }
+
+    pub fn sp(&self) -> u32{
+        self.regs[13]
+    }
+
+    pub fn set_sp(&mut self, value: u32) {
+        self.regs[13] = value;
+    }
+
+    pub fn lr(&self) -> u32 {
+        self.regs[14]
+    }
+
+    pub fn set_lr(&mut self, value: u32) {
+        self.regs[14] = value;
     }
 
     pub fn _get_n(&self) -> bool { self.cpsr.contains(StatusReg::N) }
@@ -232,5 +186,19 @@ impl RegValues {
     pub fn set_i(&mut self, value: bool) { self.cpsr.set(StatusReg::I, value) }
     pub fn _set_f(&mut self, value: bool) { self.cpsr.set(StatusReg::F, value) }
     pub fn set_t(&mut self, value: bool) { self.cpsr.set(StatusReg::T, value) }
-    pub fn set_mode(&mut self, mode: Mode) { self.cpsr.set_mode(mode) }
+    //fn set_mode(&mut self, mode: Mode) { self.cpsr.set_mode(mode) }
+}
+
+impl std::ops::Index<u32> for RegValues {
+    type Output = u32;
+
+    fn index(&self, index: u32) -> &Self::Output {
+        &self.regs[index as usize]
+    }
+}
+
+impl std::ops::IndexMut<u32> for RegValues {
+    fn index_mut(&mut self, index: u32) -> &mut Self::Output {
+        &mut self.regs[index as usize]
+    }
 }

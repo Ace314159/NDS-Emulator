@@ -6,7 +6,7 @@ mod registers;
 
 use crate::num;
 use crate::hw::{AccessType, HW, MemoryValue};
-use registers::{Mode, Reg, RegValues};
+use registers::{Mode, RegValues};
 
 pub struct ARM9 {
     cycles_spent: usize,
@@ -59,7 +59,7 @@ impl ARM9 {
 
     pub fn instruction_prefetch<T: MemoryValue>(&mut self, hw: &mut HW, access_type: AccessType) {
         // Internal Cycle merges with instruction prefetch
-        self.instr_buffer[1] = num::cast::<T, u32>(self.read::<T>(hw, access_type, self.regs.pc)).unwrap();
+        self.instr_buffer[1] = num::cast::<T, u32>(self.read::<T>(hw, access_type, self.regs[15])).unwrap();
         self.do_internal = false;
     }
 
@@ -73,16 +73,16 @@ impl ARM9 {
         hw.cp15.arm9_halted = false;
         self.regs.change_mode(Mode::IRQ);
         let lr = if self.regs.get_t() {
-            self.read::<u16>(hw, AccessType::N, self.regs.pc);
-            self.regs.pc.wrapping_sub(2).wrapping_add(4)
+            self.read::<u16>(hw, AccessType::N, self.regs[15]);
+            self.regs[15].wrapping_sub(2).wrapping_add(4)
         } else {
-            self.read::<u32>(hw, AccessType::N, self.regs.pc);
-            self.regs.pc.wrapping_sub(4).wrapping_add(4)
+            self.read::<u32>(hw, AccessType::N, self.regs[15]);
+            self.regs[15].wrapping_sub(4).wrapping_add(4)
         };
-        self.regs.set_reg(Reg::R14, lr);
+        self.regs.set_lr(lr);
         self.regs.set_t(false);
         self.regs.set_i(true);
-        self.regs.pc = hw.cp15.interrupt_base() | 0x18;
+        self.regs[15] = hw.cp15.interrupt_base() | 0x18;
         self.fill_arm_instr_buffer(hw);
     }
 

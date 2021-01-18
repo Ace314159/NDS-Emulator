@@ -1,36 +1,34 @@
 use super::{
     ARM9, HW,
     instructions::InstructionHandler,
-    registers::{Reg, Mode}
+    registers::Mode,
 };
 
 use crate::hw::AccessType;
 
 impl ARM9 {
     pub(super) fn fill_thumb_instr_buffer(&mut self, hw: &mut HW) {
-        self.regs.pc &= !0x1;
-        self.instr_buffer[0] = self.read::<u16>(hw, AccessType::S, self.regs.pc & !0x1) as u32;
-        self.regs.pc = self.regs.pc.wrapping_add(2);
+        self.regs[15] &= !0x1;
+        self.instr_buffer[0] = self.read::<u16>(hw, AccessType::S, self.regs[15] & !0x1) as u32;
+        self.regs[15] = self.regs[15].wrapping_add(2);
 
-        self.instr_buffer[1] = self.read::<u16>(hw, AccessType::S, self.regs.pc & !0x1) as u32;
+        self.instr_buffer[1] = self.read::<u16>(hw, AccessType::S, self.regs[15] & !0x1) as u32;
     }
 
     pub(super) fn emulate_thumb_instr(&mut self, hw: &mut HW) {
         let instr = self.instr_buffer[0] as u16;
         {
-            use Reg::*;
             trace!("{:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} \
             {:08X} {:08X} {:08X} {:08X} cpsr: {:08X} | {}",
-            self.regs.get_reg(R0), self.regs.get_reg(R1), self.regs.get_reg(R2), self.regs.get_reg(R3),
-            self.regs.get_reg(R4), self.regs.get_reg(R5), self.regs.get_reg(R6), self.regs.get_reg(R7),
-            self.regs.get_reg(R8), self.regs.get_reg(R9), self.regs.get_reg(R10), self.regs.get_reg(R11),
-            self.regs.get_reg(R12), self.regs.get_reg(R13), self.regs.get_reg(R14), self.regs.get_reg(R15),
-            self.regs.get_reg(CPSR), if instr & 0b1111_1000_0000_0000 == 0b1111_0000_0000_0000 {
+            self.regs[0], self.regs[1], self.regs[2], self.regs[3], self.regs[4], self.regs[5], self.regs[6],
+            self.regs[7], self.regs[8], self.regs[9], self.regs[10], self.regs[11], self.regs[12],
+            self.regs[13], self.regs[14], self.regs[15], self.regs.cpsr(),
+            if instr & 0b1111_1000_0000_0000 == 0b1111_0000_0000_0000 {
                 format!("{:04X}{:04X}", instr, self.instr_buffer[1])
             } else { format!("    {:04X}", instr) });
         }
         self.instr_buffer[0] = self.instr_buffer[1];
-        self.regs.pc = self.regs.pc.wrapping_add(2);
+        self.regs[15] = self.regs[15].wrapping_add(2);
 
         self.thumb_lut[(instr >> 8) as usize](self, hw, instr);
     }
@@ -40,14 +38,14 @@ impl ARM9 {
         assert_eq!(instr >> 13, 0b000);
         let opcode = (OP_H as u32) << 1 | (OP_L as u32);
         let offset = (instr >> 6 & 0x1F) as u32;
-        let src = self.regs.get_reg_i((instr >> 3 & 0x7) as u32);
+        let src = self.regs[(instr >> 3 & 0x7) as u32];
         let dest_reg = (instr & 0x7) as u32;
         assert_ne!(opcode, 0b11);
         let result = self.shift(opcode, src, offset, true, true);
 
         self.regs.set_n(result & 0x8000_0000 != 0);
         self.regs.set_z(result == 0);
-        self.regs.set_reg_i(dest_reg, result);
+        self.regs[dest_reg] = result;
         self.instruction_prefetch::<u16>(hw, AccessType::S);
     }
 
@@ -57,8 +55,8 @@ impl ARM9 {
         let immediate = I;
         let sub = SUB;
         let operand = (instr >> 6 & 0x7) as u32;
-        let operand = if immediate { operand } else { self.regs.get_reg_i(operand) };
-        let src = self.regs.get_reg_i((instr >> 3 & 0x7) as u32);
+        let operand = if immediate { operand } else { self.regs[operand] };
+        let src = self.regs[(instr >> 3 & 0x7) as u32];
         let dest_reg = (instr & 0x7) as u32;
 
         let result = if sub {
@@ -66,7 +64,7 @@ impl ARM9 {
         } else {
             self.add(src, operand, true)
         };
-        self.regs.set_reg_i(dest_reg, result);
+        self.regs[dest_reg] = result;
         self.instruction_prefetch::<u16>(hw, AccessType::S);
     }
 
@@ -77,7 +75,7 @@ impl ARM9 {
         let opcode = (OP_H as u8) << 1 | (OP_L as u8);
         let dest_reg = (RD2 as u8) << 2 | (RD1 as u8) << 1 | (RD0 as u8);
         let immediate = (instr & 0xFF) as u32;
-        let op1 = self.regs.get_reg_i(dest_reg as u32);
+        let op1 = self.regs[dest_reg as u32];
         let result = match opcode {
             0b00 => immediate, // MOV
             0b01 => self.sub(op1, immediate, true), // CMP
@@ -88,7 +86,7 @@ impl ARM9 {
         self.regs.set_z(result == 0);
         self.regs.set_n(result & 0x8000_0000 != 0);
 
-        if opcode != 0b01 { self.regs.set_reg_i(dest_reg as u32, result) }
+        if opcode != 0b01 { self.regs[dest_reg as u32] = result }
         self.instruction_prefetch::<u16>(hw, AccessType::S);
     }
 
@@ -97,9 +95,9 @@ impl ARM9 {
         assert_eq!(instr >> 10 & 0x3F, 0b010000);
         self.instruction_prefetch::<u16>(hw, AccessType::S);
         let opcode = instr >> 6 & 0xF;
-        let src = self.regs.get_reg_i((instr >> 3 & 0x7) as u32);
+        let src = self.regs[(instr >> 3 & 0x7) as u32];
         let dest_reg = (instr & 0x7) as u32;
-        let dest = self.regs.get_reg_i(dest_reg);
+        let dest = self.regs[dest_reg];
         let result = match opcode {
             0x0 => dest & src, // AND
             0x1 => dest ^ src, // XOR 
@@ -122,7 +120,7 @@ impl ARM9 {
         self.regs.set_n(result & 0x8000_0000 != 0);
         self.regs.set_z(result == 0);
 
-        if ![0x8, 0xA, 0xB].contains(&opcode) { self.regs.set_reg_i(dest_reg, result) }
+        if ![0x8, 0xA, 0xB].contains(&opcode) { self.regs[dest_reg] = result }
     }
 
     // THUMB.5: Hi register operations/branch exchange
@@ -132,9 +130,9 @@ impl ARM9 {
         let dest_reg_msb = instr >> 7 & 0x1;
         let src_reg_msb = instr >> 6 & 0x1;
         let src_reg = (src_reg_msb << 3 | instr >> 3 & 0x7) as u32;
-        let src = self.regs.get_reg_i(src_reg);
+        let src = self.regs[src_reg];
         let dest_reg = (dest_reg_msb << 3 | instr & 0x7) as u32;
-        let dest = self.regs.get_reg_i(dest_reg);
+        let dest = self.regs[dest_reg];
         let result = match opcode {
             0b00 => self.add(dest,src, false), // ADD
             0b01 => self.sub(dest, src, true), // CMP
@@ -144,14 +142,14 @@ impl ARM9 {
                 if dest_reg_msb != 0 { // BLX
                     assert_ne!(src_reg, 15);
                     // LR is PC + 3 (not PC + 2 because thumb bit)
-                    self.regs.set_reg(Reg::R14, self.regs.pc.wrapping_sub(1));
+                    self.regs.set_lr(self.regs[15].wrapping_sub(1));
                 }
-                self.regs.pc = src;
+                self.regs[15] = src;
                 if src & 0x1 != 0 {
-                    self.regs.pc = self.regs.pc & !0x1;
+                    self.regs[15] = self.regs[15] & !0x1;
                     self.fill_thumb_instr_buffer(hw);
                 } else {
-                    self.regs.pc = self.regs.pc & !0x2;
+                    self.regs[15] = self.regs[15] & !0x2;
                     self.regs.set_t(false);
                     self.fill_arm_instr_buffer(hw);
                 }
@@ -159,7 +157,7 @@ impl ARM9 {
             },
             _ => unreachable!(),
         };
-        if opcode & 0x1 == 0 { self.regs.set_reg_i(dest_reg, result) }
+        if opcode & 0x1 == 0 { self.regs[dest_reg] = result }
         if dest_reg == 15 {
             self.instruction_prefetch::<u16>(hw, AccessType::N);
             self.fill_thumb_instr_buffer(hw);
@@ -171,10 +169,10 @@ impl ARM9 {
         assert_eq!(instr >> 11, 0b01001);
         let dest_reg = (RD2 as u32) << 2 | (RD1 as u32) << 1 | (RD0 as u32);
         let offset = (instr & 0xFF) as u32;
-        let addr = (self.regs.pc & !0x2).wrapping_add(offset * 4);
+        let addr = (self.regs[15] & !0x2).wrapping_add(offset * 4);
         self.instruction_prefetch::<u16>(hw, AccessType::N);
         let value = self.read::<u32>(hw, AccessType::N, addr & !0x3).rotate_right((addr & 0x3) * 8);
-        self.regs.set_reg_i(dest_reg, value);
+        self.regs[dest_reg] = value;
         self.internal();
     }
 
@@ -185,7 +183,7 @@ impl ARM9 {
         assert_eq!(instr >> 9 & 0x1, 0);
         let offset_reg = (instr >> 6 & 0x7) as u32;
         let base_reg = (instr >> 3 & 0x7) as u32;
-        let addr = self.regs.get_reg_i(base_reg).wrapping_add(self.regs.get_reg_i(offset_reg));
+        let addr = self.regs[base_reg].wrapping_add(self.regs[offset_reg]);
         let src_dest_reg = (instr & 0x7) as u32;
         self.instruction_prefetch::<u16>(hw, AccessType::N);
         if opcode & 0b10 != 0 { // Load
@@ -194,13 +192,13 @@ impl ARM9 {
             } else {
                 self.read::<u32>(hw, AccessType::S, addr & !0x3).rotate_right((addr & 0x3) * 8) // LDR
             };
-            self.regs.set_reg_i(src_dest_reg, value);
+            self.regs[src_dest_reg] = value;
             self.internal();
         } else { // Store
             if opcode & 0b01 != 0 { // STRB
-                self.write::<u8>(hw, AccessType::N, addr, self.regs.get_reg_i(src_dest_reg) as u8);
+                self.write::<u8>(hw, AccessType::N, addr, self.regs[src_dest_reg] as u8);
             } else { // STR
-                self.write::<u32>(hw, AccessType::N, addr & !0x3, self.regs.get_reg_i(src_dest_reg));
+                self.write::<u32>(hw, AccessType::N, addr & !0x3, self.regs[src_dest_reg]);
             }
         }
     }
@@ -213,11 +211,11 @@ impl ARM9 {
         let offset_reg = (instr >> 6 & 0x7) as u32;
         let base_reg = (instr >> 3 & 0x7) as u32;
         let src_dest_reg = (instr & 0x7) as u32;
-        let addr = self.regs.get_reg_i(base_reg).wrapping_add(self.regs.get_reg_i(offset_reg));
+        let addr = self.regs[base_reg].wrapping_add(self.regs[offset_reg]);
 
         self.instruction_prefetch::<u16>(hw, AccessType::N);
         if opcode == 0 { // STRH
-            self.write::<u16>(hw, AccessType::N, addr & !0x1, self.regs.get_reg_i(src_dest_reg) as u16);
+            self.write::<u16>(hw, AccessType::N, addr & !0x1, self.regs[src_dest_reg] as u16);
         } else { // Load
             let value = match opcode {
                 1 => self.read::<u8>(hw, AccessType::S, addr) as i8 as u32,
@@ -225,7 +223,7 @@ impl ARM9 {
                 3 => self.read::<u16>(hw, AccessType::S, addr & !0x1) as i16 as u32,
                 _ => unreachable!()
             };
-            self.regs.set_reg_i(src_dest_reg, value);
+            self.regs[src_dest_reg] = value;
             self.internal();
         }
     }
@@ -236,7 +234,7 @@ impl ARM9 {
         let byte = B;
         let load = H;
         let offset = (instr >> 6 & 0x1F) as u32;
-        let base = self.regs.get_reg_i((instr >> 3 & 0x7) as u32);
+        let base = self.regs[(instr >> 3 & 0x7) as u32];
         let src_dest_reg = (instr & 0x7) as u32;
 
         self.instruction_prefetch::<u16>(hw, AccessType::N);
@@ -249,10 +247,10 @@ impl ARM9 {
                 let addr = base.wrapping_add(offset << 2);
                 self.read::<u32>(hw, AccessType::S, addr & !0x3).rotate_right((addr & 0x3) * 8)
             };
-            self.regs.set_reg_i(src_dest_reg, value);
+            self.regs[src_dest_reg] = value;
             self.internal();
         } else {
-            let value = self.regs.get_reg_i(src_dest_reg);
+            let value = self.regs[src_dest_reg];
             // Is access width 1? Probably not, could be just bug in prev version
             if byte {
                 self.write::<u8>(hw, AccessType::N, base.wrapping_add(offset), value as u8);
@@ -267,17 +265,17 @@ impl ARM9 {
         assert_eq!(instr >> 12, 0b1000);
         let load = L;
         let offset = (instr >> 6 & 0x1F) as u32;
-        let base = self.regs.get_reg_i((instr >> 3 & 0x7) as u32);
+        let base = self.regs[(instr >> 3 & 0x7) as u32];
         let src_dest_reg = (instr & 0x7) as u32;
         let addr = base + offset * 2;
 
         self.instruction_prefetch::<u16>(hw, AccessType::N);
         if load {
             let value = self.read::<u16>(hw, AccessType::S, addr & !0x1) as u32;
-            self.regs.set_reg_i(src_dest_reg, value);
+            self.regs[src_dest_reg] = value;
             self.internal();
         } else {
-            self.write::<u16>(hw, AccessType::N, addr & !0x1, self.regs.get_reg_i(src_dest_reg) as u16);
+            self.write::<u16>(hw, AccessType::N, addr & !0x1, self.regs[src_dest_reg] as u16);
         }
     }
 
@@ -288,14 +286,14 @@ impl ARM9 {
         let load = L;
         let src_dest_reg = (RD2 as u32) << 2 | (RD1 as u32) << 1 | (RD0 as u32);
         let offset = (instr & 0xFF) * 4;
-        let addr = self.regs.get_reg(Reg::R13).wrapping_add(offset as u32);
+        let addr = self.regs.sp().wrapping_add(offset as u32);
         self.instruction_prefetch::<u16>(hw, AccessType::N);
         if load {
             let value = self.read::<u32>(hw, AccessType::S, addr & !0x3).rotate_right((addr & 0x3) * 8);
-            self.regs.set_reg_i(src_dest_reg, value);
+            self.regs[src_dest_reg] = value;
             self.internal();
         } else {
-            self.write::<u32>(hw, AccessType::N, addr & !0x3, self.regs.get_reg_i(src_dest_reg));
+            self.write::<u32>(hw, AccessType::N, addr & !0x3, self.regs[src_dest_reg]);
         }
     }
 
@@ -304,13 +302,13 @@ impl ARM9 {
         (&mut self, hw: &mut HW, instr: u16) {
         assert_eq!(instr >> 12 & 0xF, 0b1010);
         let src = if SP { // SP
-            self.regs.get_reg(Reg::R13)
+            self.regs.sp()
         } else { // PC
-            self.regs.pc & !0x2
+            self.regs[15] & !0x2
         };
         let dest_reg = (RD2 as u32) << 2 | (RD1 as u32) << 1 | (RD0 as u32);
         let offset = (instr & 0xFF) as u32;
-        self.regs.set_reg_i(dest_reg, src.wrapping_add(offset * 4));
+        self.regs[dest_reg] = src.wrapping_add(offset * 4);
         self.instruction_prefetch::<u16>(hw, AccessType::S);
     }
 
@@ -319,9 +317,9 @@ impl ARM9 {
         assert_eq!(instr >> 8 & 0xFF, 0b10110000);
         let sub = instr >> 7 & 0x1 != 0;
         let offset = ((instr & 0x7F) * 4) as u32;
-        let sp = self.regs.get_reg(Reg::R13);
+        let sp = self.regs.sp();
         let value = if sub { sp.wrapping_sub(offset) } else { sp.wrapping_add(offset) };
-        self.regs.set_reg(Reg::R13, value);
+        self.regs.set_sp(value);
         self.instruction_prefetch::<u16>(hw, AccessType::S);
     }
 
@@ -334,10 +332,10 @@ impl ARM9 {
         let mut r_list = (instr & 0xFF) as u8;
         self.instruction_prefetch::<u16>(hw, AccessType::N);
         if pop {
-            let mut sp = self.regs.get_reg(Reg::R13);
+            let mut sp = self.regs.sp();
             let mut stack_pop = |sp, last_access, reg: u32| {
                 let value = self.read::<u32>(hw, AccessType::S, sp);
-                self.regs.set_reg_i(reg, value);
+                self.regs[reg] = value;
                 if last_access { self.internal() }
             };
             let mut reg = 0;
@@ -353,20 +351,20 @@ impl ARM9 {
                 stack_pop(sp, true, 15);
                 sp += 4;
                 self.next_access_type = AccessType::N;
-                if self.regs.pc & 0x1 != 0 {
-                    self.regs.pc &= !0x1;
+                if self.regs[15] & 0x1 != 0 {
+                    self.regs[15] &= !0x1;
                     self.fill_thumb_instr_buffer(hw);
                 } else {
                     self.regs.set_t(false);
-                    self.regs.pc &= !0x3;
+                    self.regs[15] &= !0x3;
                     self.fill_arm_instr_buffer(hw);
                 }
             }
-            self.regs.set_reg(Reg::R13, sp);
+            self.regs.set_sp(sp);
         } else {
-            let initial_sp = self.regs.get_reg(Reg::R13);
-            let mut sp = self.regs.get_reg(Reg::R13).wrapping_sub(4 * (r_list.count_ones() + pc_lr as u32));
-            self.regs.set_reg(Reg::R13, sp);
+            let initial_sp = self.regs[13];
+            let mut sp = self.regs[13].wrapping_sub(4 * (r_list.count_ones() + pc_lr as u32));
+            self.regs.set_sp(sp);
             let regs_copy = self.regs.clone();
             let mut stack_push = |sp, value, last_access| {
                 self.write::<u32>(hw, AccessType::S, sp, value);
@@ -375,13 +373,13 @@ impl ARM9 {
             let mut reg = 0;
             while r_list != 0 {
                 if r_list & 0x1 != 0 {
-                    stack_push(sp, regs_copy.get_reg_i(reg), r_list == 0x1 && !pc_lr);
+                    stack_push(sp, regs_copy[reg], r_list == 0x1 && !pc_lr);
                     sp += 4;
                 }
                 reg += 1;
                 r_list >>= 1;
             }
-            if pc_lr { stack_push(sp, regs_copy.get_reg(Reg::R14), true); sp += 4}
+            if pc_lr { stack_push(sp, regs_copy.lr(), true); sp += 4}
             assert_eq!(initial_sp, sp);
         }
     }
@@ -392,7 +390,7 @@ impl ARM9 {
         assert_eq!(instr >> 12, 0b1100);
         let load = L;
         let base_reg = (RB2 as u32) << 2 | (RB1 as u32) << 1 | (RB0 as u32);
-        let mut base = self.regs.get_reg_i(base_reg);
+        let mut base = self.regs[base_reg];
         let base_offset = base & 0x3;
         base -= base_offset;
         let mut r_list = (instr & 0xFF) as u8;
@@ -401,18 +399,18 @@ impl ARM9 {
         let mut reg = 0;
         let mut first = true;
         let final_base = base.wrapping_add(4 * r_list.count_ones()) + base_offset;
-        if !load { self.regs.pc = self.regs.pc.wrapping_add(2); }
+        if !load { self.regs[15] = self.regs[15].wrapping_add(2); }
         let mut exec = |reg, last_access| {
             let addr = base;
             base = base.wrapping_add(4);
             if load {
                 let value = self.read::<u32>(hw, AccessType::S, addr);
-                self.regs.set_reg_i(reg, value);
+                self.regs[reg] = value;
                 if last_access { self.internal() }
             } else {
-                self.write::<u32>(hw, AccessType::S, addr, self.regs.get_reg_i(reg));
+                self.write::<u32>(hw, AccessType::S, addr, self.regs[reg]);
                 if last_access { self.next_access_type = AccessType::N }
-                if first { self.regs.set_reg_i(base_reg, final_base); first = false }
+                if first { self.regs[base_reg] = final_base; first = false }
             }
         };
         let mut write_back = true;
@@ -433,9 +431,9 @@ impl ARM9 {
             } else { write_back };
             exec(reg, true);
         }
-        //if load { io.inc_clock(Cycle::S, self.regs.pc.wrapping_add(2), 1) }
-        if !load { self.regs.pc = self.regs.pc.wrapping_sub(2) }
-        if write_back { self.regs.set_reg_i(base_reg, base + base_offset) }
+        //if load { io.inc_clock(Cycle::S, self.regs[15].wrapping_add(2), 1) }
+        if !load { self.regs[15] = self.regs[15].wrapping_sub(2) }
+        if write_back { self.regs[base_reg] = base + base_offset }
     }
 
     // THUMB.16: conditional branch
@@ -447,7 +445,7 @@ impl ARM9 {
         let offset = (instr & 0xFF) as i8 as u32;
         if self.should_exec(condition as u32) {
             self.instruction_prefetch::<u16>(hw, AccessType::N);
-            self.regs.pc = self.regs.pc.wrapping_add(offset.wrapping_mul(2));
+            self.regs[15] = self.regs[15].wrapping_add(offset.wrapping_mul(2));
             self.fill_thumb_instr_buffer(hw);
         } else {
             self.instruction_prefetch::<u16>(hw, AccessType::S);
@@ -459,10 +457,10 @@ impl ARM9 {
         assert_eq!(instr >> 8 & 0xFF, 0b11011111);
         self.instruction_prefetch::<u16>(hw, AccessType::N);
         self.regs.change_mode(Mode::SVC);
-        self.regs.set_reg(Reg::R14, self.regs.pc.wrapping_sub(2));
+        self.regs.set_lr(self.regs[15].wrapping_sub(2));
         self.regs.set_t(false);
         self.regs.set_i(true);
-        self.regs.pc = hw.cp15.interrupt_base() | 0x8;
+        self.regs[15] = hw.cp15.interrupt_base() | 0x8;
         self.fill_arm_instr_buffer(hw);
     }
 
@@ -473,7 +471,7 @@ impl ARM9 {
         let offset = if offset >> 10 & 0x1 != 0 { 0xFFFF_F800 | offset } else { offset };
 
         self.instruction_prefetch::<u16>(hw, AccessType::N);
-        self.regs.pc = self.regs.pc.wrapping_add(offset << 1);
+        self.regs[15] = self.regs[15].wrapping_add(offset << 1);
         self.fill_thumb_instr_buffer(hw);
     }
 
@@ -483,17 +481,17 @@ impl ARM9 {
         let offset = (instr & 0x7FF) as u32;
         if H { // Second Instruction
             self.instruction_prefetch::<u16>(hw, AccessType::N);
-            let next_instr_pc = self.regs.pc.wrapping_sub(2);
-            self.regs.pc = self.regs.get_reg(Reg::R14).wrapping_add(offset << 1);
-            self.regs.set_reg(Reg::R14, next_instr_pc | 0x1);
+            let next_instr_pc = self.regs[15].wrapping_sub(2);
+            self.regs[15] = self.regs.lr().wrapping_add(offset << 1);
+            self.regs.set_lr(next_instr_pc | 0x1);
             if X { // BL
                 self.fill_thumb_instr_buffer(hw);
             } else { // BLX
-                if self.regs.pc & 0x1 != 0 {
-                    self.regs.pc = self.regs.pc & !0x1;
+                if self.regs[15] & 0x1 != 0 {
+                    self.regs[15] = self.regs[15] & !0x1;
                     self.fill_thumb_instr_buffer(hw);
                 } else {
-                    self.regs.pc = self.regs.pc & !0x2;
+                    self.regs[15] = self.regs[15] & !0x2;
                     self.regs.set_t(false);
                     self.fill_arm_instr_buffer(hw);
                 }
@@ -501,7 +499,7 @@ impl ARM9 {
         } else { // First Instruction
             assert_eq!(X, true);
             let offset = if offset >> 10 & 0x1 != 0 { 0xFFFF_F800 | offset } else { offset };
-            self.regs.set_reg(Reg::R14, self.regs.pc.wrapping_add(offset << 12));
+            self.regs.set_lr(self.regs[15].wrapping_add(offset << 12));
             self.instruction_prefetch::<u16>(hw, AccessType::S);
         }
     }
