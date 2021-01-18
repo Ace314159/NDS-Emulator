@@ -69,16 +69,23 @@ impl Cartridge {
         };
         self.romctrl.block_busy = true;
         self.romctrl.data_word_ready = false;
+        let out_words = &mut self.game_card_words;
+        let rom = &self.rom;
+        let mut copy_rom = |range: Range<usize>| for addr in range.step_by(4) {
+            out_words.push_back(u32::from_le_bytes(rom[addr..addr + 4].try_into().unwrap()));
+        };
         match self.command[0] {
+            0x00 => {
+                for byte in self.command[1..].iter() { assert_eq!(*byte, 0) }
+                assert!(self.rom_bytes_left < 0x10000); // TODO: Support
+                copy_rom(0..self.rom_bytes_left);
+            },
             0xB7 => {
-                for byte in self.command[5..8].iter() { assert_eq!(*byte, 0) }
+                for byte in self.command[5..].iter() { assert_eq!(*byte, 0) }
                 let addr = u32::from_be_bytes(self.command[1..=4].try_into().unwrap()) as usize;
                 assert!(addr + self.rom_bytes_left < self.rom.len()); // TODO: Handle mirroring later
                 let addr = if addr < 0x8000 { 0x8000 + (addr & 0x1FFF) } else { addr };
                 let transfer_len = self.rom_bytes_left;
-                let mut copy_rom = |range: Range<usize>| for addr in range.step_by(4) {
-                    self.game_card_words.push_back(u32::from_le_bytes(self.rom[addr..addr + 4].try_into().unwrap()));
-                };
                 if addr & 0x1000 != (addr + transfer_len) & 0x1000 { // Crosess 4K boundary
                     let block4k_start = addr & !0xFFF;
                     let block4k_end = block4k_start + 0x1000;
