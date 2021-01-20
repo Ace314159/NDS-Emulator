@@ -34,7 +34,7 @@ macro_rules! create_channels {
 
 impl SPU {
     pub const ADPCM_INDEX_TABLE: [i32; 8] = [-1,-1,-1,-1,2,4,6,8];
-    pub const ADPCM_TABLE: [i16; 89] = [
+    pub const ADPCM_TABLE: [u16; 89] = [
         0x0007, 0x0008, 0x0009, 0x000A, 0x000B, 0x000C, 0x000D, 0x000E, 0x0010, 0x0011, 0x0013, 0x0015,
         0x0017, 0x0019, 0x001C, 0x001F, 0x0022, 0x0025, 0x0029, 0x002D, 0x0032, 0x0037, 0x003C, 0x0042,
         0x0049, 0x0050, 0x0058, 0x0061, 0x006B, 0x0076, 0x0082, 0x008F, 0x009D, 0x00AD, 0x00BE, 0x00D1,
@@ -493,16 +493,14 @@ impl<T: ChannelType> Channel<T> {
         if data & 0x2 != 0 { diff += table_val / 2 }
         if data & 0x4 != 0 { diff += table_val / 1 }
         if data & 0x8 == 0 {
-            self.adpcm_value += diff;
-            self.adpcm_value = std::cmp::min(self.adpcm_value, 0x7FFF);
+            self.adpcm_value = self.adpcm_value.saturating_add(diff as i16);
         } else {
-            self.adpcm_value -= diff;
-            self.adpcm_value = std::cmp::max(self.adpcm_value, -0x7FFF);
+            self.adpcm_value = self.adpcm_value.saturating_sub(diff as i16);
         }
         self.adpcm_index += SPU::ADPCM_INDEX_TABLE[data as usize & 0x7];
         self.adpcm_index = self.adpcm_index.clamp(0, 88);
         
-        self.sample = self.adpcm_value;
+        self.sample = self.adpcm_value as i16;
     }
 
     pub fn set_initial_adpcm(&mut self, value: u32) {
