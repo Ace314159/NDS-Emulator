@@ -97,13 +97,31 @@ impl Cartridge {
                 }
             },
             0xB8 => {
-                for byte in self.command[1..8].iter() { assert_eq!(*byte, 0) }
+                for byte in self.command[1..].iter() { assert_eq!(*byte, 0) }
                 // Chip ID is repeated
                 for _ in 0..self.rom_bytes_left / 4 {
                     self.game_card_words.push_back(self.chip_id);
                 }
             },
-            _ => todo!(),
+            0x90 => {
+                // Chip ID is repeated
+                for _ in 0..self.rom_bytes_left / 4 {
+                    self.game_card_words.push_back(self.chip_id);
+                }
+            }
+            0x9F => {
+                // Endless stream of HIGH-Z bytes
+                for byte in self.command[1..].iter() { assert_eq!(*byte, 0) }
+                for _ in 0..self.rom_bytes_left / 4 {
+                    self.game_card_words.push_back(0xFFFF_FFFF);
+                }
+            },
+            _ => {
+                warn!("Unimplemented Cartridge Command: {:X}", self.command[0]);
+                for _ in 0..self.rom_bytes_left / 4 {
+                    self.game_card_words.push_back(0);
+                }
+            },
         };
 
         // TODO: Take into account WR bit
