@@ -1,5 +1,5 @@
 use bitflags::*;
-use super::{mmu::IORegister, Scheduler};
+use super::{mem::IORegister, Scheduler};
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Key {

@@ -4,7 +4,7 @@ pub use registers::{BGMode, DisplayMode};
 
 use registers::*;
 use super::{EngineType, Engine3D, GPU, VRAM};
-use crate::hw::{mmu::IORegister, Scheduler};
+use crate::hw::{mem::IORegister, Scheduler};
 
 pub struct Engine2D<E: EngineType> {
     // Registers

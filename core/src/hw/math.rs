@@ -1,4 +1,4 @@
-use super::{HW, mmu::IORegister, scheduler::Scheduler};
+use super::{HW, mem::IORegister, scheduler::Scheduler};
 use num_integer::Roots;
 
 pub struct Div {

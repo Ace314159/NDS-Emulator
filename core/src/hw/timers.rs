@@ -1,7 +1,7 @@
 use super::{
     HW,
     scheduler::{Event, Scheduler},
-    mmu::IORegister,
+    mem::IORegister,
     interrupt_controller::InterruptRequest,
 };
 

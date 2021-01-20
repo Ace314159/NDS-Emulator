@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
 use crate::hw::{
-    mmu::IORegister,
+    mem::IORegister,
     scheduler::Scheduler,
 };
 use super::EngineType;

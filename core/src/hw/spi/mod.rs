@@ -1,6 +1,6 @@
 mod tsc;
 
-use super::{HW, GPU, mmu::IORegister, Scheduler};
+use super::{HW, GPU, mem::IORegister, Scheduler};
 use crate::hw::cartridge::{Backup, Flash};
 use tsc::TSC;
 

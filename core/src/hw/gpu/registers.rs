@@ -4,7 +4,7 @@ use bitflags::*;
 
 use crate::hw::{
     HW,
-    mmu::IORegister,
+    mem::IORegister,
     Scheduler
 };
 

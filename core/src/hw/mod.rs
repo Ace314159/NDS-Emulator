@@ -1,4 +1,4 @@
-pub mod mmu;
+pub mod mem;
 mod scheduler;
 mod gpu;
 mod spu;
@@ -14,8 +14,8 @@ mod cartridge;
 use std::convert::TryInto;
 use std::path::PathBuf;
 
-pub use mmu::{AccessType, MemoryValue};
-use mmu::{CP15, EXMEM, HALTCNT, POWCNT2, WRAMCNT};
+pub use mem::{AccessType, MemoryValue};
+use mem::{CP15, EXMEM, HALTCNT, POWCNT2, WRAMCNT};
 use scheduler::Scheduler;
 pub use gpu::{GPU, EngineA, EngineB};
 use spu::SPU;

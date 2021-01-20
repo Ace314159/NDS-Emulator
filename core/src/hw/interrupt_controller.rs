@@ -1,5 +1,5 @@
 use bitflags::*;
-use super::{mmu::IORegister, Scheduler};
+use super::{mem::IORegister, Scheduler};
 
 pub struct InterruptController {
     pub enable: InterruptEnable,

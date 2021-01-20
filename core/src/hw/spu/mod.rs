@@ -3,7 +3,7 @@ mod audio;
 
 use super::{
     HW,
-    mmu::IORegister,
+    mem::IORegister,
     scheduler::{Event, Scheduler},
 };
 

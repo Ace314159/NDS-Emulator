@@ -1,6 +1,6 @@
 use super::{
     HW,
-    mmu::{AccessType, IORegister, MemoryValue},
+    mem::{AccessType, IORegister, MemoryValue},
     interrupt_controller::InterruptRequest,
     scheduler::{Event, Scheduler},
 };
