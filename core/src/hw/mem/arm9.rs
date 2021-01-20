@@ -1,5 +1,5 @@
 use crate::num;
-use super::{AccessType, CP15, HW, MemoryValue, IORegister, super::DMAOccasion};
+use super::{AccessType, CP15, HW, MemoryValue, IORegister};
 use crate::hw::gpu::{GPU, Engine2D, EngineType};
 
 type MemoryRegion = ARM9MemoryRegion;
@@ -282,17 +282,12 @@ impl HW {
     fn write_geometry_fifo<T: MemoryValue>(&mut self, addr: u32, value: T) {
         assert!(addr % 4 == 0 && std::mem::size_of::<T>() == 4);
         self.gpu.engine3d.write_geometry_fifo(num::cast::<T, u32>(value).unwrap());
-        if !self.in_dma && self.gpu.engine3d.should_run_fifo() {
-            self.run_dmas(DMAOccasion::GeometryCommandFIFO);
-        }
     }
 
     fn write_geometry_command<T: MemoryValue>(&mut self, addr: u32, value: T) {
         assert!(addr % 4 == 0 && std::mem::size_of::<T>() == 4);
         self.gpu.engine3d.write_geometry_command(addr, num::cast::<T, u32>(value).unwrap());
-        if self.gpu.engine3d.should_run_fifo() {
-            self.run_dmas(DMAOccasion::GeometryCommandFIFO);
-        }
+        self.check_geometry_command_fifo();
     }
 
     fn write_palette_ram<E: EngineType, T: MemoryValue>(engine: &mut Engine2D<E>, addr: u32, value: T) {

@@ -216,9 +216,7 @@ impl HW {
             self.gpu.engine3d.render(&self.gpu.vram);
             
             self.gpu.engine3d.exec_commands();
-            if self.gpu.engine3d.should_run_fifo() {
-                self.run_dmas(DMAOccasion::GeometryCommandFIFO);
-            }
+            self.check_geometry_command_fifo();
         }
     }
 

@@ -74,6 +74,7 @@ pub enum Event {
     StartNextLine,
     HBlank,
     VBlank,
+    CheckGeometryCommandFIFO,
     TimerOverflow(bool, usize),
     ROMWordTransfered,
     ROMBlockEnded(bool),

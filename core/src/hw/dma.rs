@@ -52,8 +52,12 @@ impl DMAController {
             info!("Scheduled {:?} ARM{} DMA{}: Writing {} values to {:08X} from {:08X}, size: {}",
             channel.cnt.start_timing, if channel.is_nds9 { 9 } else { 7 }, channel.num, channel.cnt.count,
             channel.dad.addr, channel.sad.addr, if channel.cnt.transfer_32 { 32 } else { 16 });
-            if channel.cnt.start_timing == DMAOccasion::Immediate {
-                scheduler.run_now(Event::DMA(channel.is_nds9, channel.num), HW::on_dma)
+            match channel.cnt.start_timing {
+               DMAOccasion::Immediate =>
+                scheduler.run_now(Event::DMA(channel.is_nds9, channel.num), HW::on_dma),
+               DMAOccasion::GeometryCommandFIFO =>
+                scheduler.run_now(Event::CheckGeometryCommandFIFO, HW::check_geometry_command_fifo_handler),
+               _ => (),
             }
         }
     }
@@ -168,6 +172,16 @@ impl HW {
             };
             self.interrupts[0].request |= interrupt;
             self.interrupts[1].request |= interrupt;
+        }
+    }
+
+    fn check_geometry_command_fifo_handler(&mut self, _event: Event) {
+        self.check_geometry_command_fifo();
+    }
+
+    pub fn check_geometry_command_fifo(&mut self) {
+        if self.gpu.engine3d.should_run_fifo() {
+            self.run_dmas(DMAOccasion::GeometryCommandFIFO);
         }
     }
 

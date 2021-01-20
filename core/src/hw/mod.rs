@@ -22,7 +22,7 @@ use spu::SPU;
 use keypad::Keypad;
 pub use keypad::Key;
 use interrupt_controller::{InterruptController, InterruptRequest};
-use dma::{DMAController, DMAOccasion};
+use dma::DMAController;
 use timers::Timers;
 use ipc::IPC;
 use math::{Div, Sqrt};
