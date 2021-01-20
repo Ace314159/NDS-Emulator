@@ -59,6 +59,7 @@ impl ARM9 {
 
     pub fn instruction_prefetch<T: MemoryValue>(&mut self, hw: &mut HW, access_type: AccessType) {
         // Internal Cycle merges with instruction prefetch
+        // TODO: Increment PC here
         self.instr_buffer[1] = num::cast::<T, u32>(self.read::<T>(hw, access_type, self.regs[15])).unwrap();
         self.do_internal = false;
     }
