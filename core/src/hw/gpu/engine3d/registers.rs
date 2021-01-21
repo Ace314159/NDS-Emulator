@@ -277,9 +277,9 @@ impl TextureParams {
         self.flip_s = value >> 18 & 0x1 != 0;
         self.flip_t = value >> 19 & 0x1 != 0;
         self.size_s_shift = 3 + (value >> 20 & 0x7);
-        self.size_t_shift = 3 + (value >> 22 & 0x7);
+        self.size_t_shift = 3 + (value >> 23 & 0x7);
         self.size_s = 1 << self.size_s_shift;
-        self.size_t = 1 << self.size_t_shift; 
+        self.size_t = 1 << self.size_t_shift;
         self.format = TextureFormat::from(value >> 26 & 0x7);
         self.color0_transparent = value >> 29 & 0x1 != 0;
         self.coord_transformation_mode = TexCoordTransformationMode::from(value >> 30 & 0x3);
