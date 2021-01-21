@@ -64,17 +64,19 @@ pub struct RegValues {
 
 impl RegValues {
     pub fn new() -> RegValues {
-        RegValues {
+        let mut regs = RegValues {
             regs: [0; 16],
             usr: [0; 2], // R13 and R14
             svc: [0; 2], // R13 and R14
             irq: [0; 2], // R13 and R14
             cpsr: StatusReg::reset(),
             spsr: [StatusReg::reset(); 2], // SVC and IRQ
-        }
+        };
+        regs[15] = 0xFFFF_0000;
+        regs
     }
 
-    pub fn no_bios(pc: u32) -> RegValues {
+    pub fn direct_boot(pc: u32) -> RegValues {
         let mut reg_values = RegValues::new();
         reg_values.regs[12] = pc;
         reg_values.regs[13] = 0x03003FC0;

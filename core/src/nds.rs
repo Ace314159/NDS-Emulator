@@ -21,11 +21,12 @@ impl NDS {
     pub const CLOCK_RATE: usize = 33513982;
 
     pub fn new(bios7: Vec<u8>, bios9: Vec<u8>, firmware: Vec<u8>, rom: Vec<u8>, save_file: PathBuf) -> Self {
-        let mut hw = HW::new(bios7, bios9, firmware, rom, save_file);
+        let direct_boot = true;
+        let mut hw = HW::new(bios7, bios9, firmware, rom, save_file, direct_boot);
         NDS {
             arm9_cycles_ahead: 0,
-            arm7: ARM7::new(&mut hw),
-            arm9: ARM9::new(&mut hw),
+            arm7: ARM7::new(&mut hw, direct_boot),
+            arm9: ARM9::new(&mut hw, direct_boot),
             hw,
         }
     }

@@ -100,7 +100,7 @@ impl RegValues {
         }
     }
 
-    pub fn no_bios(pc: u32) -> RegValues {
+    pub fn direct_boot(pc: u32) -> RegValues {
         let mut reg_values = RegValues::new();
         reg_values.usr[12] = pc;
         reg_values.usr[13] = 0x0380FFC0;

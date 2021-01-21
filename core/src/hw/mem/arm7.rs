@@ -176,7 +176,7 @@ impl HW {
             0x0400_0216 => self.interrupts[0].request.write(&mut self.scheduler, 2, value),
             0x0400_0217 => self.interrupts[0].request.write(&mut self.scheduler, 3, value),
             0x0400_0241 => (), // WRAMCNT is read-only
-            0x0400_0300 => (), // POSTFLG
+            0x0400_0300 => self.postflg7 |= value & 0x1, // Should only be written to during boot
             0x0400_0301 => self.haltcnt.write(&mut self.scheduler, 0, value),
             0x0400_0304 => self.powcnt2.write(&mut self.scheduler, 0, value),
             0x0400_0305 => self.powcnt2.write(&mut self.scheduler, 1, value),

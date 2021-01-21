@@ -260,7 +260,7 @@ impl HW {
             0x0400_02B0 ..= 0x0400_02B3 => self.sqrt.cnt.write(&mut self.scheduler, addr as usize & 0xF, value),
             0x0400_02B4 ..= 0x0400_02B7 => (), // Sqrt result register is read-only
             0x0400_02B8 ..= 0x0400_02BF => self.sqrt.write_param(&mut self.scheduler, addr as usize & 0x7, value),
-            0x0400_0300 => self.postflg9 = self.postflg9 & !0x02 | value & 0x02, // Only bit 1 is writable
+            0x0400_0300 => self.postflg9 = (self.postflg9 & !0x02 | value & 0x02) | (value & 0x1), // Only bit 1 is writable
             0x0400_0301 ..= 0x0400_0303 => (), // Other Parts of POSTFLG
             0x0400_0304 => self.gpu.powcnt1.write(&mut self.scheduler, 0, value),
             0x0400_0305 => self.gpu.powcnt1.write(&mut self.scheduler, 1, value),

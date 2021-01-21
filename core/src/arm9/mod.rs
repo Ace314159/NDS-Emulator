@@ -21,10 +21,10 @@ pub struct ARM9 {
 }
 
 impl ARM9 {
-    pub fn new(hw: &mut HW) -> ARM9 {
+    pub fn new(hw: &mut HW, direct_boot: bool) -> ARM9 {
         let mut cpu = ARM9 {
             cycles_spent: 0,
-            regs: RegValues::no_bios(hw.init_arm9()),
+            regs: if direct_boot { RegValues::direct_boot(hw.init_arm9()) } else { RegValues::new() },
             instr_buffer: [0; 2],
             next_access_type: AccessType::N,
             do_internal: false,

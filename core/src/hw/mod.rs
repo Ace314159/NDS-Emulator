@@ -72,9 +72,9 @@ impl HW {
     const IWRAM_SIZE: usize = 0x1_0000;
     const SHARED_WRAM_SIZE: usize = 0x8000;
 
-    pub fn new(bios7: Vec<u8>, bios9: Vec<u8>, firmware: Vec<u8>, rom: Vec<u8>, save_file: PathBuf) -> Self {
+    pub fn new(bios7: Vec<u8>, bios9: Vec<u8>, firmware: Vec<u8>, rom: Vec<u8>, save_file: PathBuf, direct_boot: bool) -> Self {
         let mut scheduler = Scheduler::new();
-        HW {
+        let hw = HW {
             // Memory
             cp15: CP15::new(),
             bios7,
@@ -100,15 +100,16 @@ impl HW {
             wramcnt: WRAMCNT::new(3),
             powcnt2: POWCNT2::new(),
             haltcnt: HALTCNT::new(),
-            postflg7: 0x1, // TODO: Set to 1 after boot
-            postflg9: 0x1, // TODO: Set to 1 after boot
+            postflg7: if direct_boot { 0x1 } else { 0x0 },
+            postflg9: if direct_boot { 0x1 } else { 0x0 },
             exmem: EXMEM::new(),
             // Math
             div: Div::new(),
             sqrt: Sqrt::new(),
             // Misc
             scheduler,
-        }.init_mem()
+        };
+        if direct_boot { hw.init_mem() } else { hw }
     }
 
     pub fn clock(&mut self, arm7_cycles: usize) {
