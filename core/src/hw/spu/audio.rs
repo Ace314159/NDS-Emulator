@@ -39,7 +39,7 @@ impl Audio {
                             cpal::Sample::from::<f32>(&samples[1]),
                         )
                     } else {
-                        warn!("Audio: Not enough samples!");
+                        // warn!("Audio: Not enough samples!");
                         (cpal::Sample::from(&0i16), cpal::Sample::from(&0i16))
                     };
                     frame[0] = samples.0;
