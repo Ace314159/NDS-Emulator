@@ -466,7 +466,7 @@ impl Viewport {
             let x_offset = clip_coords[0].raw() + w;
             let y_offset = -clip_coords[1].raw() + w;
             let (x_offset, y_offset, w) = if w > 0xFFFF { // To avoid overflow
-                (x_offset << 1, y_offset << 1, w << 1)
+                (x_offset >> 1, y_offset >> 1, w >> 1)
             } else { (x_offset, y_offset, w) };
 
             let denom = 2 * w;
