@@ -42,12 +42,12 @@ impl NDS {
 
                 while self.arm9_cycles_ahead >= 0 {
                     self.arm7.handle_irq(&mut self.hw);
-                    let arm7_cycles_ran = if self.hw.haltcnt.halted() { self.hw.cycles_until_event() }
+                    let arm7_cycles_ran = if self.hw.haltcnt.halted() { 1 }
                     else { self.arm7.emulate_instr(&mut self.hw) };
                     self.hw.clock(arm7_cycles_ran);
                     self.arm9_cycles_ahead -= 2 * arm7_cycles_ran as i32
                 }
-            } else { warn!("Untested GPU Bus Stall"); self.hw.clock_until_event() }
+            } else { self.hw.clock_until_event() }
         }
         self.hw.save_backup();
     }
