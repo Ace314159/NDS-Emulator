@@ -44,7 +44,7 @@ impl Engine3D {
                     f(color_a.g5() as u16, color_b.g5() as u16) as u8,
                     f(color_a.b5() as u16, color_b.b5() as u16) as u8,
                 )
-            };
+            }
             fn blend_tex<F>(tex_color: Option<Color>, vert_color: Color, f: F) -> Color where F: Fn(u16, u16) -> u16 {
                 if let Some(tex_color) = tex_color {
                     Color::new6(
@@ -55,7 +55,7 @@ impl Engine3D {
                 } else {
                     vert_color
                 }
-            };
+            }
 
             let disp3dcnt = &self.disp3dcnt;
             let toon_table = &self.toon_table;
