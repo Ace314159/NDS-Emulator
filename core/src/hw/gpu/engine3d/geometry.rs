@@ -466,15 +466,16 @@ impl Engine3D {
 
         // TODO: Reject polygon if it doesn't fit into Vertex RAM or Polygon 
 
-        self.polygons.push(Polygon {
+        let mut polygon = Polygon {
             start_vert: self.vertices.len(),
             end_vert: self.vertices.len() + self.cur_poly_verts.len(),
+            y_bounds: (0, 191),
             attrs: self.polygon_attrs_latch,
             tex_params: self.tex_params,
             palette_base: self.palette_base,
             is_front,
             original_verts: self.original_verts.drain(..).collect(),
-        });
+        };
         let mut w_size = 0;
         for vert in self.cur_poly_verts.iter() {
             let w = vert.clip_coords[3].raw() as u32;
@@ -483,16 +484,22 @@ impl Engine3D {
                 assert!(w_size < 32);
             }
         }
+        let (mut bot, mut top) = (0, 191);
         for vert in self.cur_poly_verts.drain(..) {
             let z = vert.clip_coords[2].raw() as i64;
             let w = vert.clip_coords[3].raw();
-            self.vertices.push(Vertex {
+            let vert = Vertex {
                 screen_coords: self.viewport.screen_coords(&vert.clip_coords),
                 z_depth: ((((z * 0x4000 / w as i64) + 0x3FFF) * 0x200) & 0xFFFFFF) as u32,
                 normalized_w: if w_size < 16 { w << (16 - w_size) } else { w >> (w_size - 16) } as i16,
                 ..vert
-            });
+            };
+            if vert.screen_coords[1] < top { top = vert.screen_coords[1] };
+            if vert.screen_coords[1] > bot { bot = vert.screen_coords[1] };
+            self.vertices.push(vert);
         }
+        polygon.y_bounds = (bot, top);
+        self.polygons.push(polygon);
     }
 
     fn clip_plane(&mut self, coord_i: usize) {
@@ -930,6 +937,7 @@ impl Vertex {
 pub struct Polygon {
     pub start_vert: usize,
     pub end_vert: usize,
+    pub y_bounds: (u32, u32),
     pub attrs: PolygonAttributes,
     pub tex_params: TextureParams,
     pub palette_base: usize,
