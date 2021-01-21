@@ -229,13 +229,13 @@ impl Engine3D {
         for y in vertices[start_vert].screen_coords[1]..vertices[end_vert].screen_coords[1] {
             // While loops to skip repeated vertices from clipping
             // TODO: Should this be fixed in clipping or rendering code?
-            while y == left_end {
+            while y >= left_end {
                 let new_left_vert = next_left(left_vert);
                 left_slope = VertexSlope::from_verts(&vertices[left_vert], &vertices[new_left_vert]);
                 left_end = vertices[new_left_vert].screen_coords[1];
                 left_vert = new_left_vert;
             }
-            while y == right_end {
+            while y >= right_end {
                 let new_right_vert = next_right(right_vert);
                 right_slope = VertexSlope::from_verts(&vertices[right_vert],&vertices[new_right_vert]);
                 right_end = vertices[new_right_vert].screen_coords[1];
@@ -243,6 +243,9 @@ impl Engine3D {
             }
             let x_start = left_slope.next_x() as usize;
             let x_end = right_slope.next_x() as usize;
+            let (x_start, x_end) = if x_start > x_end {
+                (x_end, x_start)
+            } else { (x_start, x_end) };
             let w_start = left_slope.next_w() as i16;
             let w_end = right_slope.next_w() as i16;
             assert!(x_end >= x_start, "{}", (|| {
