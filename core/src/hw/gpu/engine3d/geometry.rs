@@ -219,6 +219,20 @@ impl Engine3D {
                 self.gxstat.geometry_engine_busy = true; // Keep busy until VBlank
             },
             Viewport => self.viewport.write(param),
+            BoxTest => {
+                let pos = (
+                    (self.params[0] >> 0) as u16 as i16,
+                    (self.params[0] >> 16) as u16 as i16,
+                    (self.params[1] >> 0) as u16 as i16,
+                );
+                let size = (
+                    (self.params[1] >> 16) as u16 as i16,
+                    (self.params[2] >> 0) as u16 as i16,
+                    (self.params[2] >> 16) as u16 as i16,
+                );
+                self.gxstat.test_busy = false;
+                self.gxstat.box_test_inside = self.box_test(pos, size);
+            },
             Unimplemented => (),
         }
         self.params.clear();
@@ -502,6 +516,32 @@ impl Engine3D {
         self.polygons.push(polygon);
     }
 
+    fn box_test(&self, pos: (i16, i16, i16), size: (i16, i16, i16)) -> bool {
+        for x_factor in 0..2 {
+            for y_factor in 0..2 {
+                for z_factor in 0..2 {
+                    let check_pos = Vec4::new(
+                        FixedPoint::from_frac12((pos.0 + size.0 * x_factor) as i32),
+                        FixedPoint::from_frac12((pos.1 + size.1 * y_factor) as i32),
+                        FixedPoint::from_frac12((pos.2 + size.2 * z_factor) as i32),
+                        FixedPoint::one(),
+                    );
+                    let clip_coords = self.clip_mat * check_pos;
+                    let w = clip_coords[3];
+                    let mut inside = true;
+                    for i in 0..3 {
+                        if !(-w..=w).contains(&clip_coords[i]) {
+                            inside = false;
+                            break
+                        }
+                    }
+                    if inside { return true }
+                }
+            }
+        }
+        false
+    }
+
     fn clip_plane(&mut self, coord_i: usize) {
         let mut new_verts = [Vertex::new(); 10];
         let mut new_vert_i = 0;
@@ -624,6 +664,7 @@ pub enum GeometryCommand {
     EndVtxs = 0x41,
     SwapBuffers = 0x50,
     Viewport = 0x60,
+    BoxTest = 0x70,
     Unimplemented = 0xFF,
 }
 
@@ -664,6 +705,7 @@ impl GeometryCommand {
             0x504 => EndVtxs,
             0x540 => SwapBuffers,
             0x580 => Viewport,
+            0x5C0 => BoxTest,
             _ => { warn!("Unimplemented Geometry Command Address 0x{:X}", addr); Unimplemented },
         }
     }
@@ -706,6 +748,7 @@ impl GeometryCommand {
             0x41 => EndVtxs,
             0x50 => SwapBuffers,
             0x60 => Viewport,
+            0x70 => BoxTest,
             _ => { warn!("Unimplemented Geometry Command Byte: 0x{:X}", value); Unimplemented },
         }
     }
@@ -748,6 +791,7 @@ impl GeometryCommand {
             EndVtxs => 0,
             SwapBuffers => 1,
             Viewport => 1,
+            BoxTest => 3,
             Unimplemented => 0,
         }
     }
