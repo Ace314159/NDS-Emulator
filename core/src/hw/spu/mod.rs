@@ -12,6 +12,7 @@ use audio::Audio;
 
 pub struct SPU {
     cnt: SoundControl,
+    sound_bias: u16,
     captures: [Capture; 2],
     // Sound Generation
     audio: Audio,
@@ -52,6 +53,7 @@ impl SPU {
         scheduler.schedule(Event::GenerateAudioSample, HW::generate_audio_sample, clocks_per_sample);
         SPU {
             cnt: SoundControl::new(),
+            sound_bias: 0,
             captures: [Capture::new(), Capture::new()],
             // Sound Generation
             audio,
@@ -166,6 +168,7 @@ impl IORegister for SPU {
         match addr {
             0x400 ..= 0x4FF => self.read_channels(addr),
             0x500 ..= 0x503 => self.cnt.read(addr & 0x3),
+            0x504 ..= 0x507 => HW::read_byte_from_value(&self.sound_bias, addr & 0x3),
             0x508 ..= 0x509 => self.captures[addr & 0x1].cnt.read(),
             0x510 ..= 0x51F => self.captures[addr >> 3 & 0x1].read(addr & 0xF),
             _ => { warn!("Ignoring SPU Register Read at 0x04000{:03X}", addr); 0 }
@@ -176,6 +179,10 @@ impl IORegister for SPU {
         match addr {
             0x400 ..= 0x4FF => self.write_channels(scheduler, addr & 0xFF, value),
             0x500 ..= 0x503 => self.cnt.write(scheduler, addr & 0x3, value),
+            0x504 ..= 0x507 => {
+                HW::write_byte_to_value(&mut self.sound_bias, addr & 0x3, value);
+                self.sound_bias &= 0x3FF;
+            },
             0x508 ..= 0x509 => self.captures[addr & 0x1].write_cnt(value),
             0x510 ..= 0x51F => self.captures[addr >> 3 & 0x1].write(addr & 0x7, value),
             _ => warn!("Ignoring SPU Register Write at 0x04000{:03X}", addr)
