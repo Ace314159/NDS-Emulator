@@ -46,39 +46,22 @@ impl Engine3D {
         for polygon in self.polygons.iter() {
             // TODO: Implement perspective correction
             // TODO: Implement translucency
-            fn blend_tex<C, A>(tex_color: Option<FrameBufferColor>, vert_color: FrameBufferColor,
-                color_f: C, alpha_f: A) -> FrameBufferColor
-                where C: Fn(u16, u16) -> u16, A: Fn(u16, u16) -> u16 {
-                if let Some(tex_color) = tex_color {
-                    FrameBufferColor::new6(
-                        Color::new6(
-                            color_f(tex_color.r6() as u16, vert_color.r6() as u16) as u8,
-                            color_f(tex_color.g6() as u16, vert_color.g6() as u16) as u8,
-                            color_f(tex_color.b6() as u16, vert_color.b6() as u16) as u8,
-                        ),
-                        alpha_f(tex_color.a6() as u16, vert_color.a6() as u16) as u8,
-                    )
-                } else {
-                    vert_color
-                }
-            }
-
             let disp3dcnt = &self.disp3dcnt;
             let toon_table = &self.toon_table;
             let blend = |vert_color, s: i32, t: i32| {
                 let tex_color = Self::get_tex_color(vram, polygon, s, t);
                 let modulation_blend = |val1, val2| ((val1 + 1) * (val2 + 1) - 1) / 64;
                 match polygon.attrs.mode {
-                    PolygonMode::Modulation => blend_tex(tex_color, vert_color,
+                    PolygonMode::Modulation => Self::blend_tex(tex_color, vert_color,
                         modulation_blend, modulation_blend),
                     PolygonMode::ToonHighlight if disp3dcnt.highlight_shading =>
-                    blend_tex(tex_color, vert_color,
+                    Self::blend_tex(tex_color, vert_color,
                         |val1, val2| std::cmp::max(modulation_blend(val1, val2) + val2, 0x3F),
                         modulation_blend,
                     ),
                     PolygonMode::ToonHighlight => {
                         let toon_color = FrameBufferColor::new8(toon_table[vert_color.r5() as usize], vert_color.a);
-                        blend_tex(tex_color, toon_color, modulation_blend, modulation_blend)
+                        Self::blend_tex(tex_color, toon_color, modulation_blend, modulation_blend)
                     },
                     // TODO: Use decal blending
                     PolygonMode::Shadow => tex_color.unwrap_or_else(|| FrameBufferColor::new5(Color::new5(0, 0, 0), 0)),
@@ -320,6 +303,23 @@ impl Engine3D {
                 let alpha = if color_val & 0x8000 != 0 { 0x1F } else { 0 };
                 FrameBufferColor::new5(Color::from(color_val), alpha)
             }),
+        }
+    }
+
+    fn blend_tex<C, A>(tex_color: Option<FrameBufferColor>, vert_color: FrameBufferColor,
+        color_f: C, alpha_f: A) -> FrameBufferColor
+        where C: Fn(u16, u16) -> u16, A: Fn(u16, u16) -> u16 {
+        if let Some(tex_color) = tex_color {
+            FrameBufferColor::new6(
+                Color::new6(
+                    color_f(tex_color.r6() as u16, vert_color.r6() as u16) as u8,
+                    color_f(tex_color.g6() as u16, vert_color.g6() as u16) as u8,
+                    color_f(tex_color.b6() as u16, vert_color.b6() as u16) as u8,
+                ),
+                alpha_f(tex_color.a6() as u16, vert_color.a6() as u16) as u8,
+            )
+        } else {
+            vert_color
         }
     }
 
