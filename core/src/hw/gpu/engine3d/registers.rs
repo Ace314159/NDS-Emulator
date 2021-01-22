@@ -162,12 +162,12 @@ impl Engine3D {
 }
 
 pub struct ClearColor {
-    r: u8,
-    g: u8,
-    b: u8,
-    fog: bool,
-    alpha: u8,
-    polygon_id: u8,
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+    pub fog: bool,
+    pub a: u8,
+    pub polygon_id: u8,
 }
 
 impl ClearColor {
@@ -177,13 +177,9 @@ impl ClearColor {
             g: 0,
             b: 0,
             fog: false,
-            alpha: 0,
+            a: 0,
             polygon_id: 0,
         }
-    }
-
-    pub fn color(&self) -> Color {
-        Color::new5(self.r, self.g, self.b)
     }
 }
 
@@ -201,7 +197,7 @@ impl IORegister for ClearColor {
                 self.b = value >> 2 & 0x1F;
                 self.fog = value >> 7 & 0x1 != 0;
             },
-            2 => self.alpha = value & 0x1F,
+            2 => self.a = value & 0x1F,
             3 => self.polygon_id = value & 0x3F,
             _ => unreachable!(),
         }

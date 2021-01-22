@@ -23,7 +23,14 @@ impl Engine3D {
         for pixel in self.frame_buffer.iter_mut() {
             // Convert 5 bit color to 8 bit color
             // TODO: Use actual conversion formula
-            pixel.color = self.clear_color.color();
+            pixel.color = FrameBufferColor::new5(
+                Color::new5(
+                    self.clear_color.r,
+                    self.clear_color.g,
+                    self.clear_color.b,
+                ),
+                self.clear_color.a,
+            );
             pixel.depth = self.clear_depth.depth();
         }
 
@@ -39,12 +46,17 @@ impl Engine3D {
         for polygon in self.polygons.iter() {
             // TODO: Implement perspective correction
             // TODO: Implement translucency
-            fn blend_tex<F>(tex_color: Option<Color>, vert_color: Color, f: F) -> Color where F: Fn(u16, u16) -> u16 {
+            fn blend_tex<C, A>(tex_color: Option<FrameBufferColor>, vert_color: FrameBufferColor,
+                color_f: C, alpha_f: A) -> FrameBufferColor
+                where C: Fn(u16, u16) -> u16, A: Fn(u16, u16) -> u16 {
                 if let Some(tex_color) = tex_color {
-                    Color::new6(
-                        f(tex_color.r6() as u16, vert_color.r6() as u16) as u8,
-                        f(tex_color.g6() as u16, vert_color.g6() as u16) as u8,
-                        f(tex_color.b6() as u16, vert_color.b6() as u16) as u8,
+                    FrameBufferColor::new6(
+                        Color::new6(
+                            color_f(tex_color.r6() as u16, vert_color.r6() as u16) as u8,
+                            color_f(tex_color.g6() as u16, vert_color.g6() as u16) as u8,
+                            color_f(tex_color.b6() as u16, vert_color.b6() as u16) as u8,
+                        ),
+                        alpha_f(tex_color.a6() as u16, vert_color.a6() as u16) as u8,
                     )
                 } else {
                     vert_color
@@ -57,17 +69,19 @@ impl Engine3D {
                 let tex_color = Self::get_tex_color(vram, polygon, s, t);
                 let modulation_blend = |val1, val2| ((val1 + 1) * (val2 + 1) - 1) / 64;
                 match polygon.attrs.mode {
-                    PolygonMode::Modulation => blend_tex(tex_color, vert_color,modulation_blend),
+                    PolygonMode::Modulation => blend_tex(tex_color, vert_color,
+                        modulation_blend, modulation_blend),
                     PolygonMode::ToonHighlight if disp3dcnt.highlight_shading =>
                     blend_tex(tex_color, vert_color,
-                        |val1, val2| std::cmp::max(modulation_blend(val1, val2) + val2, 0x3F)
+                        |val1, val2| std::cmp::max(modulation_blend(val1, val2) + val2, 0x3F),
+                        modulation_blend,
                     ),
                     PolygonMode::ToonHighlight => {
-                        let toon_color = toon_table[vert_color.r5() as usize];
-                        blend_tex(tex_color, toon_color, modulation_blend)
+                        let toon_color = FrameBufferColor::new8(toon_table[vert_color.r5() as usize], vert_color.a);
+                        blend_tex(tex_color, toon_color, modulation_blend, modulation_blend)
                     },
                     // TODO: Use decal blending
-                    PolygonMode::Shadow => tex_color.unwrap_or_else(|| Color::new5(0, 0, 0)), 
+                    PolygonMode::Shadow => tex_color.unwrap_or_else(|| FrameBufferColor::new5(Color::new5(0, 0, 0), 0)),
                     _ => todo!(),
                 }
             };
@@ -85,7 +99,7 @@ impl Engine3D {
     }
 
     fn render_polygon<B, D>(blend: B, depth_test: D, polygon: &Polygon, vertices: &[Vertex], frame_buffer: &mut [FrameBufferPixel])
-    where B: Fn(Color, i32, i32) -> Color, D: Fn(u32, u32) -> bool {
+        where B: Fn(FrameBufferColor, i32, i32) -> FrameBufferColor, D: Fn(u32, u32) -> bool {
         if polygon.attrs.mode == PolygonMode::Shadow { return }
         // Find top left and bottom right vertices
         let (mut start_vert, mut end_vert) = (0, 0);
@@ -200,14 +214,15 @@ impl Engine3D {
                 let pixel = &mut frame_buffer[y * GPU::WIDTH + x];
                 if depth_test(pixel.depth, depth_val) {
                     pixel.depth = depth_val;
-                    let blended_color = blend(color.next(), s.next() as i32 >> 4, t.next() as i32 >> 4);
+                    let color = FrameBufferColor::new5(color.next(), polygon.attrs.alpha);
+                    let blended_color = blend(color, s.next() as i32 >> 4, t.next() as i32 >> 4);
                     pixel.color = blended_color;
                 }
             }
         }
     }
 
-    fn get_tex_color(vram: &VRAM, polygon: &Polygon, s: i32, t: i32) -> Option<Color> {
+    fn get_tex_color(vram: &VRAM, polygon: &Polygon, s: i32, t: i32) -> Option<FrameBufferColor> {
         let vram_offset = polygon.tex_params.vram_offset;
         let pal_offset = polygon.palette_base;
         let size = (polygon.tex_params.size_s as u32, polygon.tex_params.size_t as u32);
@@ -231,18 +246,19 @@ impl Engine3D {
         match polygon.tex_params.format {
             TextureFormat::NoTexture => None,
             TextureFormat::A3I5 => Some({
-                // TODO: Use alpha bits
                 let byte = vram.get_textures::<u8>(vram_offset + texel);
                 let palette_color = byte & 0x1F;
-                Color::from(vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize))
+                let alpha = byte >> 5 & 0x7;
+                let color = Color::from(vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize));
+                FrameBufferColor::new5(color, alpha * 4 + alpha / 2)
             }),
             TextureFormat::Palette4 => Some({
                 let palette_color = vram.get_textures::<u8>(vram_offset + texel / 4) >> 2 * (texel % 4) & 0x3;
-                Color::from(vram.get_textures_pal::<u16>(pal_offset / 2 + 2 * palette_color as usize))
+                FrameBufferColor::from(vram.get_textures_pal::<u16>(pal_offset / 2 + 2 * palette_color as usize))
             }),
             TextureFormat::Palette16 => Some({
                 let palette_color = vram.get_textures::<u8>(vram_offset + texel / 2) >> 4 * (texel % 2) & 0xF;
-                Color::from(vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize))
+                FrameBufferColor::from(vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize))
             }),
             TextureFormat::Compressed => Some({
                 let num_blocks_row = polygon.tex_params.size_s / 4;
@@ -258,20 +274,21 @@ impl Engine3D {
                 let extra_palette_info = vram.get_textures::<u16>(128 * 0x400 + extra_palette_addr);
                 let mode = (extra_palette_info >> 14) & 0x3;
                 let pal_offset = pal_offset + 4 * (extra_palette_info & 0x3FFF) as usize;
-                let color = |num: u8| Color::from(
-                    vram.get_textures_pal::<u16>(pal_offset + 2 * num as usize)
+                let color = |num: u8| FrameBufferColor::new5(
+                    Color::from(vram.get_textures_pal::<u16>(pal_offset + 2 * num as usize)),
+                    0x1F,
                 );
                 match mode {
                     0 => match texel_val {
                         0 | 1 | 2 => color(texel_val),
-                        3 => Color::new8(0, 0, 0), // TODO: Implement transparency
+                        3 => FrameBufferColor::new5(Color::new5(0, 0, 0), 0), // Transparent
                         _ => unreachable!(),
                     }
                     1 => match texel_val {
                         0 | 1 => color(texel_val),
                         2 => Self::combine_colors5(color(0), color(1), |val0, val1|
                             (val0 + val1) / 2),
-                        3 => Color::new8(0, 0, 0), // TODO: Implement transparency
+                        3 => FrameBufferColor::new5(Color::new5(0, 0, 0), 0), // Transparent
                         _ => unreachable!(),
                     },
                     2 => color(texel_val),
@@ -287,25 +304,36 @@ impl Engine3D {
                 }
             }),
             TextureFormat::A5I3 => Some({
-                // TODO: Use alpha bits
                 let byte = vram.get_textures::<u8>(vram_offset + texel);
                 let palette_color = byte & 0x7;
-                Color::from(vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize))
+                let alpha = byte >> 3 & 0x1F;
+                let color = Color::from(vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize));
+                FrameBufferColor::new5(color, alpha)
             }),
             TextureFormat::Palette256 => Some({
                 let palette_color = vram.get_textures::<u8>(vram_offset + texel);
-                Color::from(vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize))
+                let color = Color::from(vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize));
+                FrameBufferColor::new5(color, 0x1F)
             }),
-            TextureFormat::DirectColor => Some(Color::from(vram.get_textures::<u16>(vram_offset + 2 * texel))),
+            TextureFormat::DirectColor => Some({
+                let color_val = vram.get_textures::<u16>(vram_offset + 2 * texel);
+                let alpha = if color_val & 0x8000 != 0 { 0x1F } else { 0 };
+                FrameBufferColor::new5(Color::from(color_val), alpha)
+            }),
         }
     }
 
     // TODO: Remove with const generics
-    fn combine_colors5<F>(color_a: Color, color_b: Color, f: F) -> Color where F: Fn(u16, u16) -> u16 {
-        Color::new5(
-            f(color_a.r5() as u16, color_b.r5() as u16) as u8,
-            f(color_a.g5() as u16, color_b.g5() as u16) as u8,
-            f(color_a.b5() as u16, color_b.b5() as u16) as u8,
+    fn combine_colors5<F>(color_a: FrameBufferColor, color_b: FrameBufferColor, f: F) -> FrameBufferColor
+        where F: Fn(u16, u16) -> u16 {
+        assert_eq!(color_a.a, color_b.a);
+        FrameBufferColor::new8(
+            Color::new5(
+                f(color_a.color.r5() as u16, color_b.color.r5() as u16) as u8,
+                f(color_a.color.g5() as u16, color_b.color.g5() as u16) as u8,
+                f(color_a.color.b5() as u16, color_b.color.b5() as u16) as u8,
+            ),
+            color_a.a
         )
     }
 }
@@ -519,15 +547,64 @@ impl<const N: u8, const M: u8> std::ops::SubAssign<Frac::<M>> for Frac<N> {
 
 #[derive(Clone, Copy)]
 pub struct FrameBufferPixel {
-    color: Color,
+    color: FrameBufferColor,
     depth: u32,
 }
 
 impl FrameBufferPixel {
     pub fn new() -> Self {
         FrameBufferPixel {
-            color: Color::new8(0, 0, 0),
+            color: FrameBufferColor::new5(Color::new5(0, 0, 0), 0),
             depth: 0,
         }
+    }
+}
+
+#[derive(Clone, Copy)]
+struct FrameBufferColor {
+    color: Color,
+    a: u8,
+}
+
+impl FrameBufferColor {
+    pub fn new5(color: Color, a: u8) -> Self {
+        FrameBufferColor {
+            color,
+            a: Color::upscale::<3>(a),
+        }
+    }
+
+    pub fn new6(color: Color, a: u8) -> Self {
+        FrameBufferColor {
+            color,
+            a: Color::upscale::<2>(a),
+        }
+    }
+
+    pub fn new8(color: Color, a: u8) -> Self {
+        FrameBufferColor {
+            color,
+            a,
+        }
+    }
+
+    pub fn r5(&self) -> u8 { self.color.r5() }
+    pub fn r6(&self) -> u8 { self.color.r6() }
+    pub fn g6(&self) -> u8 { self.color.g6() }
+    pub fn b6(&self) -> u8 { self.color.b6() }
+    pub fn a6(&self) -> u8 { self.a >> 2 }
+
+    // TODO: Convert 2D engine to also use 8 bit color
+    pub fn as_u16(&self) -> u16 {
+        self.color.as_u16() | if self.a == 0 { 0 } else { 0x8000 }
+    }
+}
+
+impl From<u16> for FrameBufferColor {
+    fn from(color: u16) -> Self {
+        FrameBufferColor::new5(
+            Color::from(color),
+            if color >> 15 != 0 { 0x1F } else { 0 },
+        )
     }
 }
