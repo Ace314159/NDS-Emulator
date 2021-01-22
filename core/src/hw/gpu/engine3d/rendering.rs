@@ -18,11 +18,8 @@ impl Engine3D {
 
     pub fn render(&mut self, vram: &VRAM) {
         if !self.polygons_submitted { return }
-        // TODO: Add more accurate interpolation
         // TODO: Optimize
         for pixel in self.frame_buffer.iter_mut() {
-            // Convert 5 bit color to 8 bit color
-            // TODO: Use actual conversion formula
             pixel.color = FrameBufferColor::new5(
                 Color::new5(
                     self.clear_color.r,
@@ -347,10 +344,10 @@ struct VertexSlope {
     color: ColorSlope,
 }
 
+// TODO: RE slopes
 impl VertexSlope {
     pub fn from_verts(start: &Vertex, end: &Vertex) -> VertexSlope {
         let num_steps = (end.screen_coords[1] - start.screen_coords[1]) as usize;
-        // TODO: Implement w-buffer
         let w_start = start.normalized_w;
         let w_end = end.normalized_w;
         VertexSlope {
