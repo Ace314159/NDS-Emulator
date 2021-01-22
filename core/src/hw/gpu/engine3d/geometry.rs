@@ -916,18 +916,18 @@ impl Color {
     // Expands 5 bit components to internal 6-bit
     pub fn new5(r: u8, g: u8, b: u8) -> Self {
         Color::new6(
-            if r == 0 { 0 } else { r * 2 + 1},
-            if g == 0 { 0 } else { g * 2 + 1},
-            if b == 0 { 0 } else { b * 2 + 1},
+            Self::upscale::<1>(r),
+            Self::upscale::<1>(g),
+            Self::upscale::<1>(b),
         )
     }
 
     // Expands 6 bit components to 8 bits for interpolation
     pub fn new6(r: u8, g: u8, b: u8) -> Self {
         Color {
-            r: if r == 0 { 0 } else { (r * 2 + 1) * 2 + 1 },
-            g: if g == 0 { 0 } else { (g * 2 + 1) * 2 + 1 },
-            b: if b == 0 { 0 } else { (b * 2 + 1) * 2 + 1 },
+            r: Self::upscale::<2>(r),
+            g: Self::upscale::<2>(g),
+            b: Self::upscale::<2>(b),
         }
     }
 
@@ -937,6 +937,14 @@ impl Color {
             g,
             b,
         }
+    }
+
+    // Upscales the color components (e.g. from 6 bit to 8 color)
+    pub fn upscale<const NUM_TIMES: usize>(component: u8) -> u8 {
+        if component == 0 { return 0 }
+        let mut new_component = component;
+        for _ in 0..NUM_TIMES { new_component = new_component * 2 + 1 }
+        new_component
     }
 
     // 8 bit components reduced to 5 bit
