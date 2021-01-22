@@ -37,14 +37,6 @@ impl Engine3D {
         for polygon in self.polygons.iter() {
             // TODO: Implement perspective correction
             // TODO: Implement translucency
-            // TODO: Remove with const generics
-            fn combine_colors5<F>(color_a: Color, color_b: Color, f: F) -> Color where F: Fn(u16, u16) -> u16 {
-                Color::new5(
-                    f(color_a.r5() as u16, color_b.r5() as u16) as u8,
-                    f(color_a.g5() as u16, color_b.g5() as u16) as u8,
-                    f(color_a.b5() as u16, color_b.b5() as u16) as u8,
-                )
-            }
             fn blend_tex<F>(tex_color: Option<Color>, vert_color: Color, f: F) -> Color where F: Fn(u16, u16) -> u16 {
                 if let Some(tex_color) = tex_color {
                     Color::new6(
@@ -60,95 +52,7 @@ impl Engine3D {
             let disp3dcnt = &self.disp3dcnt;
             let toon_table = &self.toon_table;
             let blend = |vert_color, s: i32, t: i32| {
-                let vram_offset = polygon.tex_params.vram_offset;
-                let pal_offset = polygon.palette_base;
-                let size = (polygon.tex_params.size_s as u32, polygon.tex_params.size_t as u32);
-                let size_shift = (polygon.tex_params.size_s_shift, polygon.tex_params.size_t_shift);
-                let mask = (size.0 - 1, size.1 - 1);
-                // TODO: Avoid code repitition
-                let s = if polygon.tex_params.repeat_s {
-                    let (original_s, mask) = (s as u32, mask.0 as u32);
-                    let s = original_s & mask;
-                    if polygon.tex_params.flip_s && (original_s >> size_shift.0) % 2 == 1 { s ^ mask } else { s }
-                // TODO: Replace with clamp
-                } else if s < 0 { 0 } else if s as u32 > size.0 { mask.0 } else { s as u32 } as usize;
-                let t = if polygon.tex_params.repeat_t {
-                    let (original_t, mask) = (t as u32, mask.1 as u32);
-                    let t = original_t & mask;
-                    if polygon.tex_params.flip_t && (original_t >> size_shift.1) % 2 == 1 { t ^ mask } else { t }
-                // TODO: Replace with clamp
-                } else if t < 0 { 0 } else if t as u32 > size.1 { mask.1 } else { t as u32 } as usize;
-                let texel = t * polygon.tex_params.size_s + s;
-                let tex_color = match polygon.tex_params.format {
-                    TextureFormat::NoTexture => None,
-                    TextureFormat::A3I5 => Some({
-                        // TODO: Use alpha bits
-                        let byte = vram.get_textures::<u8>(vram_offset + texel);
-                        let palette_color = byte & 0x1F;
-                        Color::from(vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize))
-                    }),
-                    TextureFormat::Palette4 => Some({
-                        let palette_color = vram.get_textures::<u8>(vram_offset + texel / 4) >> 2 * (texel % 4) & 0x3;
-                        Color::from(vram.get_textures_pal::<u16>(pal_offset / 2 + 2 * palette_color as usize))
-                    }),
-                    TextureFormat::Palette16 => Some({
-                        let palette_color = vram.get_textures::<u8>(vram_offset + texel / 2) >> 4 * (texel % 2) & 0xF;
-                        Color::from(vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize))
-                    }),
-                    TextureFormat::Compressed => Some({
-                        let num_blocks_row = polygon.tex_params.size_s / 4;
-                        let block_start_addr = t / 4 * num_blocks_row + s / 4;
-                        let base_addr = vram_offset + 4 * block_start_addr;
-                        let te = vram.get_textures::<u8>(base_addr + t % 4);
-                        let texel_val = te >> 2 * (s % 4) & 0x3;
-                         // TODO: Check behavior and optimize
-                        assert!(base_addr / 128 / 0x400 == 0 || base_addr / 128 / 0x400 == 2);
-                        let extra_palette_addr = (base_addr & 0x1_FFFF) / 2 + if base_addr < 128 * 0x400 {
-                            0 // Slot 0
-                        } else { 0x1000 }; // Slot 2
-                        let extra_palette_info = vram.get_textures::<u16>(128 * 0x400 + extra_palette_addr);
-                        let mode = (extra_palette_info >> 14) & 0x3;
-                        let pal_offset = pal_offset + 4 * (extra_palette_info & 0x3FFF) as usize;
-                        let color = |num: u8| Color::from(
-                            vram.get_textures_pal::<u16>(pal_offset + 2 * num as usize)
-                        );
-                        match mode {
-                            0 => match texel_val {
-                                0 | 1 | 2 => color(texel_val),
-                                3 => Color::new8(0, 0, 0), // TODO: Implement transparency
-                                _ => unreachable!(),
-                            }
-                            1 => match texel_val {
-                                0 | 1 => color(texel_val),
-                                2 => combine_colors5(color(0), color(1), |val0, val1|
-                                    (val0 + val1) / 2),
-                                3 => Color::new8(0, 0, 0), // TODO: Implement transparency
-                                _ => unreachable!(),
-                            },
-                            2 => color(texel_val),
-                            3 => match texel_val {
-                                0 | 1 => color(texel_val),
-                                2 => combine_colors5(color(0), color(1), |val0, val1|
-                                    (val0 * 5 + val1 * 3) / 8),
-                                3 => combine_colors5(color(0), color(1), |val0, val1|
-                                    (val0 * 3 + val1 * 5) / 8),
-                                _ => unreachable!(),
-                            }
-                            _ => unreachable!(),
-                        }
-                    }),
-                    TextureFormat::A5I3 => Some({
-                        // TODO: Use alpha bits
-                        let byte = vram.get_textures::<u8>(vram_offset + texel);
-                        let palette_color = byte & 0x7;
-                        Color::from(vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize))
-                    }),
-                    TextureFormat::Palette256 => Some({
-                        let palette_color = vram.get_textures::<u8>(vram_offset + texel);
-                        Color::from(vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize))
-                    }),
-                    TextureFormat::DirectColor => Some(Color::from(vram.get_textures::<u16>(vram_offset + 2 * texel))),
-                };
+                let tex_color = Engine3D::get_tex_color(vram, polygon, s, t);
                 let modulation_blend = |val1, val2| ((val1 + 1) * (val2 + 1) - 1) / 64;
                 match polygon.attrs.mode {
                     PolygonMode::Modulation => blend_tex(tex_color, vert_color,modulation_blend),
@@ -299,6 +203,108 @@ impl Engine3D {
                 }
             }
         }
+    }
+
+    fn get_tex_color(vram: &VRAM, polygon: &Polygon, s: i32, t: i32) -> Option<Color> {
+        let vram_offset = polygon.tex_params.vram_offset;
+        let pal_offset = polygon.palette_base;
+        let size = (polygon.tex_params.size_s as u32, polygon.tex_params.size_t as u32);
+        let size_shift = (polygon.tex_params.size_s_shift, polygon.tex_params.size_t_shift);
+        let mask = (size.0 - 1, size.1 - 1);
+        // TODO: Avoid code repitition
+        let s = if polygon.tex_params.repeat_s {
+            let (original_s, mask) = (s as u32, mask.0 as u32);
+            let s = original_s & mask;
+            if polygon.tex_params.flip_s && (original_s >> size_shift.0) % 2 == 1 { s ^ mask } else { s }
+        // TODO: Replace with clamp
+        } else if s < 0 { 0 } else if s as u32 > size.0 { mask.0 } else { s as u32 } as usize;
+        let t = if polygon.tex_params.repeat_t {
+            let (original_t, mask) = (t as u32, mask.1 as u32);
+            let t = original_t & mask;
+            if polygon.tex_params.flip_t && (original_t >> size_shift.1) % 2 == 1 { t ^ mask } else { t }
+        // TODO: Replace with clamp
+        } else if t < 0 { 0 } else if t as u32 > size.1 { mask.1 } else { t as u32 } as usize;
+        let texel = t * polygon.tex_params.size_s + s;
+
+        match polygon.tex_params.format {
+            TextureFormat::NoTexture => None,
+            TextureFormat::A3I5 => Some({
+                // TODO: Use alpha bits
+                let byte = vram.get_textures::<u8>(vram_offset + texel);
+                let palette_color = byte & 0x1F;
+                Color::from(vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize))
+            }),
+            TextureFormat::Palette4 => Some({
+                let palette_color = vram.get_textures::<u8>(vram_offset + texel / 4) >> 2 * (texel % 4) & 0x3;
+                Color::from(vram.get_textures_pal::<u16>(pal_offset / 2 + 2 * palette_color as usize))
+            }),
+            TextureFormat::Palette16 => Some({
+                let palette_color = vram.get_textures::<u8>(vram_offset + texel / 2) >> 4 * (texel % 2) & 0xF;
+                Color::from(vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize))
+            }),
+            TextureFormat::Compressed => Some({
+                let num_blocks_row = polygon.tex_params.size_s / 4;
+                let block_start_addr = t / 4 * num_blocks_row + s / 4;
+                let base_addr = vram_offset + 4 * block_start_addr;
+                let te = vram.get_textures::<u8>(base_addr + t % 4);
+                let texel_val = te >> 2 * (s % 4) & 0x3;
+                 // TODO: Check behavior and optimize
+                assert!(base_addr / 128 / 0x400 == 0 || base_addr / 128 / 0x400 == 2);
+                let extra_palette_addr = (base_addr & 0x1_FFFF) / 2 + if base_addr < 128 * 0x400 {
+                    0 // Slot 0
+                } else { 0x1000 }; // Slot 2
+                let extra_palette_info = vram.get_textures::<u16>(128 * 0x400 + extra_palette_addr);
+                let mode = (extra_palette_info >> 14) & 0x3;
+                let pal_offset = pal_offset + 4 * (extra_palette_info & 0x3FFF) as usize;
+                let color = |num: u8| Color::from(
+                    vram.get_textures_pal::<u16>(pal_offset + 2 * num as usize)
+                );
+                match mode {
+                    0 => match texel_val {
+                        0 | 1 | 2 => color(texel_val),
+                        3 => Color::new8(0, 0, 0), // TODO: Implement transparency
+                        _ => unreachable!(),
+                    }
+                    1 => match texel_val {
+                        0 | 1 => color(texel_val),
+                        2 => Self::combine_colors5(color(0), color(1), |val0, val1|
+                            (val0 + val1) / 2),
+                        3 => Color::new8(0, 0, 0), // TODO: Implement transparency
+                        _ => unreachable!(),
+                    },
+                    2 => color(texel_val),
+                    3 => match texel_val {
+                        0 | 1 => color(texel_val),
+                        2 => Self::combine_colors5(color(0), color(1), |val0, val1|
+                            (val0 * 5 + val1 * 3) / 8),
+                        3 => Self::combine_colors5(color(0), color(1), |val0, val1|
+                            (val0 * 3 + val1 * 5) / 8),
+                        _ => unreachable!(),
+                    }
+                    _ => unreachable!(),
+                }
+            }),
+            TextureFormat::A5I3 => Some({
+                // TODO: Use alpha bits
+                let byte = vram.get_textures::<u8>(vram_offset + texel);
+                let palette_color = byte & 0x7;
+                Color::from(vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize))
+            }),
+            TextureFormat::Palette256 => Some({
+                let palette_color = vram.get_textures::<u8>(vram_offset + texel);
+                Color::from(vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize))
+            }),
+            TextureFormat::DirectColor => Some(Color::from(vram.get_textures::<u16>(vram_offset + 2 * texel))),
+        }
+    }
+
+    // TODO: Remove with const generics
+    fn combine_colors5<F>(color_a: Color, color_b: Color, f: F) -> Color where F: Fn(u16, u16) -> u16 {
+        Color::new5(
+            f(color_a.r5() as u16, color_b.r5() as u16) as u8,
+            f(color_a.g5() as u16, color_b.g5() as u16) as u8,
+            f(color_a.b5() as u16, color_b.b5() as u16) as u8,
+        )
     }
 }
 
