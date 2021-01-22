@@ -35,44 +35,35 @@ impl Engine3D {
         }
 
         assert!(!self.frame_params.w_buffer); // TODO: Implement W-Buffer
-        // TODO: Account for special cases
-        // TODO: Remove with const generics
-        fn eq_depth_test(cur_depth: u32, new_depth: u32) -> bool {
-            new_depth >= cur_depth - 0x200 && new_depth <= cur_depth + 0x200
-        }
-        fn lt_depth_test(cur_depth: u32, new_depth: u32) -> bool { new_depth < cur_depth }
 
-        
+        let disp3dcnt = &self.disp3dcnt;
+        let toon_table = &self.toon_table;
+        let blend = |polygon: &Polygon, vert_color, s: i32, t: i32| {
+            let tex_color = Self::get_tex_color(vram, polygon, s, t);
+            let modulation_blend = |val1, val2| ((val1 + 1) * (val2 + 1) - 1) / 64;
+            match polygon.attrs.mode {
+                PolygonMode::Modulation => Self::blend_tex(tex_color, vert_color,
+                    modulation_blend, modulation_blend),
+                PolygonMode::ToonHighlight if disp3dcnt.highlight_shading =>
+                Self::blend_tex(tex_color, vert_color,
+                    |val1, val2| std::cmp::max(modulation_blend(val1, val2) + val2, 0x3F),
+                    modulation_blend,
+                ),
+                PolygonMode::ToonHighlight => {
+                    let toon_color = FrameBufferColor::new8(toon_table[vert_color.r5() as usize], vert_color.a);
+                    Self::blend_tex(tex_color, toon_color, modulation_blend, modulation_blend)
+                },
+                // TODO: Use decal blending
+                PolygonMode::Shadow => tex_color.unwrap_or_else(|| FrameBufferColor::new5(Color::new5(0, 0, 0), 0)),
+                _ => todo!(),
+            }
+        };
+
         for polygon in self.polygons.iter() {
-            // TODO: Implement perspective correction
-            // TODO: Implement translucency
-            let disp3dcnt = &self.disp3dcnt;
-            let toon_table = &self.toon_table;
-            let blend = |vert_color, s: i32, t: i32| {
-                let tex_color = Self::get_tex_color(vram, polygon, s, t);
-                let modulation_blend = |val1, val2| ((val1 + 1) * (val2 + 1) - 1) / 64;
-                match polygon.attrs.mode {
-                    PolygonMode::Modulation => Self::blend_tex(tex_color, vert_color,
-                        modulation_blend, modulation_blend),
-                    PolygonMode::ToonHighlight if disp3dcnt.highlight_shading =>
-                    Self::blend_tex(tex_color, vert_color,
-                        |val1, val2| std::cmp::max(modulation_blend(val1, val2) + val2, 0x3F),
-                        modulation_blend,
-                    ),
-                    PolygonMode::ToonHighlight => {
-                        let toon_color = FrameBufferColor::new8(toon_table[vert_color.r5() as usize], vert_color.a);
-                        Self::blend_tex(tex_color, toon_color, modulation_blend, modulation_blend)
-                    },
-                    // TODO: Use decal blending
-                    PolygonMode::Shadow => tex_color.unwrap_or_else(|| FrameBufferColor::new5(Color::new5(0, 0, 0), 0)),
-                    _ => todo!(),
-                }
-            };
             // TODO: Use fixed point for interpolation
             // TODO: Fix uneven interpolation
-            let depth_test = if polygon.attrs.depth_test_eq { eq_depth_test } else { lt_depth_test };
             let vertices = &self.vertices[polygon.start_vert..polygon.end_vert];
-            Self::render_polygon(blend, depth_test, &polygon, vertices, &mut self.frame_buffer);
+            Self::render_polygon(blend, &polygon, vertices, &mut self.frame_buffer);
         }
 
         self.gxstat.geometry_engine_busy = false;
@@ -81,9 +72,10 @@ impl Engine3D {
         self.polygons_submitted = false;
     }
 
-    fn render_polygon<B, D>(blend: B, depth_test: D, polygon: &Polygon, vertices: &[Vertex], frame_buffer: &mut [FrameBufferPixel])
-        where B: Fn(FrameBufferColor, i32, i32) -> FrameBufferColor, D: Fn(u32, u32) -> bool {
+    fn render_polygon<B>(blend: B, polygon: &Polygon, vertices: &[Vertex], frame_buffer: &mut [FrameBufferPixel])
+        where B: Fn(&Polygon, FrameBufferColor, i32, i32) -> FrameBufferColor {
         if polygon.attrs.mode == PolygonMode::Shadow { return }
+        let depth_test = Self::get_depth_test(polygon);
         // Find top left and bottom right vertices
         let (mut start_vert, mut end_vert) = (0, 0);
         for (i, vert) in vertices.iter().enumerate() {
@@ -198,7 +190,7 @@ impl Engine3D {
                 if depth_test(pixel.depth, depth_val) {
                     pixel.depth = depth_val;
                     let color = FrameBufferColor::new5(color.next(), polygon.attrs.alpha);
-                    let blended_color = blend(color, s.next() as i32 >> 4, t.next() as i32 >> 4);
+                    let blended_color = blend(polygon, color, s.next() as i32 >> 4, t.next() as i32 >> 4);
                     pixel.color = blended_color;
                 }
             }
@@ -307,8 +299,7 @@ impl Engine3D {
     }
 
     fn blend_tex<C, A>(tex_color: Option<FrameBufferColor>, vert_color: FrameBufferColor,
-        color_f: C, alpha_f: A) -> FrameBufferColor
-        where C: Fn(u16, u16) -> u16, A: Fn(u16, u16) -> u16 {
+        color_f: C, alpha_f: A) -> FrameBufferColor where C: Fn(u16, u16) -> u16, A: Fn(u16, u16) -> u16 {
         if let Some(tex_color) = tex_color {
             FrameBufferColor::new6(
                 Color::new6(
@@ -335,6 +326,15 @@ impl Engine3D {
             ),
             color_a.a
         )
+    }
+
+    fn get_depth_test(polygon: &Polygon) -> fn(u32, u32) -> bool {
+        // TODO: Account for special cases
+        fn eq_depth_test(cur_depth: u32, new_depth: u32) -> bool {
+            new_depth >= cur_depth - 0x200 && new_depth <= cur_depth + 0x200
+        }
+        fn lt_depth_test(cur_depth: u32, new_depth: u32) -> bool { new_depth < cur_depth }
+        if polygon.attrs.depth_test_eq { eq_depth_test } else { lt_depth_test }
     }
 }
 
