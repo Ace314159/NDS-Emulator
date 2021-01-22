@@ -98,10 +98,13 @@ impl GPU {
     pub fn capture(&mut self) {
         let start_addr = self.vcount as usize * GPU::WIDTH;
         let width = self.dispcapcnt.capture_size.width();
-        let src_a = &if self.dispcapcnt.src_a_is_3d_only ||
+        fn get_engine_a_color(engine_a: &Engine2D::<EngineA>, _: &Engine3D, index: usize) -> u16 { engine_a.pixels()[index] }
+        fn get_engine3d_color(_: &Engine2D::<EngineA>, engine_3d: &Engine3D, index: usize) -> u16 { engine_3d.pixel_color(index) }
+        let src_a: fn(&Engine2D::<EngineA>, &Engine3D, usize) -> u16 = if self.dispcapcnt.src_a_is_3d_only ||
         self.engine_a.dispcnt.display_mode != DisplayMode::Mode0 {
-            self.engine3d.pixels()
-        } else { self.engine_a.pixels() }[start_addr..start_addr + width];
+            get_engine3d_color
+        } else { get_engine_a_color };
+        let src_a_range = start_addr..start_addr + width;
         let mut src_b = [0; 2 * GPU::WIDTH];
         if self.dispcapcnt.src_b_fifo {
             todo!()
@@ -118,12 +121,14 @@ impl GPU {
         let bank = &mut self.vram.banks[self.dispcapcnt.vram_write_block];
         // TODO: Replace write_mem and read_mem with slice conversions
         match self.dispcapcnt.capture_src {
-            CaptureSource::A => for (i, pixel) in src_a.iter().enumerate() {
-                HW::write_mem(bank, offset as u32 + 2 * i as u32, *pixel);
+            CaptureSource::A => for (i, index) in src_a_range.enumerate() {
+                let pixel = src_a(&self.engine_a, &self.engine3d, index);
+                HW::write_mem(bank, offset as u32 + 2 * i as u32, pixel);
             },
             CaptureSource::B =>
                 bank[offset..offset + 2 * width].copy_from_slice(&src_b[..2 * width]),
-            CaptureSource::AB => for (i, a_pixel) in src_a.iter().enumerate() {
+            CaptureSource::AB => for (i, a_index) in src_a_range.enumerate() {
+                let a_pixel = src_a(&self.engine_a, &self.engine3d, a_index);
                 let b_pixel = HW::read_mem::<u16>(&src_b, i as u32 * 2);
                 let a_alpha = a_pixel >> 15 & 0x1;
                 let b_alpha = b_pixel >> 15 & 0x1;

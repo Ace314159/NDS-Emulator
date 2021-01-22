@@ -10,6 +10,7 @@ mod rendering;
 
 use math::{FixedPoint, Matrix};
 use geometry::*;
+use rendering::FrameBufferPixel;
 use registers::*;
 
 pub struct Engine3D {
@@ -44,8 +45,7 @@ pub struct Engine3D {
     viewport: Viewport,
     clear_color: ClearColor,
     clear_depth: ClearDepth,
-    pixels: Vec<u16>,
-    depth_buffer: Vec<u32>,
+    frame_buffer: Vec<FrameBufferPixel>,
     polygons_submitted: bool,
     // Polygons
     polygon_attrs: PolygonAttributes,
@@ -107,8 +107,7 @@ impl Engine3D {
             viewport: Viewport::new(),
             clear_color: ClearColor::new(),
             clear_depth: ClearDepth::new(),
-            pixels: vec![0; GPU::WIDTH * GPU::HEIGHT],
-            depth_buffer: vec![0; GPU::WIDTH * GPU::HEIGHT],
+            frame_buffer: vec![FrameBufferPixel::new(); GPU::WIDTH * GPU::HEIGHT],
             polygons_submitted: false,
             // Polygons
             polygon_attrs: PolygonAttributes::new(),

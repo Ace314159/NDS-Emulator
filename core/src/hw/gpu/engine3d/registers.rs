@@ -162,9 +162,9 @@ impl Engine3D {
 }
 
 pub struct ClearColor {
-    red: u8,
-    green: u8,
-    blue: u8,
+    r: u8,
+    g: u8,
+    b: u8,
     fog: bool,
     alpha: u8,
     polygon_id: u8,
@@ -173,17 +173,17 @@ pub struct ClearColor {
 impl ClearColor {
     pub fn new() -> Self {
         ClearColor {
-            red: 0,
-            green: 0,
-            blue: 0,
+            r: 0,
+            g: 0,
+            b: 0,
             fog: false,
             alpha: 0,
             polygon_id: 0,
         }
     }
 
-    pub fn color(&self) -> u16 {
-        (self.blue as u16) << 10 | (self.green as u16) << 5 | self.red as u16
+    pub fn color(&self) -> Color {
+        Color::new5(self.r, self.g, self.b)
     }
 }
 
@@ -193,12 +193,12 @@ impl IORegister for ClearColor {
     fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8) {
         match byte {
             0 => {
-                self.red = value & 0x1F;
-                self.green = self.green & !0x7 | (value >> 5) & 0x7;
+                self.r = value & 0x1F;
+                self.g = self.g & !0x7 | (value >> 5) & 0x7;
             },
             1 => {
-                self.green = self.green & !0x18 | (value << 3) & 0x18;
-                self.blue = value >> 2 & 0x1F;
+                self.g = self.g & !0x18 | (value << 3) & 0x18;
+                self.b = value >> 2 & 0x1F;
                 self.fog = value >> 7 & 0x1 != 0;
             },
             2 => self.alpha = value & 0x1F,

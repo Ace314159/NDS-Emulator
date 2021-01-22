@@ -6,13 +6,13 @@ use super::{
 };
 
 impl Engine3D {
-    pub fn pixels(&self) -> &Vec<u16> {
-        &self.pixels
+    pub fn pixel_color(&self, index: usize) -> u16 {
+        self.frame_buffer[index].color.as_u16() | 0x8000
     }
 
     pub fn copy_line(&self, vcount: u16, line: &mut [u16; GPU::WIDTH]) {
         for (i, pixel) in line.iter_mut().enumerate() {
-            *pixel = self.pixels[vcount as usize * GPU::WIDTH + i]
+            *pixel = self.frame_buffer[vcount as usize * GPU::WIDTH + i].color.as_u16() | 0x8000
         }
     }
 
@@ -20,9 +20,11 @@ impl Engine3D {
         if !self.polygons_submitted { return }
         // TODO: Add more accurate interpolation
         // TODO: Optimize
-        for (i, pixel) in self.pixels.iter_mut().enumerate() {
-            *pixel = self.clear_color.color();
-            self.depth_buffer[i] = self.clear_depth.depth();
+        for pixel in self.frame_buffer.iter_mut() {
+            // Convert 5 bit color to 8 bit color
+            // TODO: Use actual conversion formula
+            pixel.color = self.clear_color.color();
+            pixel.depth = self.clear_depth.depth();
         }
 
         assert!(!self.frame_params.w_buffer); // TODO: Implement W-Buffer
@@ -52,7 +54,7 @@ impl Engine3D {
             let disp3dcnt = &self.disp3dcnt;
             let toon_table = &self.toon_table;
             let blend = |vert_color, s: i32, t: i32| {
-                let tex_color = Engine3D::get_tex_color(vram, polygon, s, t);
+                let tex_color = Self::get_tex_color(vram, polygon, s, t);
                 let modulation_blend = |val1, val2| ((val1 + 1) * (val2 + 1) - 1) / 64;
                 match polygon.attrs.mode {
                     PolygonMode::Modulation => blend_tex(tex_color, vert_color,modulation_blend),
@@ -73,7 +75,7 @@ impl Engine3D {
             // TODO: Fix uneven interpolation
             let depth_test = if polygon.attrs.depth_test_eq { eq_depth_test } else { lt_depth_test };
             let vertices = &self.vertices[polygon.start_vert..polygon.end_vert];
-            Engine3D::render_polygon(blend, depth_test, &polygon, vertices, &mut self.pixels, &mut self.depth_buffer);
+            Self::render_polygon(blend, depth_test, &polygon, vertices, &mut self.frame_buffer);
         }
 
         self.gxstat.geometry_engine_busy = false;
@@ -82,7 +84,7 @@ impl Engine3D {
         self.polygons_submitted = false;
     }
 
-    fn render_polygon<B, D>(blend: B, depth_test: D, polygon: &Polygon, vertices: &[Vertex], pixels: &mut Vec<u16>, depth_buffer: &mut Vec<u32>)
+    fn render_polygon<B, D>(blend: B, depth_test: D, polygon: &Polygon, vertices: &[Vertex], frame_buffer: &mut [FrameBufferPixel])
     where B: Fn(Color, i32, i32) -> Color, D: Fn(u32, u32) -> bool {
         if polygon.attrs.mode == PolygonMode::Shadow { return }
         // Find top left and bottom right vertices
@@ -131,8 +133,7 @@ impl Engine3D {
         right_vert = new_right_vert;
 
         for y in vertices[start_vert].screen_coords[1]..vertices[end_vert].screen_coords[1] {
-            // While loops to skip repeated vertices from clipping
-            // TODO: Should this be fixed in clipping or rendering code?
+            // Find next vertex below current 
             while y >= left_end {
                 let new_left_vert = next_left(left_vert);
                 left_slope = VertexSlope::from_verts(&vertices[left_vert], &vertices[new_left_vert]);
@@ -196,10 +197,11 @@ impl Engine3D {
             for x in x_start..x_end {
                 let y = y as usize;
                 let depth_val = depth.next() as u32;
-                if depth_test(depth_buffer[y * GPU::WIDTH + x], depth_val) {
-                    depth_buffer[y * GPU::WIDTH + x] = depth_val;
+                let pixel = &mut frame_buffer[y * GPU::WIDTH + x];
+                if depth_test(pixel.depth, depth_val) {
+                    pixel.depth = depth_val;
                     let blended_color = blend(color.next(), s.next() as i32 >> 4, t.next() as i32 >> 4);
-                    pixels[y * GPU::WIDTH + x] = 0x8000 | blended_color.as_u16();
+                    pixel.color = blended_color;
                 }
             }
         }
@@ -512,5 +514,20 @@ impl<const N: u8, const M: u8> std::ops::SubAssign<Frac::<M>> for Frac<N> {
             let rhs = rhs.0 << (N - M);
             self.0 -= rhs;
         };
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct FrameBufferPixel {
+    color: Color,
+    depth: u32,
+}
+
+impl FrameBufferPixel {
+    pub fn new() -> Self {
+        FrameBufferPixel {
+            color: Color::new8(0, 0, 0),
+            depth: 0,
+        }
     }
 }
