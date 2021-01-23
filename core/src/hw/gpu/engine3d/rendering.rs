@@ -2,17 +2,17 @@ use super::{
     super::VRAM,
     Color, Engine3D, GPU, TextureFormat,
     geometry::{Polygon, Vertex},
-    registers::PolygonMode,
+    registers::{DISP3DCNT, PolygonMode},
 };
 
 impl Engine3D {
     pub fn pixel_color(&self, index: usize) -> u16 {
-        self.frame_buffer[index].color.as_u16() | 0x8000
+        self.frame_buffer[index].color.as_u16()
     }
 
     pub fn copy_line(&self, vcount: u16, line: &mut [u16; GPU::WIDTH]) {
         for (i, pixel) in line.iter_mut().enumerate() {
-            *pixel = self.frame_buffer[vcount as usize * GPU::WIDTH + i].color.as_u16() | 0x8000
+            *pixel = self.frame_buffer[vcount as usize * GPU::WIDTH + i].color.as_u16()
         }
     }
 
@@ -32,6 +32,7 @@ impl Engine3D {
         }
 
         assert!(!self.frame_params.w_buffer); // TODO: Implement W-Buffer
+        assert!(!self.disp3dcnt.alpha_test); // TODO: Implement alpha test
 
         let disp3dcnt = &self.disp3dcnt;
         let toon_table = &self.toon_table;
@@ -56,20 +57,36 @@ impl Engine3D {
             }
         };
 
-        for polygon in self.polygons.iter() {
-            // TODO: Use fixed point for interpolation
-            // TODO: Fix uneven interpolation
-            let vertices = &self.vertices[polygon.start_vert..polygon.end_vert];
-            Self::render_polygon(blend, &polygon, vertices, &mut self.frame_buffer);
+        let vertices = &self.vertices;
+        let frame_buffer = &mut self.frame_buffer;
+        let mut render = |polygon: Polygon| {
+            let vertices = &vertices[polygon.start_vert..polygon.end_vert];
+            Self::render_polygon(disp3dcnt, blend, &polygon, vertices, frame_buffer);
+        };
+
+        if disp3dcnt.alpha_blending {
+            let (opaque, translucent): (Vec<Polygon>, Vec<Polygon>) = self.polygons.drain(..).partition(
+                |polygon| polygon.attrs.alpha == 0x1F
+            );
+    
+            for polygon in opaque {
+                render(polygon)
+            }
+            for polygon in translucent {
+                render(polygon)
+            }
+        } else {
+            for polygon in self.polygons.drain(..) {
+                render(polygon)
+            }
         }
 
-        self.gxstat.geometry_engine_busy = false;
         self.vertices.clear();
-        self.polygons.clear();
+        self.gxstat.geometry_engine_busy = false;
         self.polygons_submitted = false;
     }
 
-    fn render_polygon<B>(blend: B, polygon: &Polygon, vertices: &[Vertex], frame_buffer: &mut [FrameBufferPixel])
+    fn render_polygon<B>(disp3dcnt: &DISP3DCNT, blend: B, polygon: &Polygon, vertices: &[Vertex], frame_buffer: &mut [FrameBufferPixel])
         where B: Fn(&Polygon, FrameBufferColor, i32, i32) -> FrameBufferColor {
         if polygon.attrs.mode == PolygonMode::Shadow { return }
         let depth_test = Self::get_depth_test(polygon);
@@ -184,11 +201,27 @@ impl Engine3D {
                 let y = y as usize;
                 let depth_val = depth.next() as u32;
                 let pixel = &mut frame_buffer[y * GPU::WIDTH + x];
-                if depth_test(pixel.depth, depth_val) {
+
+                let vert_color = FrameBufferColor::new5(color.next(), polygon.attrs.alpha);
+                let fb_color = &pixel.color;
+                let poly_color = blend(polygon, vert_color, s.next() as i32 >> 4, t.next() as i32 >> 4);
+                if poly_color.a5() == 0 {
+                    // Pixel is totally tranpsarent so not rendered
+                } else if disp3dcnt.alpha_blending && fb_color.a5() != 0 && poly_color.a5() != 0x1F {
+                    let poly_alpha = poly_color.a5() as u16;
+                    let calc = |old, new| (old * (0x1F - poly_alpha) + new * (poly_alpha + 1)) / 32;
+                    pixel.color = FrameBufferColor::new8(
+                        Color::new6(
+                            calc(fb_color.r6() as u16, poly_color.r6() as u16) as u8,
+                            calc(fb_color.g6() as u16, poly_color.g6() as u16) as u8,
+                            calc(fb_color.b6() as u16, poly_color.b6() as u16) as u8,
+                        ),
+                        std::cmp::max(fb_color.a, poly_color.a),
+                    );
+                    if polygon.attrs.set_depth_translucent { pixel.depth = depth_val }
+                } else if depth_test(pixel.depth, depth_val) {
+                    pixel.color = poly_color;
                     pixel.depth = depth_val;
-                    let color = FrameBufferColor::new5(color.next(), polygon.attrs.alpha);
-                    let blended_color = blend(polygon, color, s.next() as i32 >> 4, t.next() as i32 >> 4);
-                    pixel.color = blended_color;
                 }
             }
         }
@@ -214,7 +247,9 @@ impl Engine3D {
         // TODO: Replace with clamp
         } else if t < 0 { 0 } else if t as u32 > size.1 { mask.1 } else { t as u32 } as usize;
         let texel = t * polygon.tex_params.size_s + s;
+        let color0_transparent = polygon.tex_params.color0_transparent;
 
+        // TODO: Remove code duplication
         match polygon.tex_params.format {
             TextureFormat::NoTexture => None,
             TextureFormat::A3I5 => Some({
@@ -226,11 +261,15 @@ impl Engine3D {
             }),
             TextureFormat::Palette4 => Some({
                 let palette_color = vram.get_textures::<u8>(vram_offset + texel / 4) >> 2 * (texel % 4) & 0x3;
-                FrameBufferColor::from(vram.get_textures_pal::<u16>(pal_offset / 2 + 2 * palette_color as usize))
+                let color = Color::from(vram.get_textures_pal::<u16>(pal_offset / 2 + 2 * palette_color as usize));
+                let alpha = if palette_color == 0 && color0_transparent { 0 } else { 0x1F };
+                FrameBufferColor::new5(color, alpha)
             }),
             TextureFormat::Palette16 => Some({
                 let palette_color = vram.get_textures::<u8>(vram_offset + texel / 2) >> 4 * (texel % 2) & 0xF;
-                FrameBufferColor::from(vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize))
+                let color = Color::from(vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize));
+                let alpha = if palette_color == 0 && color0_transparent { 0 } else { 0x1F };
+                FrameBufferColor::new5(color, alpha)
             }),
             TextureFormat::Compressed => Some({
                 let num_blocks_row = polygon.tex_params.size_s / 4;
@@ -285,7 +324,8 @@ impl Engine3D {
             TextureFormat::Palette256 => Some({
                 let palette_color = vram.get_textures::<u8>(vram_offset + texel);
                 let color = Color::from(vram.get_textures_pal::<u16>(pal_offset + 2 * palette_color as usize));
-                FrameBufferColor::new5(color, 0x1F)
+                let alpha = if palette_color == 0 && color0_transparent { 0 } else { 0x1F };
+                FrameBufferColor::new5(color, alpha)
             }),
             TextureFormat::DirectColor => Some({
                 let color_val = vram.get_textures::<u16>(vram_offset + 2 * texel);
@@ -586,6 +626,7 @@ impl FrameBufferColor {
     }
 
     pub fn r5(&self) -> u8 { self.color.r5() }
+    pub fn a5(&self) -> u8 { self.a >> 3 }
     pub fn r6(&self) -> u8 { self.color.r6() }
     pub fn g6(&self) -> u8 { self.color.g6() }
     pub fn b6(&self) -> u8 { self.color.b6() }
@@ -594,14 +635,5 @@ impl FrameBufferColor {
     // TODO: Convert 2D engine to also use 8 bit color
     pub fn as_u16(&self) -> u16 {
         self.color.as_u16() | if self.a == 0 { 0 } else { 0x8000 }
-    }
-}
-
-impl From<u16> for FrameBufferColor {
-    fn from(color: u16) -> Self {
-        FrameBufferColor::new5(
-            Color::from(color),
-            if color >> 15 != 0 { 0x1F } else { 0 },
-        )
     }
 }
