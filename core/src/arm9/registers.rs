@@ -110,7 +110,7 @@ impl RegValues {
 
     pub fn save_banked(&mut self) {
         match self.cpsr.get_mode() {
-            Mode::USR | Mode::SYS  => self.usr.copy_from_slice(&self.regs[13..15]),
+            Mode::USR | Mode::SYS => self.usr.copy_from_slice(&self.regs[13..15]),
             Mode::SVC => self.svc.copy_from_slice(&self.regs[13..15]),
             Mode::IRQ => self.irq.copy_from_slice(&self.regs[13..15]),
             _ => unreachable!(), // Unused modes (hopefully)
@@ -154,7 +154,7 @@ impl RegValues {
         &mut self.cpsr.bits
     }
 
-    pub fn sp(&self) -> u32{
+    pub fn sp(&self) -> u32 {
         self.regs[13]
     }
 
@@ -170,24 +170,60 @@ impl RegValues {
         self.regs[14] = value;
     }
 
-    pub fn _get_n(&self) -> bool { self.cpsr.contains(StatusReg::N) }
-    pub fn _get_z(&self) -> bool { self.cpsr.contains(StatusReg::Z) }
-    pub fn get_c(&self) -> bool { self.cpsr.contains(StatusReg::C) }
-    pub fn _get_v(&self) -> bool { self.cpsr.contains(StatusReg::V) }
-    pub fn _get_q(&self) -> bool { self.cpsr.contains(StatusReg::Q) }
-    pub fn get_i(&self) -> bool { self.cpsr.contains(StatusReg::I) }
-    pub fn _get_f(&self) -> bool { self.cpsr.contains(StatusReg::F) }
-    pub fn get_flags(&self) -> u32 { self.cpsr.bits >> 24 }
-    pub fn get_t(&self) -> bool { self.cpsr.contains(StatusReg::T) }
-    pub fn get_mode(&self) -> Mode { self.cpsr.get_mode() }
-    pub fn set_n(&mut self, value: bool) { self.cpsr.set(StatusReg::N, value) }
-    pub fn set_z(&mut self, value: bool) { self.cpsr.set(StatusReg::Z, value) }
-    pub fn set_c(&mut self, value: bool) { self.cpsr.set(StatusReg::C, value) }
-    pub fn set_v(&mut self, value: bool) { self.cpsr.set(StatusReg::V, value) }
-    pub fn set_q(&mut self, value: bool) { self.cpsr.set(StatusReg::Q, value) }
-    pub fn set_i(&mut self, value: bool) { self.cpsr.set(StatusReg::I, value) }
-    pub fn _set_f(&mut self, value: bool) { self.cpsr.set(StatusReg::F, value) }
-    pub fn set_t(&mut self, value: bool) { self.cpsr.set(StatusReg::T, value) }
+    pub fn _get_n(&self) -> bool {
+        self.cpsr.contains(StatusReg::N)
+    }
+    pub fn _get_z(&self) -> bool {
+        self.cpsr.contains(StatusReg::Z)
+    }
+    pub fn get_c(&self) -> bool {
+        self.cpsr.contains(StatusReg::C)
+    }
+    pub fn _get_v(&self) -> bool {
+        self.cpsr.contains(StatusReg::V)
+    }
+    pub fn _get_q(&self) -> bool {
+        self.cpsr.contains(StatusReg::Q)
+    }
+    pub fn get_i(&self) -> bool {
+        self.cpsr.contains(StatusReg::I)
+    }
+    pub fn _get_f(&self) -> bool {
+        self.cpsr.contains(StatusReg::F)
+    }
+    pub fn get_flags(&self) -> u32 {
+        self.cpsr.bits >> 24
+    }
+    pub fn get_t(&self) -> bool {
+        self.cpsr.contains(StatusReg::T)
+    }
+    pub fn get_mode(&self) -> Mode {
+        self.cpsr.get_mode()
+    }
+    pub fn set_n(&mut self, value: bool) {
+        self.cpsr.set(StatusReg::N, value)
+    }
+    pub fn set_z(&mut self, value: bool) {
+        self.cpsr.set(StatusReg::Z, value)
+    }
+    pub fn set_c(&mut self, value: bool) {
+        self.cpsr.set(StatusReg::C, value)
+    }
+    pub fn set_v(&mut self, value: bool) {
+        self.cpsr.set(StatusReg::V, value)
+    }
+    pub fn set_q(&mut self, value: bool) {
+        self.cpsr.set(StatusReg::Q, value)
+    }
+    pub fn set_i(&mut self, value: bool) {
+        self.cpsr.set(StatusReg::I, value)
+    }
+    pub fn _set_f(&mut self, value: bool) {
+        self.cpsr.set(StatusReg::F, value)
+    }
+    pub fn set_t(&mut self, value: bool) {
+        self.cpsr.set(StatusReg::T, value)
+    }
     //fn set_mode(&mut self, mode: Mode) { self.cpsr.set_mode(mode) }
 }
 

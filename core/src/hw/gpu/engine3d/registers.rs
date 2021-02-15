@@ -1,4 +1,4 @@
-use super::{GPU, Engine3D, Color, math::Vec4, IORegister, Scheduler};
+use super::{math::Vec4, Color, Engine3D, IORegister, Scheduler, GPU};
 
 pub struct DISP3DCNT {
     pub texture_mapping: bool,
@@ -37,11 +37,22 @@ impl DISP3DCNT {
 impl IORegister for DISP3DCNT {
     fn read(&self, byte: usize) -> u8 {
         match byte {
-            0 => (self.fog_master_enable as u8) << 7 | (self.fog_alpha_only as u8) << 6 | (self.edge_marking as u8) << 5 |
-                (self.antia_aliasing as u8) << 4 | (self.alpha_blending as u8) << 3 | (self.alpha_test as u8) << 2 |
-                (self.highlight_shading as u8) << 1 | self.texture_mapping as u8,
-            1 => (self.rear_plane_bitmap as u8) << 6 | (self.poly_vert_ram_overflow as u8) << 5 |
-                (self.color_buffer_underflow as u8) << 4 | self.fog_depth_shift,
+            0 => {
+                (self.fog_master_enable as u8) << 7
+                    | (self.fog_alpha_only as u8) << 6
+                    | (self.edge_marking as u8) << 5
+                    | (self.antia_aliasing as u8) << 4
+                    | (self.alpha_blending as u8) << 3
+                    | (self.alpha_test as u8) << 2
+                    | (self.highlight_shading as u8) << 1
+                    | self.texture_mapping as u8
+            }
+            1 => {
+                (self.rear_plane_bitmap as u8) << 6
+                    | (self.poly_vert_ram_overflow as u8) << 5
+                    | (self.color_buffer_underflow as u8) << 4
+                    | self.fog_depth_shift
+            }
             2 | 3 => 0,
             _ => unreachable!(),
         }
@@ -58,13 +69,13 @@ impl IORegister for DISP3DCNT {
                 self.edge_marking = value >> 5 & 0x1 != 0;
                 self.fog_alpha_only = value >> 6 & 0x1 != 0;
                 self.fog_master_enable = value >> 7 & 0x1 != 0;
-            },
+            }
             1 => {
                 self.fog_depth_shift = value & 0xF;
                 self.color_buffer_underflow = self.color_buffer_underflow && value >> 4 & 0x1 == 0;
                 self.poly_vert_ram_overflow = self.poly_vert_ram_overflow && value >> 4 & 0x1 == 0;
                 self.rear_plane_bitmap = value >> 6 & 0x1 != 0;
-            },
+            }
             2 | 3 => (),
             _ => unreachable!(),
         }
@@ -112,22 +123,34 @@ impl GXSTAT {
     }
 }
 
-
 impl Engine3D {
     pub(super) fn read_gxstat(&self, byte: usize) -> u8 {
         match byte {
-            0 => (self.gxstat.box_test_inside as u8) << 1| (self.gxstat.test_busy as u8),
-            1 => (self.gxstat.mat_stack_error as u8) << 7 | (self.gxstat.mat_stack_busy as u8) << 6 |
-                self.proj_stack_sp << 5 | self.pos_vec_stack_sp & 0x1F,
+            0 => (self.gxstat.box_test_inside as u8) << 1 | (self.gxstat.test_busy as u8),
+            1 => {
+                (self.gxstat.mat_stack_error as u8) << 7
+                    | (self.gxstat.mat_stack_busy as u8) << 6
+                    | self.proj_stack_sp << 5
+                    | self.pos_vec_stack_sp & 0x1F
+            }
             2 => self.gxfifo.len() as u8,
-            3 => (self.gxstat.command_fifo_irq as u8) << 6 | (self.gxstat.geometry_engine_busy as u8) << 3 |
-                ((self.gxfifo.len() == 0) as u8) << 2 | ((self.gxfifo.len() < Engine3D::FIFO_LEN / 2) as u8) << 1 |
-                (self.gxfifo.len() >> 8) as u8,
+            3 => {
+                (self.gxstat.command_fifo_irq as u8) << 6
+                    | (self.gxstat.geometry_engine_busy as u8) << 3
+                    | ((self.gxfifo.len() == 0) as u8) << 2
+                    | ((self.gxfifo.len() < Engine3D::FIFO_LEN / 2) as u8) << 1
+                    | (self.gxfifo.len() >> 8) as u8
+            }
             _ => unreachable!(),
         }
     }
 
-    pub(super) fn write_gxstat(&mut self, _scheduler: &mut crate::hw::scheduler::Scheduler, byte: usize, value: u8) {
+    pub(super) fn write_gxstat(
+        &mut self,
+        _scheduler: &mut crate::hw::scheduler::Scheduler,
+        byte: usize,
+        value: u8,
+    ) {
         match byte {
             0 | 2 => (), // Read Only
             1 => self.gxstat.mat_stack_error = self.gxstat.mat_stack_error && value & 0x80 == 0,
@@ -184,19 +207,21 @@ impl ClearColor {
 }
 
 impl IORegister for ClearColor {
-    fn read(&self, _byte: usize) -> u8 { 0 }
+    fn read(&self, _byte: usize) -> u8 {
+        0
+    }
 
     fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8) {
         match byte {
             0 => {
                 self.r = value & 0x1F;
                 self.g = self.g & !0x7 | (value >> 5) & 0x7;
-            },
+            }
             1 => {
                 self.g = self.g & !0x18 | (value << 3) & 0x18;
                 self.b = value >> 2 & 0x1F;
                 self.fog = value >> 7 & 0x1 != 0;
-            },
+            }
             2 => self.a = value & 0x1F,
             3 => self.polygon_id = value & 0x3F,
             _ => unreachable!(),
@@ -210,9 +235,7 @@ pub struct ClearDepth {
 
 impl ClearDepth {
     pub fn new() -> Self {
-        ClearDepth {
-            depth: 0,
-        }
+        ClearDepth { depth: 0 }
     }
 
     pub fn depth(&self) -> u32 {
@@ -221,8 +244,10 @@ impl ClearDepth {
 }
 
 impl IORegister for ClearDepth {
-    fn read(&self, _byte: usize) -> u8 { 0 }
-    
+    fn read(&self, _byte: usize) -> u8 {
+        0
+    }
+
     fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8) {
         match byte {
             0 => self.depth = self.depth & !0xFF | value as u16,
@@ -245,7 +270,7 @@ pub struct TextureParams {
     pub size_t: usize,
     pub format: TextureFormat,
     pub color0_transparent: bool,
-    pub coord_transformation_mode: TexCoordTransformationMode, 
+    pub coord_transformation_mode: TexCoordTransformationMode,
 }
 
 impl TextureParams {
@@ -262,7 +287,7 @@ impl TextureParams {
             size_t: 1,
             format: TextureFormat::NoTexture,
             color0_transparent: false,
-            coord_transformation_mode: TexCoordTransformationMode::None, 
+            coord_transformation_mode: TexCoordTransformationMode::None,
         }
     }
 
@@ -461,9 +486,12 @@ impl Viewport {
         } else {
             let x_offset = clip_coords[0].raw() + w;
             let y_offset = -clip_coords[1].raw() + w;
-            let (x_offset, y_offset, w) = if w > 0xFFFF { // To avoid overflow
+            let (x_offset, y_offset, w) = if w > 0xFFFF {
+                // To avoid overflow
                 (x_offset >> 1, y_offset >> 1, w >> 1)
-            } else { (x_offset, y_offset, w) };
+            } else {
+                (x_offset, y_offset, w)
+            };
 
             let denom = 2 * w;
             [

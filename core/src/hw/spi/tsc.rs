@@ -39,7 +39,9 @@ impl TSC {
                 6 => 0, // TODO: Microphone,
                 _ => 0xFFF,
             };
-        } else { self.pos += 1 }
+        } else {
+            self.pos += 1
+        }
     }
 
     pub fn deselect(&mut self) {

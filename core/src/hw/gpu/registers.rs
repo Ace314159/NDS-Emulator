@@ -2,11 +2,7 @@ use std::ops::{Deref, DerefMut};
 
 use bitflags::*;
 
-use crate::hw::{
-    HW,
-    mem::IORegister,
-    Scheduler
-};
+use crate::hw::{mem::IORegister, Scheduler, HW};
 
 bitflags! {
     pub struct POWCNT1: u32 {
@@ -85,10 +81,11 @@ impl IORegister for DISPSTAT {
         match byte {
             0 => {
                 let old_bits = self.flags.bits;
-                self.flags.bits = self.flags.bits & 0x7 | ((value as u16) & !0x7 & DISPSTATFlags::all().bits);
+                self.flags.bits =
+                    self.flags.bits & 0x7 | ((value as u16) & !0x7 & DISPSTATFlags::all().bits);
                 assert_eq!(old_bits & 0x7, self.flags.bits & 0x7);
                 self.vcount_setting = self.vcount_setting & !0x100 | (value as u16 & 0x80) << 8;
-            },
+            }
             1 => self.vcount_setting = self.vcount_setting & !0xFF | value as u16,
             _ => unreachable!(),
         }
@@ -130,9 +127,18 @@ impl IORegister for DISPCAPCNT {
         match byte {
             0 => self.eva,
             1 => self.evb,
-            2 => (self.capture_size as u8) << 4 | (self.vram_write_offset as u8) << 2 | self.vram_write_block as u8,
-            3 => (self.enable as u8) << 7 | (self.capture_src as u8) << 5 | (self.vram_read_offset as u8) << 2 |
-                (self.src_b_fifo as u8) << 1 | self.src_a_is_3d_only as u8,
+            2 => {
+                (self.capture_size as u8) << 4
+                    | (self.vram_write_offset as u8) << 2
+                    | self.vram_write_block as u8
+            }
+            3 => {
+                (self.enable as u8) << 7
+                    | (self.capture_src as u8) << 5
+                    | (self.vram_read_offset as u8) << 2
+                    | (self.src_b_fifo as u8) << 1
+                    | self.src_a_is_3d_only as u8
+            }
             _ => unreachable!(),
         }
     }
@@ -145,14 +151,14 @@ impl IORegister for DISPCAPCNT {
                 self.vram_write_block = (value & 0x3) as usize;
                 self.vram_write_offset = CaptureOffset::from(value >> 2 & 0x3);
                 self.capture_size = CaptureSize::from(value >> 4 & 0x3);
-            },
+            }
             3 => {
                 self.src_a_is_3d_only = value & 0x1 != 0;
                 self.src_b_fifo = value >> 1 & 0x1 != 0;
                 self.vram_read_offset = CaptureOffset::from(value >> 2 & 0x3);
                 self.capture_src = CaptureSource::from(value >> 5 & 0x3);
                 self.enable = value >> 7 & 0x1 != 0;
-            },
+            }
             _ => unreachable!(),
         }
     }

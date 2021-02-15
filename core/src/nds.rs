@@ -4,11 +4,7 @@ use crate::arm7::ARM7;
 use crate::arm9::ARM9;
 use crate::hw::HW;
 
-pub use crate::hw::{
-    Engine,
-    GraphicsType,
-    Key
-};
+pub use crate::hw::{Engine, GraphicsType, Key};
 
 pub struct NDS {
     arm9_cycles_ahead: i32, // Measured in 66 MHz ARM9 cycles
@@ -20,7 +16,13 @@ pub struct NDS {
 impl NDS {
     pub const CLOCK_RATE: usize = 33513982;
 
-    pub fn new(bios7: Vec<u8>, bios9: Vec<u8>, firmware: Vec<u8>, rom: Vec<u8>, save_file: PathBuf) -> Self {
+    pub fn new(
+        bios7: Vec<u8>,
+        bios9: Vec<u8>,
+        firmware: Vec<u8>,
+        rom: Vec<u8>,
+        save_file: PathBuf,
+    ) -> Self {
         let direct_boot = true;
         let mut hw = HW::new(bios7, bios9, firmware, rom, save_file, direct_boot);
         NDS {
@@ -43,12 +45,17 @@ impl NDS {
 
                 while self.arm9_cycles_ahead >= 0 {
                     self.arm7.handle_irq(&mut self.hw);
-                    let arm7_cycles_ran = if self.hw.haltcnt.halted() { 1 }
-                    else { self.arm7.emulate_instr(&mut self.hw) };
+                    let arm7_cycles_ran = if self.hw.haltcnt.halted() {
+                        1
+                    } else {
+                        self.arm7.emulate_instr(&mut self.hw)
+                    };
                     self.hw.clock(arm7_cycles_ran);
                     self.arm9_cycles_ahead -= 2 * arm7_cycles_ran as i32
                 }
-            } else { self.hw.clock_until_event() }
+            } else {
+                self.hw.clock_until_event()
+            }
         }
         self.hw.save_backup();
     }
@@ -73,18 +80,43 @@ impl NDS {
         self.hw.release_screen();
     }
 
-    pub fn render_palettes(&self, extended: bool, slot: usize, palette: usize,
-        engine: Engine, graphics_type: GraphicsType) -> (Vec<u16>, usize, usize) {
-        self.hw.render_palettes(extended, slot, palette, engine, graphics_type)
+    pub fn render_palettes(
+        &self,
+        extended: bool,
+        slot: usize,
+        palette: usize,
+        engine: Engine,
+        graphics_type: GraphicsType,
+    ) -> (Vec<u16>, usize, usize) {
+        self.hw
+            .render_palettes(extended, slot, palette, engine, graphics_type)
     }
 
     pub fn render_map(&self, engine: Engine, bg_i: usize) -> (Vec<u16>, usize, usize) {
         self.hw.render_map(engine, bg_i)
     }
 
-    pub fn render_tiles(&self, engine: Engine, graphics_type: GraphicsType, extended: bool, bitmap: bool, bpp8: bool,
-        slot: usize, palette: usize, offset: usize) -> (Vec<u16>, usize, usize) {
-        self.hw.render_tiles(engine, graphics_type, extended, bitmap, bpp8, slot, palette, offset)
+    pub fn render_tiles(
+        &self,
+        engine: Engine,
+        graphics_type: GraphicsType,
+        extended: bool,
+        bitmap: bool,
+        bpp8: bool,
+        slot: usize,
+        palette: usize,
+        offset: usize,
+    ) -> (Vec<u16>, usize, usize) {
+        self.hw.render_tiles(
+            engine,
+            graphics_type,
+            extended,
+            bitmap,
+            bpp8,
+            slot,
+            palette,
+            offset,
+        )
     }
 
     pub fn render_bank(&self, bank: usize, ignore_alpha: bool) -> (Vec<u16>, usize, usize) {

@@ -68,11 +68,18 @@ impl CP15 {
     }
 
     pub fn addr_in_dtcm(&self, addr: u32) -> bool {
-        (self.dtcm_control.base..self.dtcm_control.base + self.dtcm_control.virtual_size).contains(&addr)
+        (self.dtcm_control.base..self.dtcm_control.base + self.dtcm_control.virtual_size)
+            .contains(&addr)
     }
 
     fn read_control_reg(&self, m: u32, p: u32) -> u32 {
-        if m != 0 || p != 0 { warn!("m and p are not 0 for CP15 Control Register Read: {} {}", m, p); return 0 }
+        if m != 0 || p != 0 {
+            warn!(
+                "m and p are not 0 for CP15 Control Register Read: {} {}",
+                m, p
+            );
+            return 0;
+        }
         self.control.bits
     }
 
@@ -95,10 +102,20 @@ impl CP15 {
     }
 
     fn write_control_reg(&mut self, m: u32, p: u32, value: u32) {
-        if m != 0 || p != 0 { warn!("m and p are not 0 for CP15 Control Register Write: {} {}", m, p); return }
+        if m != 0 || p != 0 {
+            warn!(
+                "m and p are not 0 for CP15 Control Register Write: {} {}",
+                m, p
+            );
+            return;
+        }
         info!("Writing to CP15 Control Register 0x{:X}", value);
         self.control.bits = value & Control::MASK | Control::ALWAYS_SET;
-        self.interrupt_base = if self.control.contains(Control::INTERRUPT_BASE) { 0xFFFF_0000 } else { 0x0000_0000 };
+        self.interrupt_base = if self.control.contains(Control::INTERRUPT_BASE) {
+            0xFFFF_0000
+        } else {
+            0x0000_0000
+        };
     }
 
     fn write_cachability(&mut self, m: u32, p: u32, value: u32) {
@@ -110,7 +127,13 @@ impl CP15 {
     }
 
     fn write_cache_write_bufferability(&mut self, m: u32, p: u32, value: u32) {
-        if m != 0 || p != 0 { warn!("m and p are not 0 for CP15 Cache write Bufferability: {} {}", m, p); return }
+        if m != 0 || p != 0 {
+            warn!(
+                "m and p are not 0 for CP15 Cache write Bufferability: {} {}",
+                m, p
+            );
+            return;
+        }
         info!("Cache Write Bufferability: 0x{:X}", value);
     }
 
@@ -161,7 +184,10 @@ impl CP15 {
             (0, 0) => warn!("Data Cache Lockdown: 0x{:X}", value), // TODO: Data Cache Lockdown
             (0, 1) => warn!("Instruction Cache Lockdown: 0x{:X}", value), // TODO: Instruction Cache Lockdown
             (1, 0) => self.dtcm_control.write(value),
-            (1, 1) => { self.itcm_control.write(value); assert_eq!(self.itcm_control.base, 0) },
+            (1, 1) => {
+                self.itcm_control.write(value);
+                assert_eq!(self.itcm_control.base, 0)
+            }
             _ => todo!(),
         }
     }
@@ -224,8 +250,17 @@ bitflags! {
 }
 
 impl Control {
-    const MASK: u32 = (1 << 19) | (1 << 18) | (1 << 17) | (1 << 16) | (1 << 15) | (1 << 14) | (1 << 13) | (1 << 12) |
-        (1 << 7) | (1 << 2) | (1 << 0);
+    const MASK: u32 = (1 << 19)
+        | (1 << 18)
+        | (1 << 17)
+        | (1 << 16)
+        | (1 << 15)
+        | (1 << 14)
+        | (1 << 13)
+        | (1 << 12)
+        | (1 << 7)
+        | (1 << 2)
+        | (1 << 0);
     const ALWAYS_SET: u32 = (1 << 6) | (1 << 5) | (1 << 4) | (1 << 3);
 
     pub fn new() -> Self {
@@ -234,5 +269,7 @@ impl Control {
 }
 
 impl CP15 {
-    pub fn interrupt_base(&self) -> u32 { self.interrupt_base }
+    pub fn interrupt_base(&self) -> u32 {
+        self.interrupt_base
+    }
 }

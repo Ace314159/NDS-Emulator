@@ -1,8 +1,8 @@
 use super::{
-    HW,
-    scheduler::{Event, Scheduler},
-    mem::IORegister,
     interrupt_controller::InterruptRequest,
+    mem::IORegister,
+    scheduler::{Event, Scheduler},
+    HW,
 };
 
 pub struct Timers {
@@ -79,8 +79,10 @@ impl Timer {
             let (new_counter, overflowed) = self.counter.overflowing_add(1);
             if overflowed {
                 self.counter = self.reload;
-                return true
-            } else { self.counter = new_counter }
+                return true;
+            } else {
+                self.counter = new_counter
+            }
         }
         false
     }
@@ -93,32 +95,52 @@ impl Timer {
             let counter_change = cycles_passed / Timers::PRESCALERS[self.cnt.prescaler as usize];
             assert!(counter_change < 0x1_0000);
             self.counter + 1 + counter_change as u16
-        } else { self.counter }
+        } else {
+            self.counter
+        }
     }
 
-    pub fn reload(&mut self) { self.counter = self.reload }
+    pub fn reload(&mut self) {
+        self.counter = self.reload
+    }
 
     pub fn create_event(&mut self, scheduler: &mut Scheduler, delay: usize) {
         self.start_cycle = scheduler.cycle + delay;
         // Syncs prescaler to global cycle
         let prescaler = Timers::PRESCALERS[self.cnt.prescaler as usize];
-        trace!("Starting NDS{} {} Timer{}: {} * 0x{:X}", if self.is_nds9 { 9 } else { 7 },
-        if self.is_count_up() { "Count-Up" } else { "Regular" }, self.index, prescaler, self.reload);
+        trace!(
+            "Starting NDS{} {} Timer{}: {} * 0x{:X}",
+            if self.is_nds9 { 9 } else { 7 },
+            if self.is_count_up() {
+                "Count-Up"
+            } else {
+                "Regular"
+            },
+            self.index,
+            prescaler,
+            self.reload
+        );
         // Add 1 for 1 cycle delay in timer start
         self.time_till_first_clock = prescaler - (self.start_cycle + 1) % prescaler;
         self.timer_len = prescaler * (0x10000 - self.reload as usize - 1);
         scheduler.schedule(
             Event::TimerOverflow(self.is_nds9, self.index),
             HW::on_timer_overflow,
-            delay + self.time_till_first_clock + self.timer_len
+            delay + self.time_till_first_clock + self.timer_len,
         );
     }
 
-    pub fn is_count_up(&self) -> bool { self.cnt.count_up }
+    pub fn is_count_up(&self) -> bool {
+        self.cnt.count_up
+    }
 
     pub fn read(&self, scheduler: &Scheduler, byte: usize) -> u8 {
         let global_cycle = scheduler.cycle;
-        let counter = if self.is_count_up() || !self.cnt.start { self.counter } else { self.calc_counter(global_cycle) };
+        let counter = if self.is_count_up() || !self.cnt.start {
+            self.counter
+        } else {
+            self.calc_counter(global_cycle)
+        };
         match byte {
             0 => (counter >> 0) as u8,
             1 => (counter >> 8) as u8,
@@ -133,7 +155,13 @@ impl Timer {
             0 => self.reload = self.reload & !0x00FF | (value as u16) << 0,
             1 => self.reload = self.reload & !0xFF00 | (value as u16) << 8,
             2 => {
-                if self.cnt.start { trace!("Stopping NDS{} Timer{}", if self.is_nds9 { 9 } else { 7 }, self.index) }
+                if self.cnt.start {
+                    trace!(
+                        "Stopping NDS{} Timer{}",
+                        if self.is_nds9 { 9 } else { 7 },
+                        self.index
+                    )
+                }
                 scheduler.remove(Event::TimerOverflow(self.is_nds9, self.index));
                 let prev_start = self.cnt.start;
                 if !self.is_count_up() && self.cnt.start {
@@ -152,7 +180,7 @@ impl Timer {
                         self.counter = self.reload;
                     }
                 }
-            },
+            }
             3 => self.cnt.write(scheduler, 1, value),
             _ => unreachable!(),
         }
@@ -171,7 +199,9 @@ impl HW {
         }
         // Cascade Timers
         if num + 1 < Timers::NUM_TIMERS && self.timers[i][num + 1].is_count_up() {
-            if self.timers[i][num + 1].clock() { self.on_timer_overflow(Event::TimerOverflow(is_nds9, num + 1)) }
+            if self.timers[i][num + 1].clock() {
+                self.on_timer_overflow(Event::TimerOverflow(is_nds9, num + 1))
+            }
         }
         // TODO: Can I move this up to avoid recreating timers
         if !self.timers[i][num].is_count_up() {
@@ -180,7 +210,6 @@ impl HW {
         }
     }
 }
-
 
 #[derive(Clone, Copy)]
 pub struct TMCNT {
@@ -193,20 +222,25 @@ pub struct TMCNT {
 impl IORegister for TMCNT {
     fn read(&self, byte: usize) -> u8 {
         match byte {
-            0 => (self.start as u8) << 7 | (self.irq as u8) << 6 | (self.count_up as u8) << 2 | self.prescaler,
+            0 => {
+                (self.start as u8) << 7
+                    | (self.irq as u8) << 6
+                    | (self.count_up as u8) << 2
+                    | self.prescaler
+            }
             1 => 0,
             _ => unreachable!(),
         }
     }
 
-    fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8){
+    fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8) {
         match byte {
             0 => {
                 self.start = value >> 7 & 0x1 != 0;
                 self.irq = value >> 6 & 0x1 != 0;
                 self.count_up = value >> 2 & 0x1 != 0;
                 self.prescaler = value & 0x3;
-            },
+            }
             1 => (),
             _ => unreachable!(),
         }
@@ -224,6 +258,4 @@ impl TMCNT {
     }
 }
 
-impl HW {
-
-}
+impl HW {}

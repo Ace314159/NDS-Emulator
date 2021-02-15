@@ -1,17 +1,17 @@
 use std::collections::VecDeque;
 
+use super::{InterruptRequest, Scheduler, GPU};
 use crate::hw::mem::IORegister;
-use super::{GPU, Scheduler, InterruptRequest};
 
-mod registers;
-mod math;
 mod geometry;
+mod math;
+mod registers;
 mod rendering;
 
-use math::{FixedPoint, Matrix};
 use geometry::*;
-use rendering::FrameBufferPixel;
+use math::{FixedPoint, Matrix};
 use registers::*;
+use rendering::FrameBufferPixel;
 
 pub struct Engine3D {
     pub bus_stalled: bool,
@@ -38,7 +38,7 @@ pub struct Engine3D {
     proj_stack: [Matrix; 1], // Projection Stack
     pos_stack: [Matrix; 31], // Coordinate Stack
     vec_stack: [Matrix; 31], // Directional Stack
-    tex_stack: [Matrix; 1], // Texture Stack
+    tex_stack: [Matrix; 1],  // Texture Stack
     // Rendering Engine
     frame_params: FrameParams,
     next_frame_params: FrameParams,
@@ -66,7 +66,7 @@ pub struct Engine3D {
     tex_params: TextureParams,
     palette_base: usize,
     raw_tex_coord: [i16; 2], // 1 + 11 + 4 fixed point
-    tex_coord: [i16; 2], // 1 + 11 + 4 fixed point
+    tex_coord: [i16; 2],     // 1 + 11 + 4 fixed point
     // Toon
     toon_table: [Color; 0x20],
 }
@@ -100,7 +100,7 @@ impl Engine3D {
             proj_stack: [Matrix::identity(); 1], // Projection Stack
             pos_stack: [Matrix::identity(); 31], // Coordinate Stack
             vec_stack: [Matrix::identity(); 31], // Directional Stack
-            tex_stack: [Matrix::identity(); 1], // Texture Stack
+            tex_stack: [Matrix::identity(); 1],  // Texture Stack
             // Rendering Engine
             frame_params: FrameParams::new(),
             next_frame_params: FrameParams::new(),
@@ -128,7 +128,7 @@ impl Engine3D {
             tex_params: TextureParams::new(),
             palette_base: 0,
             raw_tex_coord: [0; 2], // 1 + 11 + 4 fixed point
-            tex_coord: [0; 2], // 1 + 11 + 4 fixed point
+            tex_coord: [0; 2],     // 1 + 11 + 4 fixed point
             // Toon
             toon_table: [Color::new5(0, 0, 0); 0x20],
         }
@@ -139,30 +139,40 @@ impl Engine3D {
             CommandFifoIRQ::Never => false,
             CommandFifoIRQ::LessHalf => self.gxfifo.len() < Engine3D::FIFO_LEN / 2,
             CommandFifoIRQ::Empty => self.gxfifo.len() == 0,
-        } { *interrupts |= InterruptRequest::GEOMETRY_COMMAND_FIFO }
+        } {
+            *interrupts |= InterruptRequest::GEOMETRY_COMMAND_FIFO
+        }
     }
 }
-
 
 impl Engine3D {
     pub fn read_register(&self, addr: u32) -> u8 {
         assert_eq!(addr >> 12, 0x04000);
         match addr & 0xFFF {
-            0x4A4 ..= 0x4A7 => 0, // TODO: Figure out what this should actually do
-            0x600 ..= 0x603 => self.read_gxstat((addr as usize) & 0x3),
-            0x604 ..= 0x607 => self.read_ram_count((addr as usize) & 0x3),
-            0x640 ..= 0x67F => self.read_clip_mat((addr as usize) & 0x3F),
-            _ => { warn!("Ignoring Engine3D Read at 0x{:08X}", addr); 0 },
+            0x4A4..=0x4A7 => 0, // TODO: Figure out what this should actually do
+            0x600..=0x603 => self.read_gxstat((addr as usize) & 0x3),
+            0x604..=0x607 => self.read_ram_count((addr as usize) & 0x3),
+            0x640..=0x67F => self.read_clip_mat((addr as usize) & 0x3F),
+            _ => {
+                warn!("Ignoring Engine3D Read at 0x{:08X}", addr);
+                0
+            }
         }
     }
 
     pub fn write_register(&mut self, scheduler: &mut Scheduler, addr: u32, value: u8) {
         assert_eq!(addr >> 12, 0x04000);
         match addr & 0xFFF {
-            0x350 ..= 0x353 => self.clear_color.write(scheduler, addr as usize & 0x3, value),
-            0x354 ..= 0x355 => self.clear_depth.write(scheduler, addr as usize & 0x1, value),
-            0x380 ..= 0x3BF => self.write_toon_table(addr as usize & (2 * self.toon_table.len() - 1), value),
-            0x600 ..= 0x603 => self.write_gxstat(scheduler, (addr as usize) & 0x3, value),
+            0x350..=0x353 => self
+                .clear_color
+                .write(scheduler, addr as usize & 0x3, value),
+            0x354..=0x355 => self
+                .clear_depth
+                .write(scheduler, addr as usize & 0x1, value),
+            0x380..=0x3BF => {
+                self.write_toon_table(addr as usize & (2 * self.toon_table.len() - 1), value)
+            }
+            0x600..=0x603 => self.write_gxstat(scheduler, (addr as usize) & 0x3, value),
             _ => warn!("Ignoring Engine3D Write 0x{:08X} = {:02X}", addr, value),
         }
     }

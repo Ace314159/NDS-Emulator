@@ -1,8 +1,8 @@
 use num_traits as num;
 
 use super::{
+    super::{MemoryValue, HW},
     EngineType,
-    super::{HW, MemoryValue},
 };
 
 pub struct VRAM {
@@ -25,18 +25,28 @@ pub struct VRAM {
 }
 
 impl VRAM {
-    const BANKS_LEN: [usize; 9] = [128 * 0x400, 128 * 0x400, 128 * 0x400, 128 * 0x400,
-        64 * 0x400, 16 * 0x400, 16 * 0x400, 32 * 0x400, 16 * 0x400];
+    const BANKS_LEN: [usize; 9] = [
+        128 * 0x400,
+        128 * 0x400,
+        128 * 0x400,
+        128 * 0x400,
+        64 * 0x400,
+        16 * 0x400,
+        16 * 0x400,
+        32 * 0x400,
+        16 * 0x400,
+    ];
     const MAPPING_LEN: usize = 16 * 0x400;
 
-    const LCDC_OFFSETS: [usize; 9] = [0x0_0000, 0x2_0000, 0x4_0000, 0x6_0000,
-        0x8_0000, 0x9_0000, 0x9_4000, 0x9_8000, 0xA_0000];
+    const LCDC_OFFSETS: [usize; 9] = [
+        0x0_0000, 0x2_0000, 0x4_0000, 0x6_0000, 0x8_0000, 0x9_0000, 0x9_4000, 0x9_8000, 0xA_0000,
+    ];
     const ENGINE_A_BG_OFFSET: usize = 0x00_0000;
     const ENGINE_A_OBJ_OFFSET: usize = 0x40_0000;
     const ENGINE_B_BG_OFFSET: usize = 0x20_0000;
     const ENGINE_B_OBJ_OFFSET: usize = 0x60_0000;
     const LCDC_OFFSET: usize = 0x80_0000;
-    
+
     const ENGINE_A_BG_MASK: usize = (4 * 128 / 16) - 1;
     const ENGINE_A_OBJ_MASK: usize = (2 * 128 / 16) - 1;
     const ENGINE_B_BG_MASK: usize = (1 * 128 / 16) - 1;
@@ -54,8 +64,11 @@ impl VRAM {
     const BANK_I: usize = Bank::I as usize;
 
     pub fn new() -> Self {
-        let create_vecs = |len|
-            std::iter::repeat(Vec::with_capacity(VRAM::BANKS_LEN.len())).take(len).collect::<Vec<_>>();
+        let create_vecs = |len| {
+            std::iter::repeat(Vec::with_capacity(VRAM::BANKS_LEN.len()))
+                .take(len)
+                .collect::<Vec<_>>()
+        };
         VRAM {
             cnts: [VRAMCNT::new(0, 0); 9],
             banks: [
@@ -100,75 +113,134 @@ impl VRAM {
                     assert!(self.lcdc_enabled[index]);
                     self.lcdc_enabled[index] = false;
                     VRAM::remove_mapping(&mut self.lcdc, bank, VRAM::LCDC_OFFSETS[index], None)
-                },
-                (VRAM::BANK_A ..= VRAM::BANK_G, 1) => VRAM::remove_mapping(&mut self.engine_a_bg,
-                    bank,bank.get_engine_a_offset(self.cnts[index].offset), None),
+                }
+                (VRAM::BANK_A..=VRAM::BANK_G, 1) => VRAM::remove_mapping(
+                    &mut self.engine_a_bg,
+                    bank,
+                    bank.get_engine_a_offset(self.cnts[index].offset),
+                    None,
+                ),
                 // TODO: Replace with match or syntax
-                (VRAM::BANK_A ..= VRAM::BANK_B, 2) | (VRAM::BANK_E ..= VRAM::BANK_G, 2) =>
-                    VRAM::remove_mapping(&mut self.engine_a_obj,
-                    bank, bank.get_engine_a_offset(self.cnts[index].offset), None),
-                (VRAM::BANK_E, 4) =>
-                    VRAM::remove_mapping(&mut self.engine_a_bg_ext_pal, bank, 0, Some(32 * 0x400)),
-                (VRAM::BANK_F ..= VRAM::BANK_G, 4) => VRAM::remove_mapping(&mut self.engine_a_bg_ext_pal, bank,
-                    bank.get_ext_bg_pal_offset(self.cnts[index].offset), None),
-                (VRAM::BANK_F ..= VRAM::BANK_G, 5) =>
-                    VRAM::remove_mapping(&mut self.engine_a_obj_ext_pal, bank, 0, None),
-                (VRAM::BANK_C, 4) | (VRAM::BANK_H, 1) =>
-                    VRAM::remove_mapping(&mut self.engine_b_bg, bank, 0, None),
-                (VRAM::BANK_I, 1) =>
-                    VRAM::remove_mapping(&mut self.engine_b_bg, bank, 0x8000, None),
-                (VRAM::BANK_D, 4) | (VRAM::BANK_I, 2) =>
-                    VRAM::remove_mapping(&mut self.engine_b_obj, bank, 0, None),
-                (VRAM::BANK_H, 2) =>
-                    VRAM::remove_mapping(&mut self.engine_b_bg_ext_pal, bank, 0, None),
-                (VRAM::BANK_I, 3) =>
-                    VRAM::remove_mapping(&mut self.engine_b_obj_ext_pal, bank, 0, Some(8 * 0x400)),
-                (VRAM::BANK_C ..= VRAM::BANK_D, 2) => self.remove_arm7_wram_mapping(bank, self.cnts[index].offset),
-                (VRAM::BANK_A ..= VRAM::BANK_D, 3) => VRAM::remove_mapping(&mut self.textures,
-                    bank, bank.get_textures_offset(self.cnts[index].offset), None),
+                (VRAM::BANK_A..=VRAM::BANK_B, 2) | (VRAM::BANK_E..=VRAM::BANK_G, 2) => {
+                    VRAM::remove_mapping(
+                        &mut self.engine_a_obj,
+                        bank,
+                        bank.get_engine_a_offset(self.cnts[index].offset),
+                        None,
+                    )
+                }
+                (VRAM::BANK_E, 4) => {
+                    VRAM::remove_mapping(&mut self.engine_a_bg_ext_pal, bank, 0, Some(32 * 0x400))
+                }
+                (VRAM::BANK_F..=VRAM::BANK_G, 4) => VRAM::remove_mapping(
+                    &mut self.engine_a_bg_ext_pal,
+                    bank,
+                    bank.get_ext_bg_pal_offset(self.cnts[index].offset),
+                    None,
+                ),
+                (VRAM::BANK_F..=VRAM::BANK_G, 5) => {
+                    VRAM::remove_mapping(&mut self.engine_a_obj_ext_pal, bank, 0, None)
+                }
+                (VRAM::BANK_C, 4) | (VRAM::BANK_H, 1) => {
+                    VRAM::remove_mapping(&mut self.engine_b_bg, bank, 0, None)
+                }
+                (VRAM::BANK_I, 1) => {
+                    VRAM::remove_mapping(&mut self.engine_b_bg, bank, 0x8000, None)
+                }
+                (VRAM::BANK_D, 4) | (VRAM::BANK_I, 2) => {
+                    VRAM::remove_mapping(&mut self.engine_b_obj, bank, 0, None)
+                }
+                (VRAM::BANK_H, 2) => {
+                    VRAM::remove_mapping(&mut self.engine_b_bg_ext_pal, bank, 0, None)
+                }
+                (VRAM::BANK_I, 3) => {
+                    VRAM::remove_mapping(&mut self.engine_b_obj_ext_pal, bank, 0, Some(8 * 0x400))
+                }
+                (VRAM::BANK_C..=VRAM::BANK_D, 2) => {
+                    self.remove_arm7_wram_mapping(bank, self.cnts[index].offset)
+                }
+                (VRAM::BANK_A..=VRAM::BANK_D, 3) => VRAM::remove_mapping(
+                    &mut self.textures,
+                    bank,
+                    bank.get_textures_offset(self.cnts[index].offset),
+                    None,
+                ),
                 (VRAM::BANK_E, 3) => VRAM::remove_mapping(&mut self.textures_pal, bank, 0, None),
-                (VRAM::BANK_F ..= VRAM::BANK_G, 3) => VRAM::remove_mapping(&mut self.textures_pal,
-                    bank, bank.get_textures_pal_offset(self.cnts[index].offset), None),
+                (VRAM::BANK_F..=VRAM::BANK_G, 3) => VRAM::remove_mapping(
+                    &mut self.textures_pal,
+                    bank,
+                    bank.get_textures_pal_offset(self.cnts[index].offset),
+                    None,
+                ),
                 _ => unreachable!(),
             }
         }
 
         self.cnts[index] = new_cnt;
-        if !new_cnt.enabled { return }
+        if !new_cnt.enabled {
+            return;
+        }
 
         match (index, new_cnt.mst) {
             (index, 0) => {
                 assert!(!self.lcdc_enabled[index]);
                 self.lcdc_enabled[index] = true;
                 VRAM::add_mapping(&mut self.lcdc, bank, VRAM::LCDC_OFFSETS[index], None)
-            },
-            (VRAM::BANK_A ..= VRAM::BANK_G, 1) =>
-                    VRAM::add_mapping(&mut self.engine_a_bg, bank, bank.get_engine_a_offset(new_cnt.offset), None),
+            }
+            (VRAM::BANK_A..=VRAM::BANK_G, 1) => VRAM::add_mapping(
+                &mut self.engine_a_bg,
+                bank,
+                bank.get_engine_a_offset(new_cnt.offset),
+                None,
+            ),
             // TODO: Replace with match or syntax
-            (VRAM::BANK_A ..= VRAM::BANK_B, 2) | (VRAM::BANK_E ..= VRAM::BANK_G, 2) =>
-                VRAM::add_mapping(&mut self.engine_a_obj, bank, bank.get_engine_a_offset(new_cnt.offset), None),
-            (VRAM::BANK_E, 4) =>
-                VRAM::add_mapping(&mut self.engine_a_bg_ext_pal, bank, 0, Some(32 * 0x400)),
-            (VRAM::BANK_F ..= VRAM::BANK_G, 4) => VRAM::add_mapping(&mut self.engine_a_bg_ext_pal, bank,
-                bank.get_ext_bg_pal_offset(self.cnts[index].offset), None),
-            (VRAM::BANK_F ..= VRAM::BANK_G, 5) =>
-                VRAM::add_mapping(&mut self.engine_a_obj_ext_pal, bank, 0, None),
-            (VRAM::BANK_C, 4) | (VRAM::BANK_H, 1) =>
-                VRAM::add_mapping(&mut self.engine_b_bg, bank, 0, None),
-            (VRAM::BANK_I, 1) =>
-                VRAM::add_mapping(&mut self.engine_b_bg, bank, 0x8000, None),
-            (VRAM::BANK_D, 4) | (VRAM::BANK_I, 2) =>
-                VRAM::add_mapping(&mut self.engine_b_obj, bank, 0, None),
-            (VRAM::BANK_H, 2) =>
-                VRAM::add_mapping(&mut self.engine_b_bg_ext_pal, bank, 0, None),
-            (VRAM::BANK_I, 3) =>
-                VRAM::add_mapping(&mut self.engine_b_obj_ext_pal, bank, 0, Some(8 * 0x400)),
-            (VRAM::BANK_C ..= VRAM::BANK_D, 2) => self.add_arm7_wram_mapping(bank, self.cnts[index].offset),
-            (VRAM::BANK_A ..= VRAM::BANK_D, 3) => VRAM::add_mapping(&mut self.textures,
-                bank, bank.get_textures_offset(self.cnts[index].offset), None),
+            (VRAM::BANK_A..=VRAM::BANK_B, 2) | (VRAM::BANK_E..=VRAM::BANK_G, 2) => {
+                VRAM::add_mapping(
+                    &mut self.engine_a_obj,
+                    bank,
+                    bank.get_engine_a_offset(new_cnt.offset),
+                    None,
+                )
+            }
+            (VRAM::BANK_E, 4) => {
+                VRAM::add_mapping(&mut self.engine_a_bg_ext_pal, bank, 0, Some(32 * 0x400))
+            }
+            (VRAM::BANK_F..=VRAM::BANK_G, 4) => VRAM::add_mapping(
+                &mut self.engine_a_bg_ext_pal,
+                bank,
+                bank.get_ext_bg_pal_offset(self.cnts[index].offset),
+                None,
+            ),
+            (VRAM::BANK_F..=VRAM::BANK_G, 5) => {
+                VRAM::add_mapping(&mut self.engine_a_obj_ext_pal, bank, 0, None)
+            }
+            (VRAM::BANK_C, 4) | (VRAM::BANK_H, 1) => {
+                VRAM::add_mapping(&mut self.engine_b_bg, bank, 0, None)
+            }
+            (VRAM::BANK_I, 1) => VRAM::add_mapping(&mut self.engine_b_bg, bank, 0x8000, None),
+            (VRAM::BANK_D, 4) | (VRAM::BANK_I, 2) => {
+                VRAM::add_mapping(&mut self.engine_b_obj, bank, 0, None)
+            }
+            (VRAM::BANK_H, 2) => VRAM::add_mapping(&mut self.engine_b_bg_ext_pal, bank, 0, None),
+            (VRAM::BANK_I, 3) => {
+                VRAM::add_mapping(&mut self.engine_b_obj_ext_pal, bank, 0, Some(8 * 0x400))
+            }
+            (VRAM::BANK_C..=VRAM::BANK_D, 2) => {
+                self.add_arm7_wram_mapping(bank, self.cnts[index].offset)
+            }
+            (VRAM::BANK_A..=VRAM::BANK_D, 3) => VRAM::add_mapping(
+                &mut self.textures,
+                bank,
+                bank.get_textures_offset(self.cnts[index].offset),
+                None,
+            ),
             (VRAM::BANK_E, 3) => VRAM::add_mapping(&mut self.textures_pal, bank, 0, None),
-            (VRAM::BANK_F ..= VRAM::BANK_G, 3) => VRAM::add_mapping(&mut self.textures_pal,
-                bank, bank.get_textures_pal_offset(self.cnts[index].offset), None),
+            (VRAM::BANK_F..=VRAM::BANK_G, 3) => VRAM::add_mapping(
+                &mut self.textures_pal,
+                bank,
+                bank.get_textures_pal_offset(self.cnts[index].offset),
+                None,
+            ),
             _ => unreachable!(),
         }
     }
@@ -189,18 +261,32 @@ impl VRAM {
         let index = addr as usize / VRAM::MAPPING_LEN;
         let addr = addr as usize;
         match addr & 0x00E0_0000 {
-            VRAM::ENGINE_A_BG_OFFSET => VRAM::read_mapping(&self.banks,
-            &self.engine_a_bg[index & VRAM::ENGINE_A_BG_MASK], addr),
-            VRAM::ENGINE_B_BG_OFFSET => VRAM::read_mapping(&self.banks,
-            &self.engine_b_bg[index & VRAM::ENGINE_B_BG_MASK], addr),
-            VRAM::ENGINE_A_OBJ_OFFSET => VRAM::read_mapping(&self.banks,
-            &self.engine_a_obj[index & VRAM::ENGINE_A_OBJ_MASK], addr),
-            VRAM::ENGINE_B_OBJ_OFFSET => VRAM::read_mapping(&self.banks,
-            &self.engine_b_obj[index & VRAM::ENGINE_B_OBJ_MASK], addr),
-            VRAM::LCDC_OFFSET => VRAM::read_mapping(&self.banks,
-            &self.lcdc[(addr & 0xF_C000) / VRAM::MAPPING_LEN], addr),
+            VRAM::ENGINE_A_BG_OFFSET => VRAM::read_mapping(
+                &self.banks,
+                &self.engine_a_bg[index & VRAM::ENGINE_A_BG_MASK],
+                addr,
+            ),
+            VRAM::ENGINE_B_BG_OFFSET => VRAM::read_mapping(
+                &self.banks,
+                &self.engine_b_bg[index & VRAM::ENGINE_B_BG_MASK],
+                addr,
+            ),
+            VRAM::ENGINE_A_OBJ_OFFSET => VRAM::read_mapping(
+                &self.banks,
+                &self.engine_a_obj[index & VRAM::ENGINE_A_OBJ_MASK],
+                addr,
+            ),
+            VRAM::ENGINE_B_OBJ_OFFSET => VRAM::read_mapping(
+                &self.banks,
+                &self.engine_b_obj[index & VRAM::ENGINE_B_OBJ_MASK],
+                addr,
+            ),
+            VRAM::LCDC_OFFSET => VRAM::read_mapping(
+                &self.banks,
+                &self.lcdc[(addr & 0xF_C000) / VRAM::MAPPING_LEN],
+                addr,
+            ),
             _ => unreachable!(),
-
         }
     }
 
@@ -209,16 +295,36 @@ impl VRAM {
         let index = addr as usize / VRAM::MAPPING_LEN;
         let addr = addr as usize;
         match addr & 0x00E0_0000 {
-            VRAM::ENGINE_A_BG_OFFSET => VRAM::write_mapping(&mut self.banks,
-            &self.engine_a_bg[index % self.engine_a_bg.len()], addr, value),
-            VRAM::ENGINE_B_BG_OFFSET => VRAM::write_mapping(&mut self.banks,
-            &self.engine_b_bg[index % self.engine_b_bg.len()], addr, value),
-            VRAM::ENGINE_A_OBJ_OFFSET => VRAM::write_mapping(&mut self.banks,
-            &self.engine_a_obj[index % self.engine_a_obj.len()], addr, value),
-            VRAM::ENGINE_B_OBJ_OFFSET => VRAM::write_mapping(&mut self.banks,
-            &self.engine_b_obj[index % self.engine_b_obj.len()], addr, value),
-            VRAM::LCDC_OFFSET => VRAM::write_mapping(&mut self.banks,
-            &self.lcdc[(addr & 0xF_C000) / VRAM::MAPPING_LEN], addr, value),
+            VRAM::ENGINE_A_BG_OFFSET => VRAM::write_mapping(
+                &mut self.banks,
+                &self.engine_a_bg[index % self.engine_a_bg.len()],
+                addr,
+                value,
+            ),
+            VRAM::ENGINE_B_BG_OFFSET => VRAM::write_mapping(
+                &mut self.banks,
+                &self.engine_b_bg[index % self.engine_b_bg.len()],
+                addr,
+                value,
+            ),
+            VRAM::ENGINE_A_OBJ_OFFSET => VRAM::write_mapping(
+                &mut self.banks,
+                &self.engine_a_obj[index % self.engine_a_obj.len()],
+                addr,
+                value,
+            ),
+            VRAM::ENGINE_B_OBJ_OFFSET => VRAM::write_mapping(
+                &mut self.banks,
+                &self.engine_b_obj[index % self.engine_b_obj.len()],
+                addr,
+                value,
+            ),
+            VRAM::LCDC_OFFSET => VRAM::write_mapping(
+                &mut self.banks,
+                &self.lcdc[(addr & 0xF_C000) / VRAM::MAPPING_LEN],
+                addr,
+                value,
+            ),
             _ => unreachable!(),
         }
     }
@@ -233,40 +339,76 @@ impl VRAM {
     }
 
     pub fn get_lcdc_bank(&self, bank: u8) -> Option<&Vec<u8>> {
-        if self.lcdc_enabled[bank as usize] { Some(&self.banks[bank as usize]) } else { None }
+        if self.lcdc_enabled[bank as usize] {
+            Some(&self.banks[bank as usize])
+        } else {
+            None
+        }
     }
 
     pub fn get_bg<E: EngineType, T: MemoryValue>(&self, addr: usize) -> T {
         if E::is_a() {
-            VRAM::read_mapping(&self.banks, &self.engine_a_bg[addr / VRAM::MAPPING_LEN], addr)
+            VRAM::read_mapping(
+                &self.banks,
+                &self.engine_a_bg[addr / VRAM::MAPPING_LEN],
+                addr,
+            )
         } else {
-            VRAM::read_mapping(&self.banks, &self.engine_b_bg[addr / VRAM::MAPPING_LEN], addr)
+            VRAM::read_mapping(
+                &self.banks,
+                &self.engine_b_bg[addr / VRAM::MAPPING_LEN],
+                addr,
+            )
         }
     }
 
     pub fn get_obj<E: EngineType, T: MemoryValue>(&self, addr: usize) -> T {
         if E::is_a() {
-            VRAM::read_mapping(&self.banks, &self.engine_a_obj[addr / VRAM::MAPPING_LEN], addr)
+            VRAM::read_mapping(
+                &self.banks,
+                &self.engine_a_obj[addr / VRAM::MAPPING_LEN],
+                addr,
+            )
         } else {
-            VRAM::read_mapping(&self.banks, &self.engine_b_obj[addr / VRAM::MAPPING_LEN], addr)
+            VRAM::read_mapping(
+                &self.banks,
+                &self.engine_b_obj[addr / VRAM::MAPPING_LEN],
+                addr,
+            )
         }
     }
 
     pub fn get_bg_ext_pal<E: EngineType>(&self, slot: usize, color_num: usize) -> u16 {
         let addr = self.calc_ext_pal_addr(slot, color_num);
         if E::is_a() {
-            VRAM::read_mapping(&self.banks, &self.engine_a_bg_ext_pal[addr / VRAM::MAPPING_LEN], addr)
+            VRAM::read_mapping(
+                &self.banks,
+                &self.engine_a_bg_ext_pal[addr / VRAM::MAPPING_LEN],
+                addr,
+            )
         } else {
-            VRAM::read_mapping(&self.banks, &self.engine_b_bg_ext_pal[addr / VRAM::MAPPING_LEN], addr)
+            VRAM::read_mapping(
+                &self.banks,
+                &self.engine_b_bg_ext_pal[addr / VRAM::MAPPING_LEN],
+                addr,
+            )
         }
     }
 
     pub fn get_obj_ext_pal<E: EngineType>(&self, color_num: usize) -> u16 {
         let addr = self.calc_ext_pal_addr(0, color_num);
         if E::is_a() {
-            VRAM::read_mapping(&self.banks, &self.engine_a_obj_ext_pal[addr / VRAM::MAPPING_LEN], addr)
+            VRAM::read_mapping(
+                &self.banks,
+                &self.engine_a_obj_ext_pal[addr / VRAM::MAPPING_LEN],
+                addr,
+            )
         } else {
-            VRAM::read_mapping(&self.banks, &self.engine_b_obj_ext_pal[addr / VRAM::MAPPING_LEN], addr)
+            VRAM::read_mapping(
+                &self.banks,
+                &self.engine_b_obj_ext_pal[addr / VRAM::MAPPING_LEN],
+                addr,
+            )
         }
     }
 
@@ -274,8 +416,12 @@ impl VRAM {
         VRAM::read_mapping(&self.banks, &self.textures[addr / VRAM::MAPPING_LEN], addr)
     }
 
-    pub fn get_textures_pal<T: MemoryValue>(&self, addr: usize) -> T{
-        VRAM::read_mapping(&self.banks, &self.textures_pal[addr / VRAM::MAPPING_LEN], addr)
+    pub fn get_textures_pal<T: MemoryValue>(&self, addr: usize) -> T {
+        VRAM::read_mapping(
+            &self.banks,
+            &self.textures_pal[addr / VRAM::MAPPING_LEN],
+            addr,
+        )
     }
 
     fn read_mapping<T: MemoryValue>(banks: &[Vec<u8>], mapping: &Vec<Bank>, addr: usize) -> T {
@@ -287,7 +433,12 @@ impl VRAM {
         value
     }
 
-    fn write_mapping<T: MemoryValue>(banks: &mut [Vec<u8>], mapping: &Vec<Bank>, addr: usize, value: T) {
+    fn write_mapping<T: MemoryValue>(
+        banks: &mut [Vec<u8>],
+        mapping: &Vec<Bank>,
+        addr: usize,
+        value: T,
+    ) {
         for bank in mapping.iter() {
             let addr = addr & (VRAM::BANKS_LEN[*bank as usize] - 1);
             HW::write_mem(&mut banks[*bank as usize], addr as u32, value);
@@ -297,7 +448,10 @@ impl VRAM {
     fn add_mapping(arr: &mut [Vec<Bank>], bank: Bank, offset: usize, size: Option<usize>) {
         let size = size.unwrap_or_else(|| VRAM::BANKS_LEN[bank as usize]);
         for addr in (0..size).step_by(VRAM::MAPPING_LEN) {
-            assert!(arr[(addr + offset) / VRAM::MAPPING_LEN].iter().position(|b| *b == bank).is_none());
+            assert!(arr[(addr + offset) / VRAM::MAPPING_LEN]
+                .iter()
+                .position(|b| *b == bank)
+                .is_none());
             arr[(addr + offset) / VRAM::MAPPING_LEN].push(bank);
         }
     }
@@ -389,7 +543,10 @@ impl Bank {
         let offset = offset as usize;
         match self {
             Bank::A | Bank::B | Bank::C | Bank::D => 0x2_0000 * offset,
-            Bank::E => { assert_eq!(offset, 0); 0 },
+            Bank::E => {
+                assert_eq!(offset, 0);
+                0
+            }
             Bank::F | Bank::G => 0x4000 * (offset & 0x1) + 0x1_0000 * (offset >> 1 & 0x1),
             Bank::H | Bank::I => unreachable!(),
         }

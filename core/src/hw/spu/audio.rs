@@ -12,8 +12,12 @@ impl Audio {
 
     pub fn new() -> Self {
         let host = cpal::default_host();
-        let device = host.default_output_device().expect("No audio output device available!");
-        let config = device.default_output_config().expect("No audio output config available!");
+        let device = host
+            .default_output_device()
+            .expect("No audio output device available!");
+        let config = device
+            .default_output_config()
+            .expect("No audio output config available!");
 
         match config.sample_format() {
             cpal::SampleFormat::F32 => Audio::init::<f32>(device, config.into()),
@@ -27,25 +31,27 @@ impl Audio {
         let (prod, mut cons) = buffer.split();
 
         let output_config = OutputConfig::from(config.channels);
-        let stream = device.build_output_stream(
-            &config,
-            move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
-                for frame in data.chunks_mut(output_config as usize) {
-                    let samples = cons.pop().unwrap_or_else(|| [0.0, 0.0]);
-                    match output_config {
-                        OutputConfig::Mono => {
-                            let sample = samples.iter().sum::<f32>() / 2.0;
-                            frame[0] = cpal::Sample::from::<f32>(&sample);
-                        },
-                        OutputConfig::Stereo => {
-                            frame[0] = cpal::Sample::from::<f32>(&(samples[0]));
-                            frame[1] = cpal::Sample::from::<f32>(&(samples[1]));
-                        },
+        let stream = device
+            .build_output_stream(
+                &config,
+                move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
+                    for frame in data.chunks_mut(output_config as usize) {
+                        let samples = cons.pop().unwrap_or_else(|| [0.0, 0.0]);
+                        match output_config {
+                            OutputConfig::Mono => {
+                                let sample = samples.iter().sum::<f32>() / 2.0;
+                                frame[0] = cpal::Sample::from::<f32>(&sample);
+                            }
+                            OutputConfig::Stereo => {
+                                frame[0] = cpal::Sample::from::<f32>(&(samples[0]));
+                                frame[1] = cpal::Sample::from::<f32>(&(samples[1]));
+                            }
+                        }
                     }
-                }
-            },
-            |err| error!("Audio Stream Error: {}", err),
-        ).unwrap();
+                },
+                |err| error!("Audio Stream Error: {}", err),
+            )
+            .unwrap();
         stream.play().unwrap();
 
         Audio {

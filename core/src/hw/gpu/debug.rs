@@ -1,7 +1,10 @@
-use super::{Engine2D, EngineType, GPU, VRAM, engine2d::BGMode};
+use super::{engine2d::BGMode, Engine2D, EngineType, GPU, VRAM};
 
 impl GPU {
-    pub fn render_palettes<F: Fn(usize) -> u16>(get_color: F, palettes_size: usize) -> (Vec<u16>, usize, usize) {
+    pub fn render_palettes<F: Fn(usize) -> u16>(
+        get_color: F,
+        palettes_size: usize,
+    ) -> (Vec<u16>, usize, usize) {
         let size = palettes_size * 8;
         let mut pixels = vec![0; size * size];
         for palette_y in 0..palettes_size {
@@ -18,9 +21,20 @@ impl GPU {
         (pixels, size, size)
     }
 
-    pub fn render_tiles<E: EngineType, V, C>(vram: &VRAM, get_vram_byte: &V, get_color: &C, offset: usize, palette: usize,
-        extended: bool, bitmap: bool, bpp8: bool) -> (Vec<u16>, usize, usize)
-        where V: Fn(&VRAM, usize) -> u8, C: Fn(usize) -> u16 {
+    pub fn render_tiles<E: EngineType, V, C>(
+        vram: &VRAM,
+        get_vram_byte: &V,
+        get_color: &C,
+        offset: usize,
+        palette: usize,
+        extended: bool,
+        bitmap: bool,
+        bpp8: bool,
+    ) -> (Vec<u16>, usize, usize)
+    where
+        V: Fn(&VRAM, usize) -> u8,
+        C: Fn(usize) -> u16,
+    {
         let tile_start_addr = offset * 128 * 0x400;
         if bitmap {
             let (width, height) = (256, 256);
@@ -45,16 +59,26 @@ impl GPU {
                     let tile_num = tile_y * tiles_width + tile_x;
                     let addr = tile_start_addr + 8 * bit_depth * tile_num;
                     for y in 0..8 {
-                        let colors = Engine2D::<E>::get_colors_from_tile(&vram,
-                            get_vram_byte, addr, false, false, bit_depth,
-                            y, palette);
+                        let colors = Engine2D::<E>::get_colors_from_tile(
+                            &vram,
+                            get_vram_byte,
+                            addr,
+                            false,
+                            false,
+                            bit_depth,
+                            y,
+                            palette,
+                        );
                         for (x, (palette_num, color_num)) in colors.iter().enumerate() {
-                            if *color_num == 0 { continue }
-                            pixels[start_i + y * width + x] = 0x8000 | if extended {
-                                get_color(palette * 16 + color_num)
-                            } else {
-                                get_color(palette_num * 16 + color_num)
+                            if *color_num == 0 {
+                                continue;
                             }
+                            pixels[start_i + y * width + x] = 0x8000
+                                | if extended {
+                                    get_color(palette * 16 + color_num)
+                                } else {
+                                    get_color(palette_num * 16 + color_num)
+                                }
                         }
                     }
                 }
@@ -94,58 +118,135 @@ impl<E: EngineType> Engine2D<E> {
                     let map_y = y / 8;
                     let addr = map_start_addr + map_y * width / 8 + map_x;
                     let tile_num = vram.get_bg::<E, u8>(addr) as usize;
-                    
+
                     // Convert from tile to pixels
-                    let (_, color_num) = Engine2D::<E>::get_color_from_tile(vram, VRAM::get_bg::<E, u8>,
-                        tile_start_addr + 8 * bit_depth * tile_num, false, false, bit_depth,
-                        x % 8, y % 8, 0);
-                    if color_num == 0 { continue }
+                    let (_, color_num) = Engine2D::<E>::get_color_from_tile(
+                        vram,
+                        VRAM::get_bg::<E, u8>,
+                        tile_start_addr + 8 * bit_depth * tile_num,
+                        false,
+                        false,
+                        bit_depth,
+                        x % 8,
+                        y % 8,
+                        0,
+                    );
+                    if color_num == 0 {
+                        continue;
+                    }
                     pixels[y * width + x] = self.bg_palettes()[color_num] | 0x8000;
                 } else {
                     // Get Screen Entry
                     let map_x = x / 8;
                     let map_y = y / 8;
-                    let map_start_addr = map_start_addr + match bgcnt.screen_size {
-                        0 => 0,
-                        1 => if (map_x / 32) % 2 == 1 { 0x800 } else { 0 },
-                        2 => if (map_y / 32) % 2 == 1 { 0x800 } else { 0 },
-                        3 => {
-                            let x_overflowed = (map_x / 32) % 2 == 1;
-                            let y_overflowed = (map_y / 32) % 2 == 1;
-                            if x_overflowed && y_overflowed { 0x800 * 3 }
-                            else if y_overflowed { 0x800 * 2 }
-                            else if x_overflowed { 0x800 * 1 }
-                            else { 0 }
-                        },
-                        _ => unreachable!(),
-                    };
-                    pixels[y * width + x] = self.render_16bit_entry(vram, bg_i, map_start_addr, tile_start_addr, bit_depth,
-                        32 * 8, map_x, map_y, x, y);
+                    let map_start_addr = map_start_addr
+                        + match bgcnt.screen_size {
+                            0 => 0,
+                            1 => {
+                                if (map_x / 32) % 2 == 1 {
+                                    0x800
+                                } else {
+                                    0
+                                }
+                            }
+                            2 => {
+                                if (map_y / 32) % 2 == 1 {
+                                    0x800
+                                } else {
+                                    0
+                                }
+                            }
+                            3 => {
+                                let x_overflowed = (map_x / 32) % 2 == 1;
+                                let y_overflowed = (map_y / 32) % 2 == 1;
+                                if x_overflowed && y_overflowed {
+                                    0x800 * 3
+                                } else if y_overflowed {
+                                    0x800 * 2
+                                } else if x_overflowed {
+                                    0x800 * 1
+                                } else {
+                                    0
+                                }
+                            }
+                            _ => unreachable!(),
+                        };
+                    pixels[y * width + x] = self.render_16bit_entry(
+                        vram,
+                        bg_i,
+                        map_start_addr,
+                        tile_start_addr,
+                        bit_depth,
+                        32 * 8,
+                        map_x,
+                        map_y,
+                        x,
+                        y,
+                    );
                 }
             }
         }
         (pixels, width, height)
     }
 
-    pub fn render_tiles(&self, vram: &VRAM, is_bg: bool, extended: bool, bitmap: bool, bpp8: bool, slot: usize,
-        palette: usize, offset: usize) -> (Vec<u16>, usize, usize) {
+    pub fn render_tiles(
+        &self,
+        vram: &VRAM,
+        is_bg: bool,
+        extended: bool,
+        bitmap: bool,
+        bpp8: bool,
+        slot: usize,
+        palette: usize,
+        offset: usize,
+    ) -> (Vec<u16>, usize, usize) {
         if is_bg {
             if extended {
-                GPU::render_tiles::<E, _, _>(vram, &VRAM::get_bg::<E, u8>,
-                &|i| vram.get_bg_ext_pal::<E>(slot, i),
-                offset, palette, extended, bitmap, bpp8)
+                GPU::render_tiles::<E, _, _>(
+                    vram,
+                    &VRAM::get_bg::<E, u8>,
+                    &|i| vram.get_bg_ext_pal::<E>(slot, i),
+                    offset,
+                    palette,
+                    extended,
+                    bitmap,
+                    bpp8,
+                )
             } else {
-                GPU::render_tiles::<E, _, _>(vram, &VRAM::get_bg::<E, u8>,
-                &|i| self.bg_palettes()[i], offset, palette, extended, bitmap, bpp8)
+                GPU::render_tiles::<E, _, _>(
+                    vram,
+                    &VRAM::get_bg::<E, u8>,
+                    &|i| self.bg_palettes()[i],
+                    offset,
+                    palette,
+                    extended,
+                    bitmap,
+                    bpp8,
+                )
             }
         } else {
             if extended {
-                GPU::render_tiles::<E, _, _>(vram, &VRAM::get_obj::<E, u8>,
-                &|i| vram.get_obj_ext_pal::<E>(i),
-                offset, palette, extended, bitmap, bpp8)
+                GPU::render_tiles::<E, _, _>(
+                    vram,
+                    &VRAM::get_obj::<E, u8>,
+                    &|i| vram.get_obj_ext_pal::<E>(i),
+                    offset,
+                    palette,
+                    extended,
+                    bitmap,
+                    bpp8,
+                )
             } else {
-                GPU::render_tiles::<E, _, _>(vram, &VRAM::get_obj::<E, u8>,
-                &|i| self.obj_palettes()[i], offset, palette, extended, bitmap, bpp8)
+                GPU::render_tiles::<E, _, _>(
+                    vram,
+                    &VRAM::get_obj::<E, u8>,
+                    &|i| self.obj_palettes()[i],
+                    offset,
+                    palette,
+                    extended,
+                    bitmap,
+                    bpp8,
+                )
             }
         }
     }

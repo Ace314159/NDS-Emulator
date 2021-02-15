@@ -15,8 +15,13 @@ impl IORegister for SoundControl {
     fn read(&self, byte: usize) -> u8 {
         match byte {
             0 => self.master_volume,
-            1 => (self.enable as u8) << 7 | (self.output_3 as u8) << 5 | (self.output_1 as u8) << 4 |
-                (self.right_output as u8) << 2 | (self.left_output as u8),
+            1 => {
+                (self.enable as u8) << 7
+                    | (self.output_3 as u8) << 5
+                    | (self.output_1 as u8) << 4
+                    | (self.right_output as u8) << 2
+                    | (self.left_output as u8)
+            }
             2 | 3 => 0,
             _ => unreachable!(),
         }
@@ -31,7 +36,7 @@ impl IORegister for SoundControl {
                 self.output_1 = value >> 4 != 0;
                 self.output_3 = value >> 5 != 0;
                 self.enable = value >> 7 != 0;
-            },
+            }
             2 | 3 => (),
             _ => unreachable!(),
         }
@@ -51,7 +56,11 @@ impl SoundControl {
     }
 
     pub fn master_volume(&self) -> i32 {
-        if self.master_volume == 127 { 128 } else { self.master_volume as i32 }
+        if self.master_volume == 127 {
+            128
+        } else {
+            self.master_volume as i32
+        }
     }
 }
 
@@ -94,7 +103,12 @@ impl<T: ChannelType> IORegister for ChannelControl<T> {
             0 => self.volume_mul,
             1 => (self.hold as u8) << 7 | self.volume_div,
             2 => self.panning,
-            3 => (self.busy as u8) << 7 | (self.format as u8) << 5 | (self.repeat_mode as u8) << 3 | self.wave_duty,
+            3 => {
+                (self.busy as u8) << 7
+                    | (self.format as u8) << 5
+                    | (self.repeat_mode as u8) << 3
+                    | self.wave_duty
+            }
             _ => unreachable!(),
         }
     }
@@ -105,14 +119,14 @@ impl<T: ChannelType> IORegister for ChannelControl<T> {
             1 => {
                 self.hold = (value >> 7) & 0x1 != 0;
                 self.volume_div = value >> 0 & 0x3;
-            },
+            }
             2 => self.panning = value & 0x7F,
             3 => {
                 self.wave_duty = value & 0x7;
                 self.repeat_mode = RepeatMode::from(value >> 3 & 0x3);
                 self.format = Format::from(value >> 5 & 0x3);
                 self.busy = value >> 7 & 0x1 != 0;
-            },
+            }
             _ => unreachable!(),
         }
     }
@@ -138,11 +152,19 @@ impl<T: ChannelType> ChannelControl<T> {
     }
 
     pub fn volume_factor(&self) -> i32 {
-        if self.volume_mul == 127 { 128 } else { self.volume_mul as i32 }
+        if self.volume_mul == 127 {
+            128
+        } else {
+            self.volume_mul as i32
+        }
     }
 
     pub fn pan_factor(&self) -> i32 {
-        if self.panning == 127 { 128 } else { self.panning as i32 }
+        if self.panning == 127 {
+            128
+        } else {
+            self.panning as i32
+        }
     }
 }
 
@@ -206,8 +228,11 @@ impl CaptureControl {
     }
 
     pub fn read(&self) -> u8 {
-        (self.busy as u8) << 7 | (self.use_pcm8 as u8) << 3| (self.no_repeat as u8) << 2 | (self.use_channel as u8) << 1 |
-        (self.add as u8)
+        (self.busy as u8) << 7
+            | (self.use_pcm8 as u8) << 3
+            | (self.no_repeat as u8) << 2
+            | (self.use_channel as u8) << 1
+            | (self.add as u8)
     }
 
     pub fn write(&mut self, value: u8) {

@@ -11,7 +11,6 @@ pub struct Flash {
     value: u8,
     // Status Reg
     write_enable: bool,
-    
 }
 
 impl Flash {
@@ -47,7 +46,7 @@ impl Flash {
             Instr::WREN => {
                 self.write_enable = true;
                 Mode::ReadInstr
-            },
+            }
             _ => Mode::HandleInstr(instr),
         }
     }
@@ -60,17 +59,17 @@ impl Flash {
                 assert_eq!(value, 0);
                 self.value = self.mem[addr];
                 Mode::HandleInstr(Instr::READ(0, addr + 1))
-            },
+            }
             Instr::READ(addr_bytes_left, addr) => {
                 Mode::HandleInstr(Instr::READ(addr_bytes_left - 1, addr << 8 | value as usize))
-            },
+            }
 
             Instr::RDSR => {
                 assert_eq!(value, 0);
                 // TODO: Figure out if in Progress needs to be emulated
                 self.value = (self.write_enable as u8) << 1;
                 Mode::ReadInstr
-            },
+            }
 
             Instr::WREN => unreachable!(),
 
@@ -79,10 +78,10 @@ impl Flash {
                 self.value = self.mem[addr];
                 self.mem[addr] = value;
                 Mode::HandleInstr(Instr::PW(0, addr + 1))
-            },
+            }
             Instr::PW(addr_bytes_left, addr) => {
                 Mode::HandleInstr(Instr::PW(addr_bytes_left - 1, addr << 8 | value as usize))
-            },
+            }
         }
     }
 
@@ -101,12 +100,22 @@ impl Backup for Flash {
             Mode::ReadInstr => self.set_instr(Instr::get(value)),
             Mode::HandleInstr(instr) => self.handle_instr(instr, value),
         };
-        if !hold { self.mode = Mode::ReadInstr }
+        if !hold {
+            self.mode = Mode::ReadInstr
+        }
     }
 
-    fn mem(&self) -> &Vec<u8> { &self.mem }
-    fn save_file(&self) -> &PathBuf { &self.save_file }
-    fn dirty(&mut self) -> bool { let old = self.dirty; self.dirty = false; old }
+    fn mem(&self) -> &Vec<u8> {
+        &self.mem
+    }
+    fn save_file(&self) -> &PathBuf {
+        &self.save_file
+    }
+    fn dirty(&mut self) -> bool {
+        let old = self.dirty;
+        self.dirty = false;
+        old
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -119,8 +128,8 @@ enum Mode {
 enum Instr {
     IR,
     READ(usize, usize),
-    RDSR, // Read Status Register
-    WREN, // Write Enable
+    RDSR,             // Read Status Register
+    WREN,             // Write Enable
     PW(usize, usize), // Page Write
 }
 

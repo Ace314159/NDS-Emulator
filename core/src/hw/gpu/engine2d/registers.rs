@@ -2,11 +2,8 @@ use bitflags::*;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
-use crate::hw::{
-    mem::IORegister,
-    scheduler::Scheduler,
-};
 use super::EngineType;
+use crate::hw::{mem::IORegister, scheduler::Scheduler};
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum BGMode {
@@ -102,7 +99,7 @@ impl<E: EngineType> DISPCNT<E> {
             engine_type: PhantomData,
         }
     }
-    
+
     pub fn windows_enabled(&self) -> bool {
         (self.bits >> 13) & 0x7 != 0
     }
@@ -127,7 +124,12 @@ impl<E: EngineType> IORegister for DISPCNT<E> {
         match byte {
             0 => (self.flags.bits >> 0) as u8 | self.bg_mode as u8,
             1 => (self.flags.bits >> 8) as u8,
-            2 => (self.flags.bits >> 16) as u8 | self.tile_obj_1d_bound << 4 | self.vram_block << 2 | self.display_mode as u8,
+            2 => {
+                (self.flags.bits >> 16) as u8
+                    | self.tile_obj_1d_bound << 4
+                    | self.vram_block << 2
+                    | self.display_mode as u8
+            }
             3 => (self.flags.bits >> 24) as u8 | self.screen_base << 3 | self.char_base,
             _ => unreachable!(),
         }
@@ -137,27 +139,35 @@ impl<E: EngineType> IORegister for DISPCNT<E> {
         match byte {
             0 => {
                 self.bg_mode = BGMode::from_bits(value & 0x7);
-                self.flags.bits = self.flags.bits & !0x0000_00FF | (value as u32) & DISPCNTFlags::all().bits; 
+                self.flags.bits =
+                    self.flags.bits & !0x0000_00FF | (value as u32) & DISPCNTFlags::all().bits;
                 // TODO: Use trait specialization instead of this
                 if !E::is_a() {
                     self.flags.remove(DISPCNTFlags::IS_3D);
                 }
-            },
-            1 => self.flags.bits = self.flags.bits & !0x0000_FF00 | (value as u32) << 8 & DISPCNTFlags::all().bits,
+            }
+            1 => {
+                self.flags.bits =
+                    self.flags.bits & !0x0000_FF00 | (value as u32) << 8 & DISPCNTFlags::all().bits
+            }
             2 => {
                 self.display_mode = DisplayMode::from_bits(value & 0x3);
                 if E::is_a() {
                     self.vram_block = value >> 2 & 0x3;
-                } else { assert_eq!(self.vram_block, 0) }
+                } else {
+                    assert_eq!(self.vram_block, 0)
+                }
                 self.tile_obj_1d_bound = value >> 4 & 0x3;
-                self.flags.bits = self.flags.bits & !0x00FF_0000 | (value as u32) << 16 & DISPCNTFlags::all().bits;
+                self.flags.bits = self.flags.bits & !0x00FF_0000
+                    | (value as u32) << 16 & DISPCNTFlags::all().bits;
                 // TODO: Use trait specialization instead of this
                 if !E::is_a() {
                     self.flags.remove(DISPCNTFlags::BITMAP_OBJ_1D_BOUND);
                 }
-            },
+            }
             3 => {
-                self.flags.bits = self.flags.bits & !0xFF00_0000 | (value as u32) << 24 & DISPCNTFlags::all().bits;
+                self.flags.bits = self.flags.bits & !0xFF00_0000
+                    | (value as u32) << 24 & DISPCNTFlags::all().bits;
                 if E::is_a() {
                     self.screen_base = value >> 3 & 0x7;
                     self.char_base = value & 0x7;
@@ -165,7 +175,7 @@ impl<E: EngineType> IORegister for DISPCNT<E> {
                     assert_eq!(self.screen_base, 0);
                     assert_eq!(self.char_base, 0);
                 }
-            },
+            }
             _ => unreachable!(),
         }
     }
@@ -199,7 +209,12 @@ impl BGCNT {
 impl IORegister for BGCNT {
     fn read(&self, byte: usize) -> u8 {
         match byte {
-            0 => (self.bpp8 as u8) << 7 | (self.mosaic as u8) << 6 | self.tile_block << 2 | self.priority,
+            0 => {
+                (self.bpp8 as u8) << 7
+                    | (self.mosaic as u8) << 6
+                    | self.tile_block << 2
+                    | self.priority
+            }
             1 => self.screen_size << 6 | (self.wrap as u8) << 5 | self.map_block,
             _ => unreachable!(),
         }
@@ -212,12 +227,12 @@ impl IORegister for BGCNT {
                 self.tile_block = value >> 2 & 0xF;
                 self.mosaic = value >> 6 & 0x1 != 0;
                 self.bpp8 = value >> 7 & 0x1 != 0;
-            },
+            }
             1 => {
                 self.map_block = value & 0x1F;
                 self.wrap = value >> 5 & 0x1 != 0;
                 self.screen_size = value >> 6 & 0x3;
-            },
+            }
             _ => unreachable!(),
         }
     }
@@ -230,9 +245,7 @@ pub struct OFS {
 
 impl OFS {
     pub fn new() -> OFS {
-        OFS {
-            offset: 0,
-        }
+        OFS { offset: 0 }
     }
 }
 
@@ -244,7 +257,7 @@ impl IORegister for OFS {
             _ => unreachable!(),
         }
     }
-    
+
     fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8) {
         match byte {
             0 => self.offset = self.offset & !0xFF | value as u16,
@@ -261,9 +274,7 @@ pub struct RotationScalingParameter {
 
 impl RotationScalingParameter {
     pub fn new() -> RotationScalingParameter {
-        RotationScalingParameter {
-            value: 0,
-        }
+        RotationScalingParameter { value: 0 }
     }
 
     pub fn get_float_from_u16(value: u16) -> f64 {
@@ -272,12 +283,17 @@ impl RotationScalingParameter {
 }
 
 impl IORegister for RotationScalingParameter {
-    fn read(&self, _byte: usize) -> u8 { return 0 }
+    fn read(&self, _byte: usize) -> u8 {
+        return 0;
+    }
 
     fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8) {
         let offset = byte * 8;
         match byte {
-            0 | 1 => self.value = ((self.value as u32) & !(0xFF << offset) | (value as u32) << offset) as i16,
+            0 | 1 => {
+                self.value =
+                    ((self.value as u32) & !(0xFF << offset) | (value as u32) << offset) as i16
+            }
             _ => unreachable!(),
         }
     }
@@ -290,9 +306,7 @@ pub struct ReferencePointCoord {
 
 impl ReferencePointCoord {
     pub fn new() -> ReferencePointCoord {
-        ReferencePointCoord {
-            value: 0,
-        }
+        ReferencePointCoord { value: 0 }
     }
 
     pub fn integer(&self) -> i32 {
@@ -301,16 +315,24 @@ impl ReferencePointCoord {
 }
 
 impl IORegister for ReferencePointCoord {
-    fn read(&self, _byte: usize) -> u8 { 0 }
+    fn read(&self, _byte: usize) -> u8 {
+        0
+    }
 
     fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8) {
         let offset = byte * 8;
         match byte {
-            0 ..= 2 => self.value = (self.value as u32 & !(0xFF << offset) | (value as u32) << offset) as i32,
+            0..=2 => {
+                self.value =
+                    (self.value as u32 & !(0xFF << offset) | (value as u32) << offset) as i32
+            }
             3 => {
-                self.value = (self.value as u32 & !(0xFF << offset) | (value as u32 & 0xF) << offset) as i32;
-                if self.value & 0x0800_0000 != 0 { self.value = ((self.value as u32) | 0xF000_0000) as i32 }
-            },
+                self.value =
+                    (self.value as u32 & !(0xFF << offset) | (value as u32 & 0xF) << offset) as i32;
+                if self.value & 0x0800_0000 != 0 {
+                    self.value = ((self.value as u32) | 0xF000_0000) as i32
+                }
+            }
             _ => unreachable!(),
         }
     }
@@ -394,8 +416,14 @@ impl WindowControl {
 impl IORegister for WindowControl {
     fn read(&self, byte: usize) -> u8 {
         match byte {
-            0 => (self.color_special_enable as u8) << 5 | (self.obj_enable as u8) << 4 | (self.bg3_enable as u8) << 3 |
-                (self.bg2_enable as u8) << 2 | (self.bg1_enable as u8) << 1 | (self.bg0_enable as u8) << 0,
+            0 => {
+                (self.color_special_enable as u8) << 5
+                    | (self.obj_enable as u8) << 4
+                    | (self.bg3_enable as u8) << 3
+                    | (self.bg2_enable as u8) << 2
+                    | (self.bg1_enable as u8) << 1
+                    | (self.bg0_enable as u8) << 0
+            }
             _ => unreachable!(),
         }
     }
@@ -409,7 +437,7 @@ impl IORegister for WindowControl {
                 self.bg2_enable = value >> 2 & 0x1 != 0;
                 self.bg1_enable = value >> 1 & 0x1 != 0;
                 self.bg0_enable = value >> 0 & 0x1 != 0;
-            },
+            }
             _ => unreachable!(),
         }
     }
@@ -471,7 +499,7 @@ impl IORegister for MOSAIC {
 }
 
 pub struct BLDCNTTargetPixelSelection {
-    pub enabled: [bool; 6]
+    pub enabled: [bool; 6],
 }
 
 impl BLDCNTTargetPixelSelection {
@@ -482,12 +510,12 @@ impl BLDCNTTargetPixelSelection {
     }
 
     pub fn read(&self) -> u8 {
-        (self.enabled[0] as u8) << 0 |
-        (self.enabled[1] as u8) << 1 |
-        (self.enabled[2] as u8) << 2 |
-        (self.enabled[3] as u8) << 3 |
-        (self.enabled[4] as u8) << 4 |
-        (self.enabled[5] as u8) << 5
+        (self.enabled[0] as u8) << 0
+            | (self.enabled[1] as u8) << 1
+            | (self.enabled[2] as u8) << 2
+            | (self.enabled[3] as u8) << 3
+            | (self.enabled[4] as u8) << 4
+            | (self.enabled[5] as u8) << 5
     }
 
     pub fn write(&mut self, value: u8) {
@@ -551,7 +579,7 @@ impl IORegister for BLDCNT {
             0 => {
                 self.target_pixel1.write(value);
                 self.effect = ColorSFX::from(value >> 6);
-            },
+            }
             1 => self.target_pixel2.write(value),
             _ => unreachable!(),
         }
@@ -606,14 +634,14 @@ pub struct BLDY {
 
 impl BLDY {
     pub fn new() -> BLDY {
-        BLDY {
-            evy: 0,
-        }
+        BLDY { evy: 0 }
     }
 }
 
 impl IORegister for BLDY {
-    fn read(&self, _byte: usize) -> u8 { 0 }
+    fn read(&self, _byte: usize) -> u8 {
+        0
+    }
 
     fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8) {
         match byte {
@@ -659,22 +687,24 @@ impl MasterBright {
 
     pub fn apply(&self, color: u16) -> u16 {
         let alpha = color & 0x8000;
-        let split_channels = |color: u16| [ color >> 0 & 0x1F, color >> 5 & 0x1F, color >> 10 & 0x1F];
-        let combine_channels = |channels: [u16; 3]|
-            (channels[0] << 0) | (channels[1] << 5) | (channels[2] << 10);
-        alpha | match self.mode {
-            MasterBrightMode::Disable => color,
-            MasterBrightMode::Up => {
-                let channels = split_channels(color);
-                let apply = |channel| channel + (0x1F - channel) * (self.factor as u16) / 16;
-                combine_channels([apply(channels[0]), apply(channels[1]), apply(channels[2])])
-            },
-            MasterBrightMode::Down => {
-                let channels = split_channels(color);
-                let apply = |channel| channel - channel * (self.factor as u16) / 16;
-                combine_channels([apply(channels[0]), apply(channels[1]), apply(channels[2])])
-            },
-        }
+        let split_channels =
+            |color: u16| [color >> 0 & 0x1F, color >> 5 & 0x1F, color >> 10 & 0x1F];
+        let combine_channels =
+            |channels: [u16; 3]| (channels[0] << 0) | (channels[1] << 5) | (channels[2] << 10);
+        alpha
+            | match self.mode {
+                MasterBrightMode::Disable => color,
+                MasterBrightMode::Up => {
+                    let channels = split_channels(color);
+                    let apply = |channel| channel + (0x1F - channel) * (self.factor as u16) / 16;
+                    combine_channels([apply(channels[0]), apply(channels[1]), apply(channels[2])])
+                }
+                MasterBrightMode::Down => {
+                    let channels = split_channels(color);
+                    let apply = |channel| channel - channel * (self.factor as u16) / 16;
+                    combine_channels([apply(channels[0]), apply(channels[1]), apply(channels[2])])
+                }
+            }
     }
 }
 
@@ -693,7 +723,7 @@ impl IORegister for MasterBright {
             0 => {
                 self.factor_read = value;
                 self.factor = std::cmp::min(16, value & 0x1F)
-            },
+            }
             1 => self.mode = MasterBrightMode::from_bits(value >> 6 & 0x3),
             2 | 3 => (),
             _ => unreachable!(),

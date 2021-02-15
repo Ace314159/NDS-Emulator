@@ -1,9 +1,8 @@
 use super::{
-    Engine3D,
-    math::{FixedPoint, Vec4, Matrix},
+    math::{FixedPoint, Matrix, Vec4},
     registers::*,
+    Engine3D,
 };
-
 
 impl Engine3D {
     pub fn should_run_fifo(&self) -> bool {
@@ -20,7 +19,9 @@ impl Engine3D {
         if !self.polygons_submitted {
             while let Some(entry) = self.gxfifo.pop_front() {
                 self.exec_command(entry);
-                if self.polygons_submitted { break }
+                if self.polygons_submitted {
+                    break;
+                }
             }
         }
         self.bus_stalled = self.gxfifo.len() >= Engine3D::FIFO_LEN;
@@ -33,14 +34,19 @@ impl Engine3D {
         }
         self.params.push(command_entry.param);
         if self.params.len() < command_entry.command.num_params() {
-            if self.params.len() > 1 { assert_eq!(self.prev_command, command_entry.command) }
+            if self.params.len() > 1 {
+                assert_eq!(self.prev_command, command_entry.command)
+            }
             self.prev_command = command_entry.command;
-            return
+            return;
         }
 
         use GeometryCommand::*;
         let param = command_entry.param;
-        info!("Executing Geometry Command {:?} {:?}", command_entry.command, self.params);
+        info!(
+            "Executing Geometry Command {:?} {:?}",
+            command_entry.command, self.params
+        );
         match command_entry.command {
             NOP => (),
             MtxMode => self.mtx_mode = MatrixMode::from(param as u8 & 0x3),
@@ -49,83 +55,91 @@ impl Engine3D {
                     self.proj_stack[self.proj_stack_sp as usize] = self.cur_proj;
                     self.proj_stack_sp += 1;
                     assert!(self.proj_stack_sp <= 1);
-                },
+                }
                 MatrixMode::Pos | MatrixMode::PosVec => {
                     self.pos_stack[self.pos_vec_stack_sp as usize] = self.cur_pos;
                     self.vec_stack[self.pos_vec_stack_sp as usize] = self.cur_vec;
                     self.pos_vec_stack_sp += 1;
                     assert!(self.pos_vec_stack_sp <= 31);
-                },
+                }
                 MatrixMode::Texture => {
                     self.tex_stack[self.tex_stack_sp as usize] = self.cur_tex;
                     self.tex_stack_sp += 1;
                     assert!(self.tex_stack_sp <= 31);
-                },
+                }
             },
             MtxPop => {
                 let offset = param & 0x3F;
-                let offset = if offset & 0x20 != 0 { 0xC0 | offset } else { offset } as i8;
+                let offset = if offset & 0x20 != 0 {
+                    0xC0 | offset
+                } else {
+                    offset
+                } as i8;
                 match self.mtx_mode {
                     MatrixMode::Proj => {
                         self.proj_stack_sp -= 1;
                         assert!(self.proj_stack_sp < 1);
                         self.cur_proj = self.proj_stack[self.proj_stack_sp as usize];
                         self.calc_clip_mat();
-                    },
+                    }
                     MatrixMode::Pos | MatrixMode::PosVec => {
                         self.pos_vec_stack_sp = (self.pos_vec_stack_sp as i8 - offset) as u8;
                         assert!(self.pos_vec_stack_sp < 31);
                         self.cur_pos = self.pos_stack[self.pos_vec_stack_sp as usize];
                         self.calc_clip_mat();
                         self.cur_vec = self.vec_stack[self.pos_vec_stack_sp as usize];
-                    },
+                    }
                     MatrixMode::Texture => {
                         self.tex_stack_sp = (self.tex_stack_sp as i8 - offset) as u8;
                         assert!(self.tex_stack_sp < 31);
                         self.cur_tex = self.tex_stack[self.tex_stack_sp as usize];
-                    },
+                    }
                 }
-            },
+            }
             MtxStore => {
                 let index = param & 0x3F;
-                if index == 31 { self.gxstat.mat_stack_error = true }
+                if index == 31 {
+                    self.gxstat.mat_stack_error = true
+                }
                 match self.mtx_mode {
                     MatrixMode::Proj => {
                         assert!(index <= 1);
                         self.proj_stack[0] = self.cur_proj;
-                    },
+                    }
                     MatrixMode::Pos | MatrixMode::PosVec => {
                         assert!(index <= 31);
                         self.pos_stack[index as usize] = self.cur_pos;
                         self.vec_stack[index as usize] = self.cur_vec;
-                    },
+                    }
                     MatrixMode::Texture => {
                         assert!(index <= 31);
                         self.tex_stack[index as usize] = self.cur_tex;
-                    },
+                    }
                 }
-            },
+            }
             MtxRestore => {
                 let index = param & 0x3F;
-                if index == 31 { self.gxstat.mat_stack_error = true }
+                if index == 31 {
+                    self.gxstat.mat_stack_error = true
+                }
                 match self.mtx_mode {
                     MatrixMode::Proj => {
                         assert!(index <= 1);
                         self.cur_proj = self.proj_stack[0];
                         self.calc_clip_mat();
-                    },
+                    }
                     MatrixMode::Pos | MatrixMode::PosVec => {
                         assert!(index <= 31);
                         self.cur_pos = self.pos_stack[index as usize];
                         self.calc_clip_mat();
                         self.cur_vec = self.vec_stack[index as usize];
-                    },
+                    }
                     MatrixMode::Texture => {
                         assert!(index <= 31);
                         self.cur_tex = self.tex_stack[index as usize];
-                    },
+                    }
                 }
-            },
+            }
             MtxIdentity => self.apply_cur_mat(Matrix::set_identity, true),
             MtxLoad4x4 => self.apply_cur_mat(Matrix::load4x4, true),
             MtxLoad4x3 => self.apply_cur_mat(Matrix::load4x3, true),
@@ -141,13 +155,10 @@ impl Engine3D {
                 FixedPoint::from_frac9(((param >> 20) & 0x3FF) as u16),
             ),
             TexCoord => {
-                self.raw_tex_coord = [
-                    (param >> 0) as u16 as i16,
-                    (param >> 16) as u16 as i16,
-                ];
+                self.raw_tex_coord = [(param >> 0) as u16 as i16, (param >> 16) as u16 as i16];
                 self.tex_coord = self.raw_tex_coord;
                 self.transform_tex_coord(TexCoordTransformationMode::TexCoord, None);
-            },
+            }
             Vtx16 => self.submit_vertex(
                 FixedPoint::from_frac12((self.params[0] >> 0) as u16 as i16 as i32),
                 FixedPoint::from_frac12((self.params[0] >> 16) as u16 as i16 as i32),
@@ -181,43 +192,52 @@ impl Engine3D {
             PolygonAttr => self.polygon_attrs.write(param),
             TexImageParam => self.tex_params.write(param),
             PlttBase => self.palette_base = ((param & 0xFFF) as usize) * 16,
-            DifAmb => if self.material.set_dif_amb(param) {
-                self.color = super::Color::new5(
-                    self.material.diffuse[0] as u8,
-                    self.material.diffuse[1] as u8,
-                    self.material.diffuse[2] as u8,
-                );
-            },
-            SpeEmi => self.material.set_spe_emi(param),
-            LightVector => self.lights[(param >> 30 & 0x3) as usize].direction = self.cur_vec * [
-                FixedPoint::from_frac9(((param >> 0) & 0x3FF) as u16),
-                FixedPoint::from_frac9(((param >> 10) & 0x3FF) as u16),
-                FixedPoint::from_frac9(((param >> 20) & 0x3FF) as u16),
-            ],
-            LightColor => self.lights[(param >> 30 & 0x3) as usize].color = [
-                (param >> 0 & 0x1F) as i32,
-                (param >> 5 & 0x1F) as i32,
-                (param >> 10 & 0x1F) as i32,
-            ],
-            Shininess => for (i, word) in self.params.iter().enumerate() {
-                for byte in 0..4 {
-                    self.material.shininess[i * 4 + byte] = (*word >> (8 * byte)) as u8 as i8;
+            DifAmb => {
+                if self.material.set_dif_amb(param) {
+                    self.color = super::Color::new5(
+                        self.material.diffuse[0] as u8,
+                        self.material.diffuse[1] as u8,
+                        self.material.diffuse[2] as u8,
+                    );
                 }
-            },
+            }
+            SpeEmi => self.material.set_spe_emi(param),
+            LightVector => {
+                self.lights[(param >> 30 & 0x3) as usize].direction = self.cur_vec
+                    * [
+                        FixedPoint::from_frac9(((param >> 0) & 0x3FF) as u16),
+                        FixedPoint::from_frac9(((param >> 10) & 0x3FF) as u16),
+                        FixedPoint::from_frac9(((param >> 20) & 0x3FF) as u16),
+                    ]
+            }
+            LightColor => {
+                self.lights[(param >> 30 & 0x3) as usize].color = [
+                    (param >> 0 & 0x1F) as i32,
+                    (param >> 5 & 0x1F) as i32,
+                    (param >> 10 & 0x1F) as i32,
+                ]
+            }
+            Shininess => {
+                for (i, word) in self.params.iter().enumerate() {
+                    for byte in 0..4 {
+                        self.material.shininess[i * 4 + byte] = (*word >> (8 * byte)) as u8 as i8;
+                    }
+                }
+            }
             BeginVtxs => {
                 self.cur_poly_verts.clear();
                 self.original_verts.clear();
                 self.swap_verts = false;
                 self.polygon_attrs_latch = self.polygon_attrs.clone();
                 self.vertex_primitive = VertexPrimitive::from(param & 0x3);
-            },
+            }
             EndVtxs => (), // Does Nothing
             SwapBuffers => {
                 self.next_frame_params = self.frame_params;
                 self.next_frame_params.write(param);
                 self.polygons_submitted = true;
                 self.gxstat.geometry_engine_busy = true; // Keep busy until VBlank
-            },
+            }
             Viewport => self.viewport.write(param),
             BoxTest => {
                 let pos = (
@@ -232,7 +252,7 @@ impl Engine3D {
                 );
                 self.gxstat.test_busy = false;
                 self.gxstat.box_test_inside = self.box_test(pos, size);
-            },
+            }
             Unimplemented => (),
         }
         self.params.clear();
@@ -241,14 +261,18 @@ impl Engine3D {
     pub fn write_geometry_fifo(&mut self, value: u32) {
         if self.packed_commands == 0 {
             if value == 0 {
-                return
+                return;
             }
             self.packed_commands = value;
             self.cur_command = GeometryCommand::from_byte(self.packed_commands as u8);
             self.num_params = self.cur_command.num_params();
             self.params_processed = 0;
-            if self.num_params > 0 { return }
-        } else { self.params_processed += 1 }
+            if self.num_params > 0 {
+                return;
+            }
+        } else {
+            self.params_processed += 1
+        }
 
         while self.packed_commands != 0 {
             if self.cur_command != GeometryCommand::NOP {
@@ -262,9 +286,15 @@ impl Engine3D {
                     self.cur_command = GeometryCommand::from_byte(self.packed_commands as u8);
                     self.num_params = self.cur_command.num_params();
                     self.params_processed = 0;
-                    if self.num_params > 0 { break }
-                } else { break }
-            } else { break }
+                    if self.num_params > 0 {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
         }
     }
 
@@ -277,13 +307,21 @@ impl Engine3D {
 
     fn apply_cur_mat<F: Fn(&mut Matrix, &Vec<u32>)>(&mut self, apply: F, also_to_vec: bool) {
         match self.mtx_mode {
-            MatrixMode::Proj => { apply(&mut self.cur_proj, &self.params); self.calc_clip_mat(); },
-            MatrixMode::Pos => { apply(&mut self.cur_pos, &self.params); self.calc_clip_mat(); },
+            MatrixMode::Proj => {
+                apply(&mut self.cur_proj, &self.params);
+                self.calc_clip_mat();
+            }
+            MatrixMode::Pos => {
+                apply(&mut self.cur_pos, &self.params);
+                self.calc_clip_mat();
+            }
             MatrixMode::PosVec => {
                 apply(&mut self.cur_pos, &self.params);
                 self.calc_clip_mat();
-                if also_to_vec { apply(&mut self.cur_vec, &self.params) }
-            },
+                if also_to_vec {
+                    apply(&mut self.cur_vec, &self.params)
+                }
+            }
             MatrixMode::Texture => apply(&mut self.cur_tex, &self.params),
         }
     }
@@ -298,13 +336,25 @@ impl Engine3D {
         let line_of_sight = [FixedPoint::zero(), FixedPoint::zero(), -FixedPoint::one()];
         let mut final_color = self.material.emission;
         for (light_i, enabled) in self.polygon_attrs_latch.lights_enabled.iter().enumerate() {
-            if !enabled { continue }
+            if !enabled {
+                continue;
+            }
             let light = &self.lights[light_i];
             let diffuse_lvl = -FixedPoint::from_mul(
-                light.direction[0] * normal[0] + light.direction[1] * normal[1] + light.direction[2] * normal[2]
-            ).raw() >> 4; // Convert to 8 frac
-            // TODO: Use clamp
-            let diffuse_lvl = if diffuse_lvl < 0 { 0 } else if diffuse_lvl > 0xFF { 0xFF } else { diffuse_lvl };
+                light.direction[0] * normal[0]
+                    + light.direction[1] * normal[1]
+                    + light.direction[2] * normal[2],
+            )
+            .raw()
+                >> 4; // Convert to 8 frac
+                      // TODO: Use clamp
+            let diffuse_lvl = if diffuse_lvl < 0 {
+                0
+            } else if diffuse_lvl > 0xFF {
+                0xFF
+            } else {
+                diffuse_lvl
+            };
 
             let half_vector = [
                 FixedPoint::from_frac12((light.direction[0] + line_of_sight[0]).raw() / 2),
@@ -312,38 +362,68 @@ impl Engine3D {
                 FixedPoint::from_frac12((light.direction[2] + line_of_sight[2]).raw() / 2),
             ];
             let shininess_lvl = -FixedPoint::from_mul(
-                half_vector[0] * normal[0] + half_vector[1] * normal[1] + half_vector[2] * normal[2]
-            ).raw() >> 4; // Convert to 8 frac
-            let shininess_lvl = if shininess_lvl < 0 { 0 } else if shininess_lvl > 0xFF {
+                half_vector[0] * normal[0]
+                    + half_vector[1] * normal[1]
+                    + half_vector[2] * normal[2],
+            )
+            .raw()
+                >> 4; // Convert to 8 frac
+            let shininess_lvl = if shininess_lvl < 0 {
+                0
+            } else if shininess_lvl > 0xFF {
                 (0x100 - shininess_lvl) & 0xFF // Mirroring
-            } else { shininess_lvl };
+            } else {
+                shininess_lvl
+            };
             let shininess_lvl = ((2 * shininess_lvl * shininess_lvl) >> 8) - 0x100; // 0x100 = 1 in 8 frac
             let shininess_lvl = if shininess_lvl < 0 { 0 } else { shininess_lvl };
 
             let shininess_lvl = if self.material.use_shininess_table {
                 self.material.shininess[(shininess_lvl as usize) / 2] as i32
-            } else { shininess_lvl };
+            } else {
+                shininess_lvl
+            };
 
             for i in 0..3 {
-                final_color[i] += (self.material.specular[i] * light.color[i] * shininess_lvl) >> 13;
+                final_color[i] +=
+                    (self.material.specular[i] * light.color[i] * shininess_lvl) >> 13;
                 final_color[i] += (self.material.diffuse[i] * light.color[i] * diffuse_lvl) >> 13;
                 final_color[i] += (self.material.ambient[i] * light.color[i]) >> 5;
             }
         }
         self.color = Color::new5(
-            if final_color[0] > 0x1F { 0x1F } else { final_color[0] } as u8,
-            if final_color[1] > 0x1F { 0x1F } else { final_color[1] } as u8,
-            if final_color[2] > 0x1F { 0x1F } else { final_color[2] } as u8,
+            if final_color[0] > 0x1F {
+                0x1F
+            } else {
+                final_color[0]
+            } as u8,
+            if final_color[1] > 0x1F {
+                0x1F
+            } else {
+                final_color[1]
+            } as u8,
+            if final_color[2] > 0x1F {
+                0x1F
+            } else {
+                final_color[2]
+            } as u8,
         );
     }
 
     // Use Const Generics
-    fn transform_tex_coord(&mut self, transformation_mode: TexCoordTransformationMode, normal: Option<[FixedPoint; 3]>) {
-        if self.tex_params.coord_transformation_mode != transformation_mode { return }
+    fn transform_tex_coord(
+        &mut self,
+        transformation_mode: TexCoordTransformationMode,
+        normal: Option<[FixedPoint; 3]>,
+    ) {
+        if self.tex_params.coord_transformation_mode != transformation_mode {
+            return;
+        }
         let s = self.raw_tex_coord[0] as i32;
         let t = self.raw_tex_coord[1] as i32;
         let m = &self.cur_tex;
-        let normal = normal.unwrap_or_else(||[FixedPoint::zero(), FixedPoint::zero(), FixedPoint::zero()]);
+        let normal =
+            normal.unwrap_or_else(|| [FixedPoint::zero(), FixedPoint::zero(), FixedPoint::zero()]);
         self.tex_coord = match self.tex_params.coord_transformation_mode {
             TexCoordTransformationMode::None => self.raw_tex_coord,
             TexCoordTransformationMode::TexCoord => [
@@ -351,12 +431,18 @@ impl Engine3D {
                 ((s * m[1].raw() + t * m[5].raw() + m[9].raw() + m[13].raw()) >> 12) as i16,
             ],
             TexCoordTransformationMode::Normal => [
-                (((normal[0] * m[0] + normal[1] * m[4] + normal[2] * m[8]) >> 24) + s as i64) as i16,
-                (((normal[0] * m[1] + normal[1] * m[5] + normal[2] * m[9]) >> 24) + t as i64) as i16,
+                (((normal[0] * m[0] + normal[1] * m[4] + normal[2] * m[8]) >> 24) + s as i64)
+                    as i16,
+                (((normal[0] * m[1] + normal[1] * m[5] + normal[2] * m[9]) >> 24) + t as i64)
+                    as i16,
             ],
             TexCoordTransformationMode::Vertex => [
-                (((self.prev_pos[0] * m[0] + self.prev_pos[1] * m[4] + self.prev_pos[2] * m[8]) >> 24) + s as i64) as i16,
-                (((self.prev_pos[0] * m[1] + self.prev_pos[1] * m[5] + self.prev_pos[2] * m[9]) >> 24) + t as i64) as i16,
+                (((self.prev_pos[0] * m[0] + self.prev_pos[1] * m[4] + self.prev_pos[2] * m[8])
+                    >> 24)
+                    + s as i64) as i16,
+                (((self.prev_pos[0] * m[1] + self.prev_pos[1] * m[5] + self.prev_pos[2] * m[9])
+                    >> 24)
+                    + t as i64) as i16,
             ],
         };
     }
@@ -366,17 +452,14 @@ impl Engine3D {
         self.prev_pos = [x, y, z];
         let vertex_pos = Vec4::new(x, y, z, FixedPoint::one());
         let clip_coords = self.clip_mat * vertex_pos;
-        self.original_verts.push((
-            self.clip_mat,
-            self.prev_pos,
-        ));
+        self.original_verts.push((self.clip_mat, self.prev_pos));
 
         self.transform_tex_coord(TexCoordTransformationMode::Vertex, None);
         self.cur_poly_verts.push(Vertex {
             clip_coords,
             screen_coords: [0, 0], // Temp - Calculated after clipping
-            z_depth: 0, // Temp - Calculated after clipping
-            normalized_w: 0, // Temp - Calculated after clipping
+            z_depth: 0,            // Temp - Calculated after clipping
+            normalized_w: 0,       // Temp - Calculated after clipping
             color: self.color,
             tex_coord: self.tex_coord,
         });
@@ -385,7 +468,7 @@ impl Engine3D {
                 if self.cur_poly_verts.len() == 3 {
                     self.submit_polygon();
                 }
-            },
+            }
             VertexPrimitive::Quad => {
                 if self.cur_poly_verts.len() == 4 {
                     self.submit_polygon();
@@ -408,7 +491,7 @@ impl Engine3D {
                     self.original_verts.push(original_vert1);
                     self.swap_verts = !self.swap_verts;
                 }
-            },
+            }
             VertexPrimitive::QuadStrips => {
                 if self.cur_poly_verts.len() == 4 {
                     let new_vert0 = self.cur_poly_verts[2];
@@ -423,12 +506,11 @@ impl Engine3D {
                     self.original_verts.push(original_vert0);
                     self.original_verts.push(original_vert1);
                 }
-            },
+            }
         }
     }
 
     fn submit_polygon(&mut self) {
-        
         // Face Culling
         let a = (
             self.cur_poly_verts[0].clip_coords[0] - self.cur_poly_verts[1].clip_coords[0],
@@ -445,28 +527,41 @@ impl Engine3D {
             ((a.2 * b.0) as i64 - (a.0 * b.2) as i64),
             ((a.0 * b.1) as i64 - (a.1 * b.0) as i64),
         );
-        while (normal.0 >> 31) ^ (normal.0 >> 63) != 0 || (normal.1 >> 31) ^ (normal.1 >> 63) != 0 ||
-            (normal.2 >> 31) ^ (normal.2 >> 63) != 0 {
+        while (normal.0 >> 31) ^ (normal.0 >> 63) != 0
+            || (normal.1 >> 31) ^ (normal.1 >> 63) != 0
+            || (normal.2 >> 31) ^ (normal.2 >> 63) != 0
+        {
             normal.0 >>= 4;
             normal.1 >>= 4;
             normal.2 >>= 4;
         }
         let vert = &self.cur_poly_verts[0].clip_coords;
-        let dot = normal.0 * vert[0].raw64() + normal.1 * vert[1].raw64() + normal.2 * vert[3].raw64();
+        let dot =
+            normal.0 * vert[0].raw64() + normal.1 * vert[1].raw64() + normal.2 * vert[3].raw64();
 
         let (is_front, should_render) = match dot {
-            0 => { info!("Not Drawing Line"); (true, false) }, // TODO: Line
+            0 => {
+                info!("Not Drawing Line");
+                (true, false)
+            } // TODO: Line
             _ if dot < 0 => (true, self.polygon_attrs_latch.render_front), // Front
             _ if dot > 0 => (false, self.polygon_attrs_latch.render_back), // Back
             _ => unreachable!(),
         };
-        if !should_render { self.cur_poly_verts.clear(); self.original_verts.clear(); return }
+        if !should_render {
+            self.cur_poly_verts.clear();
+            self.original_verts.clear();
+            return;
+        }
 
         // Clip Polygon
         self.clip_plane(2);
         self.clip_plane(1);
         self.clip_plane(0);
-        if self.cur_poly_verts.len() == 0 { self.original_verts.clear(); return }
+        if self.cur_poly_verts.len() == 0 {
+            self.original_verts.clear();
+            return;
+        }
         /*for vert in self.original_verts.iter() {
             println!("Clip: {:?}", vert.0);
             println!("OVert: {:?}", vert.1);
@@ -478,7 +573,7 @@ impl Engine3D {
         }
         println!("");*/
 
-        // TODO: Reject polygon if it doesn't fit into Vertex RAM or Polygon 
+        // TODO: Reject polygon if it doesn't fit into Vertex RAM or Polygon
 
         let mut polygon = Polygon {
             start_vert: self.vertices.len(),
@@ -505,11 +600,19 @@ impl Engine3D {
             let vert = Vertex {
                 screen_coords: self.viewport.screen_coords(&vert.clip_coords),
                 z_depth: ((((z * 0x4000 / w as i64) + 0x3FFF) * 0x200) & 0xFFFFFF) as u32,
-                normalized_w: if w_size < 16 { w << (16 - w_size) } else { w >> (w_size - 16) } as i16,
+                normalized_w: if w_size < 16 {
+                    w << (16 - w_size)
+                } else {
+                    w >> (w_size - 16)
+                } as i16,
                 ..vert
             };
-            if vert.screen_coords[1] < top { top = vert.screen_coords[1] };
-            if vert.screen_coords[1] > bot { bot = vert.screen_coords[1] };
+            if vert.screen_coords[1] < top {
+                top = vert.screen_coords[1]
+            };
+            if vert.screen_coords[1] > bot {
+                bot = vert.screen_coords[1]
+            };
             self.vertices.push(vert);
         }
         polygon.y_bounds = (bot, top);
@@ -532,10 +635,12 @@ impl Engine3D {
                     for i in 0..3 {
                         if !(-w..=w).contains(&clip_coords[i]) {
                             inside = false;
-                            break
+                            break;
                         }
                     }
-                    if inside { return true }
+                    if inside {
+                        return true;
+                    }
                 }
             }
         }
@@ -548,7 +653,11 @@ impl Engine3D {
         // Chekc positive plane
         for i in 0..self.cur_poly_verts.len() {
             let cur_vertex = &self.cur_poly_verts[i];
-            let prev_index = if i == 0 { self.cur_poly_verts.len() - 1 } else { i - 1 };
+            let prev_index = if i == 0 {
+                self.cur_poly_verts.len() - 1
+            } else {
+                i - 1
+            };
             let prev_vertex = &self.cur_poly_verts[prev_index];
 
             // Cur Point inside positive part of plane
@@ -556,15 +665,16 @@ impl Engine3D {
                 // TODO: Check polygon_attrs for far plane intersection
                 // Prev Point outside
                 if prev_vertex.clip_coords[coord_i] > prev_vertex.clip_coords[3] {
-                    new_verts[new_vert_i] = self.find_intersection(coord_i, true,
-                        cur_vertex, prev_vertex);
+                    new_verts[new_vert_i] =
+                        self.find_intersection(coord_i, true, cur_vertex, prev_vertex);
                     new_vert_i += 1;
                 }
                 new_verts[new_vert_i] = cur_vertex.clone();
                 new_vert_i += 1;
-            } else if prev_vertex.clip_coords[coord_i] <= prev_vertex.clip_coords[3] { // Prev point inside
-                new_verts[new_vert_i] = self.find_intersection(coord_i, true,
-                    prev_vertex, cur_vertex);
+            } else if prev_vertex.clip_coords[coord_i] <= prev_vertex.clip_coords[3] {
+                // Prev point inside
+                new_verts[new_vert_i] =
+                    self.find_intersection(coord_i, true, prev_vertex, cur_vertex);
                 new_vert_i += 1;
             }
         }
@@ -581,27 +691,47 @@ impl Engine3D {
                 // TODO: Check polygon_attrs for far plane intersection
                 // Prev Point outside
                 if prev_vertex.clip_coords[coord_i] < -prev_vertex.clip_coords[3] {
-                    self.cur_poly_verts.push(self.find_intersection(coord_i, false,
-                        cur_vertex, prev_vertex));
+                    self.cur_poly_verts.push(self.find_intersection(
+                        coord_i,
+                        false,
+                        cur_vertex,
+                        prev_vertex,
+                    ));
                 }
                 self.cur_poly_verts.push(cur_vertex.clone());
-            } else if prev_vertex.clip_coords[coord_i] >= -prev_vertex.clip_coords[3] { // Prev point inside
-                self.cur_poly_verts.push(self.find_intersection(coord_i, false,
-                    prev_vertex, cur_vertex));
+            } else if prev_vertex.clip_coords[coord_i] >= -prev_vertex.clip_coords[3] {
+                // Prev point inside
+                self.cur_poly_verts.push(self.find_intersection(
+                    coord_i,
+                    false,
+                    prev_vertex,
+                    cur_vertex,
+                ));
             }
         }
     }
 
-    fn find_intersection(&self, coord_i: usize, positive: bool, inside: &Vertex, out: &Vertex) -> Vertex {
+    fn find_intersection(
+        &self,
+        coord_i: usize,
+        positive: bool,
+        inside: &Vertex,
+        out: &Vertex,
+    ) -> Vertex {
         let plane_factor = if positive { 1 } else { -1 };
-        let factor_numer = inside.clip_coords[3].raw64() - plane_factor * inside.clip_coords[coord_i].raw64();
-        let factor_denom = factor_numer - (out.clip_coords[3].raw64() - plane_factor * out.clip_coords[coord_i].raw64());
-        
+        let factor_numer =
+            inside.clip_coords[3].raw64() - plane_factor * inside.clip_coords[coord_i].raw64();
+        let factor_denom = factor_numer
+            - (out.clip_coords[3].raw64() - plane_factor * out.clip_coords[coord_i].raw64());
+
         let interpolate = |inside, out| inside + (out - inside) * factor_numer / factor_denom;
-        let calc_coord = |i, new_w: FixedPoint| FixedPoint::from_frac12(
-            if coord_i == i { plane_factor * new_w.raw64() }
-            else { interpolate(inside.clip_coords[i].raw64(), out.clip_coords[i].raw64()) } as i32
-        );
+        let calc_coord = |i, new_w: FixedPoint| {
+            FixedPoint::from_frac12(if coord_i == i {
+                plane_factor * new_w.raw64()
+            } else {
+                interpolate(inside.clip_coords[i].raw64(), out.clip_coords[i].raw64())
+            } as i32)
+        };
         let new_w = calc_coord(3, FixedPoint::zero());
 
         Vertex {
@@ -612,8 +742,8 @@ impl Engine3D {
                 new_w,
             ),
             screen_coords: [0, 0], // Calcluated after
-            z_depth: 0, // Calculated after
-            normalized_w: 0, // Calculated after
+            z_depth: 0,            // Calculated after
+            normalized_w: 0,       // Calculated after
             color: Color::new8(
                 interpolate(inside.color.r as i64, out.color.r as i64) as u8,
                 interpolate(inside.color.g as i64, out.color.g as i64) as u8,
@@ -622,7 +752,7 @@ impl Engine3D {
             tex_coord: [
                 interpolate(inside.tex_coord[0] as i64, out.tex_coord[0] as i64) as i16,
                 interpolate(inside.tex_coord[1] as i64, out.tex_coord[1] as i64) as i16,
-            ]
+            ],
         }
     }
 }
@@ -706,7 +836,10 @@ impl GeometryCommand {
             0x540 => SwapBuffers,
             0x580 => Viewport,
             0x5C0 => BoxTest,
-            _ => { warn!("Unimplemented Geometry Command Address 0x{:X}", addr); Unimplemented },
+            _ => {
+                warn!("Unimplemented Geometry Command Address 0x{:X}", addr);
+                Unimplemented
+            }
         }
     }
 
@@ -749,7 +882,10 @@ impl GeometryCommand {
             0x50 => SwapBuffers,
             0x60 => Viewport,
             0x70 => BoxTest,
-            _ => { warn!("Unimplemented Geometry Command Byte: 0x{:X}", value); Unimplemented },
+            _ => {
+                warn!("Unimplemented Geometry Command Byte: 0x{:X}", value);
+                Unimplemented
+            }
         }
     }
 
@@ -805,10 +941,7 @@ pub struct GeometryCommandEntry {
 
 impl GeometryCommandEntry {
     pub fn new(command: GeometryCommand, param: u32) -> Self {
-        GeometryCommandEntry {
-            command,
-            param,
-        }
+        GeometryCommandEntry { command, param }
     }
 }
 
@@ -932,18 +1065,18 @@ impl Color {
     }
 
     pub fn new8(r: u8, g: u8, b: u8) -> Self {
-        Color {
-            r,
-            g,
-            b,
-        }
+        Color { r, g, b }
     }
 
     // Upscales the color components (e.g. from 6 bit to 8 color)
     pub fn upscale<const NUM_TIMES: usize>(component: u8) -> u8 {
-        if component == 0 { return 0 }
+        if component == 0 {
+            return 0;
+        }
         let mut new_component = component;
-        for _ in 0..NUM_TIMES { new_component = new_component * 2 + 1 }
+        for _ in 0..NUM_TIMES {
+            new_component = new_component * 2 + 1
+        }
         new_component
     }
 
@@ -952,15 +1085,33 @@ impl Color {
         (self.b as u16 >> 3) << 10 | (self.g as u16 >> 3) << 5 | (self.r as u16 >> 3) << 0
     }
 
-    pub fn r5(&self) -> u8 { self.r >> 3 }
-    pub fn g5(&self) -> u8 { self.g >> 3 }
-    pub fn b5(&self) -> u8 { self.b >> 3 }
-    pub fn r6(&self) -> u8 { self.r >> 2 }
-    pub fn g6(&self) -> u8 { self.g >> 2 }
-    pub fn b6(&self) -> u8 { self.b >> 2 }
-    pub fn r8(&self) -> u8 { self.r >> 0 }
-    pub fn g8(&self) -> u8 { self.g >> 0 }
-    pub fn b8(&self) -> u8 { self.b >> 0 }
+    pub fn r5(&self) -> u8 {
+        self.r >> 3
+    }
+    pub fn g5(&self) -> u8 {
+        self.g >> 3
+    }
+    pub fn b5(&self) -> u8 {
+        self.b >> 3
+    }
+    pub fn r6(&self) -> u8 {
+        self.r >> 2
+    }
+    pub fn g6(&self) -> u8 {
+        self.g >> 2
+    }
+    pub fn b6(&self) -> u8 {
+        self.b >> 2
+    }
+    pub fn r8(&self) -> u8 {
+        self.r >> 0
+    }
+    pub fn g8(&self) -> u8 {
+        self.g >> 0
+    }
+    pub fn b8(&self) -> u8 {
+        self.b >> 0
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -976,7 +1127,12 @@ pub struct Vertex {
 impl Vertex {
     pub fn new() -> Self {
         Vertex {
-            clip_coords: Vec4::new(FixedPoint::zero(), FixedPoint::zero(), FixedPoint::zero(), FixedPoint::zero()),
+            clip_coords: Vec4::new(
+                FixedPoint::zero(),
+                FixedPoint::zero(),
+                FixedPoint::zero(),
+                FixedPoint::zero(),
+            ),
             screen_coords: [0, 0],
             z_depth: 0,
             normalized_w: 0,

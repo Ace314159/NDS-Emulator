@@ -1,5 +1,5 @@
-use bitflags::*;
 use super::{mem::IORegister, Scheduler};
+use bitflags::*;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Key {
@@ -59,12 +59,16 @@ impl Keypad {
     pub fn interrupt_requested(&self) -> bool {
         if self.keycnt.contains(KEYCNT::IRQ_ENABLE) {
             let irq_keys = self.keycnt - KEYCNT::IRQ_ENABLE - KEYCNT::IRQ_COND_AND;
-            if self.keycnt.contains(KEYCNT::IRQ_COND_AND) { irq_keys.bits() & !self.keyinput.bits() == irq_keys.bits() }
-            else { irq_keys.bits() & !self.keyinput.bits() != 0 }
-        } else { false }
+            if self.keycnt.contains(KEYCNT::IRQ_COND_AND) {
+                irq_keys.bits() & !self.keyinput.bits() == irq_keys.bits()
+            } else {
+                irq_keys.bits() & !self.keyinput.bits() != 0
+            }
+        } else {
+            false
+        }
     }
 }
-
 
 bitflags! {
     pub struct KEYINPUT: u16 {
@@ -157,4 +161,3 @@ impl EXTKEYIN {
         EXTKEYIN::PEN_DOWN | EXTKEYIN::DEBUG | EXTKEYIN::Y | EXTKEYIN::X
     }
 }
-

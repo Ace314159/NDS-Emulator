@@ -1,33 +1,33 @@
+mod cartridge;
+mod dma;
+mod gpu;
+mod interrupt_controller;
+mod ipc;
+mod keypad;
+mod math;
 pub mod mem;
 mod scheduler;
-mod gpu;
-mod spu;
-mod keypad;
-mod interrupt_controller;
-mod dma;
-mod timers;
-mod ipc;
-mod math;
 mod spi;
-mod cartridge;
+mod spu;
+mod timers;
 
 use std::convert::TryInto;
 use std::path::PathBuf;
 
+use cartridge::Cartridge;
+use dma::DMAController;
+pub use gpu::{EngineA, EngineB, GPU};
+use interrupt_controller::{InterruptController, InterruptRequest};
+use ipc::IPC;
+pub use keypad::Key;
+use keypad::Keypad;
+use math::{Div, Sqrt};
 pub use mem::{AccessType, MemoryValue};
 use mem::{CP15, EXMEM, HALTCNT, POWCNT2, WRAMCNT};
 use scheduler::Scheduler;
-pub use gpu::{GPU, EngineA, EngineB};
-use spu::SPU;
-use keypad::Keypad;
-pub use keypad::Key;
-use interrupt_controller::{InterruptController, InterruptRequest};
-use dma::DMAController;
-use timers::Timers;
-use ipc::IPC;
-use math::{Div, Sqrt};
 use spi::SPI;
-use cartridge::Cartridge;
+use spu::SPU;
+use timers::Timers;
 
 pub struct HW {
     // Memory
@@ -72,7 +72,14 @@ impl HW {
     const IWRAM_SIZE: usize = 0x1_0000;
     const SHARED_WRAM_SIZE: usize = 0x8000;
 
-    pub fn new(bios7: Vec<u8>, bios9: Vec<u8>, firmware: Vec<u8>, rom: Vec<u8>, save_file: PathBuf, direct_boot: bool) -> Self {
+    pub fn new(
+        bios7: Vec<u8>,
+        bios9: Vec<u8>,
+        firmware: Vec<u8>,
+        rom: Vec<u8>,
+        save_file: PathBuf,
+        direct_boot: bool,
+    ) -> Self {
         let mut scheduler = Scheduler::new();
         let hw = HW {
             // Memory
@@ -109,21 +116,31 @@ impl HW {
             // Misc
             scheduler,
         };
-        if direct_boot { hw.init_mem() } else { hw }
+        if direct_boot {
+            hw.init_mem()
+        } else {
+            hw
+        }
     }
 
     pub fn clock(&mut self, arm7_cycles: usize) {
         self.handle_events(arm7_cycles);
-        self.gpu.engine3d.check_interrupts(&mut self.interrupts[1].request);
+        self.gpu
+            .engine3d
+            .check_interrupts(&mut self.interrupts[1].request);
     }
 
     pub fn arm7_interrupts_requested(&mut self) -> bool {
-        if self.keypad.interrupt_requested() { self.interrupts[0].request |= InterruptRequest::KEYPAD }
+        if self.keypad.interrupt_requested() {
+            self.interrupts[0].request |= InterruptRequest::KEYPAD
+        }
         self.interrupts[0].interrupts_requested()
     }
 
     pub fn arm9_interrupts_requested(&mut self) -> bool {
-        if self.keypad.interrupt_requested() { self.interrupts[1].request |= InterruptRequest::KEYPAD }
+        if self.keypad.interrupt_requested() {
+            self.interrupts[1].request |= InterruptRequest::KEYPAD
+        }
         self.interrupts[1].interrupts_requested()
     }
 
@@ -153,29 +170,55 @@ impl HW {
         self.spi.release_screen();
     }
 
-    pub fn render_palettes(&self, extended: bool, slot: usize, palette: usize,
-        engine: Engine, graphics_type: GraphicsType) -> (Vec<u16>, usize, usize) {
+    pub fn render_palettes(
+        &self,
+        extended: bool,
+        slot: usize,
+        palette: usize,
+        engine: Engine,
+        graphics_type: GraphicsType,
+    ) -> (Vec<u16>, usize, usize) {
         if extended {
             match (engine, graphics_type) {
-                (Engine::A, GraphicsType::BG) => GPU::render_palettes(|i|
-                    self.gpu.vram.get_bg_ext_pal::<EngineA>(slot, palette * 256 + i), 16),
-                (Engine::A, GraphicsType::OBJ) => GPU::render_palettes(|i|
-                    self.gpu.vram.get_obj_ext_pal::<EngineA>(palette * 256 + i), 16),
-                (Engine::B, GraphicsType::BG) => GPU::render_palettes(|i|
-                    self.gpu.vram.get_bg_ext_pal::<EngineB>(slot, palette * 256 + i), 16),
-                (Engine::B, GraphicsType::OBJ) => GPU::render_palettes(|i|
-                    self.gpu.vram.get_obj_ext_pal::<EngineB>(palette * 256 + i), 16),
+                (Engine::A, GraphicsType::BG) => GPU::render_palettes(
+                    |i| {
+                        self.gpu
+                            .vram
+                            .get_bg_ext_pal::<EngineA>(slot, palette * 256 + i)
+                    },
+                    16,
+                ),
+                (Engine::A, GraphicsType::OBJ) => GPU::render_palettes(
+                    |i| self.gpu.vram.get_obj_ext_pal::<EngineA>(palette * 256 + i),
+                    16,
+                ),
+                (Engine::B, GraphicsType::BG) => GPU::render_palettes(
+                    |i| {
+                        self.gpu
+                            .vram
+                            .get_bg_ext_pal::<EngineB>(slot, palette * 256 + i)
+                    },
+                    16,
+                ),
+                (Engine::B, GraphicsType::OBJ) => GPU::render_palettes(
+                    |i| self.gpu.vram.get_obj_ext_pal::<EngineB>(palette * 256 + i),
+                    16,
+                ),
             }
         } else {
             match (engine, graphics_type) {
-                (Engine::A, GraphicsType::BG) =>
-                    GPU::render_palettes(|i| self.gpu.engine_a.bg_palettes()[i], 16),
-                (Engine::A, GraphicsType::OBJ) =>
-                    GPU::render_palettes(|i| self.gpu.engine_a.obj_palettes()[i], 16),
-                (Engine::B, GraphicsType::BG) =>
-                    GPU::render_palettes(|i| self.gpu.engine_b.bg_palettes()[i], 16),
-                (Engine::B, GraphicsType::OBJ) =>
-                    GPU::render_palettes(|i| self.gpu.engine_b.obj_palettes()[i], 16),
+                (Engine::A, GraphicsType::BG) => {
+                    GPU::render_palettes(|i| self.gpu.engine_a.bg_palettes()[i], 16)
+                }
+                (Engine::A, GraphicsType::OBJ) => {
+                    GPU::render_palettes(|i| self.gpu.engine_a.obj_palettes()[i], 16)
+                }
+                (Engine::B, GraphicsType::BG) => {
+                    GPU::render_palettes(|i| self.gpu.engine_b.bg_palettes()[i], 16)
+                }
+                (Engine::B, GraphicsType::OBJ) => {
+                    GPU::render_palettes(|i| self.gpu.engine_b.obj_palettes()[i], 16)
+                }
             }
         }
     }
@@ -187,12 +230,39 @@ impl HW {
         }
     }
 
-    pub fn render_tiles(&self, engine: Engine, graphics_type: GraphicsType, extended: bool, bitmap: bool, bpp8: bool,
-        slot: usize, palette: usize, offset: usize) -> (Vec<u16>, usize, usize) {
+    pub fn render_tiles(
+        &self,
+        engine: Engine,
+        graphics_type: GraphicsType,
+        extended: bool,
+        bitmap: bool,
+        bpp8: bool,
+        slot: usize,
+        palette: usize,
+        offset: usize,
+    ) -> (Vec<u16>, usize, usize) {
         let is_bg = graphics_type == GraphicsType::BG;
         match engine {
-            Engine::A => self.gpu.engine_a.render_tiles(&self.gpu.vram, is_bg, extended, bitmap, bpp8, slot, palette, offset),
-            Engine::B => self.gpu.engine_b.render_tiles(&self.gpu.vram, is_bg, extended, bitmap, bpp8, slot, palette, offset),
+            Engine::A => self.gpu.engine_a.render_tiles(
+                &self.gpu.vram,
+                is_bg,
+                extended,
+                bitmap,
+                bpp8,
+                slot,
+                palette,
+                offset,
+            ),
+            Engine::B => self.gpu.engine_b.render_tiles(
+                &self.gpu.vram,
+                is_bg,
+                extended,
+                bitmap,
+                bpp8,
+                slot,
+                palette,
+                offset,
+            ),
         }
     }
 
@@ -203,12 +273,18 @@ impl HW {
     pub fn init_mem(mut self) -> Self {
         let addr = 0x027F_FE00 & (HW::MAIN_MEM_SIZE - 1);
         self.main_mem[addr..addr + 0x170].copy_from_slice(&self.cartridge.rom()[..0x170]);
-        
+
         for addr in [0x027FF800, 0x027FFC00].iter() {
             self.arm9_write(addr + 0x0, self.cartridge.chip_id());
             self.arm9_write(addr + 0x4, self.cartridge.chip_id());
-            self.arm9_write(addr + 0x8, u16::from_le_bytes(self.cartridge.rom()[0x15E..=0x15F].try_into().unwrap()));
-            self.arm9_write(addr + 0xA, u16::from_le_bytes(self.cartridge.rom()[0x6C..=0x6D].try_into().unwrap()));
+            self.arm9_write(
+                addr + 0x8,
+                u16::from_le_bytes(self.cartridge.rom()[0x15E..=0x15F].try_into().unwrap()),
+            );
+            self.arm9_write(
+                addr + 0xA,
+                u16::from_le_bytes(self.cartridge.rom()[0x6C..=0x6D].try_into().unwrap()),
+            );
         }
 
         self.arm9_write(0x027FF850, 0x5835u16);

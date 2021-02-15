@@ -14,7 +14,6 @@ pub struct EEPROM<T: EEPROMType> {
     // Status Reg
     write_enable: bool,
     write_protect: WriteProtect,
-    
 }
 
 impl<T: EEPROMType> EEPROM<T> {
@@ -49,18 +48,21 @@ impl<T: EEPROMType> EEPROM<T> {
                 assert_eq!(value, 0);
                 self.value = self.mem[addr];
                 Mode::HandleCommand(Command::RD(0, addr + 1))
-            },
+            }
             Command::RD(addr_bytes_left, addr) => {
                 Mode::HandleCommand(Command::RD(addr_bytes_left - 1, addr << 8 | value as usize))
-            },
+            }
 
             Command::WR(0, addr) => {
-                if self.write_enable { self.dirty = true; self.mem[addr] = value }
+                if self.write_enable {
+                    self.dirty = true;
+                    self.mem[addr] = value
+                }
                 Mode::HandleCommand(Command::WR(0, addr + 1))
-            },
+            }
             Command::WR(addr_bytes_left, addr) => {
                 Mode::HandleCommand(Command::WR(addr_bytes_left - 1, addr << 8 | value as usize))
-            },
+            }
 
             Command::RDSR => {
                 assert_eq!(value, 0);
@@ -70,7 +72,7 @@ impl<T: EEPROMType> EEPROM<T> {
                 let high_nibble = if T::is_small() { 0xF } else { 0 };
                 self.value = high_nibble << 4 | low_nibble;
                 Mode::ReadCommand
-            },
+            }
 
             Command::WREN => unreachable!(),
         }
@@ -87,12 +89,22 @@ impl<T: EEPROMType> Backup for EEPROM<T> {
             Mode::ReadCommand => self.set_command(Command::get::<T>(value)),
             Mode::HandleCommand(command) => self.handle_command(command, value),
         };
-        if !hold { self.mode = Mode::ReadCommand }
+        if !hold {
+            self.mode = Mode::ReadCommand
+        }
     }
 
-    fn mem(&self) -> &Vec<u8> { &self.mem }
-    fn save_file(&self) -> &PathBuf { &self.save_file }
-    fn dirty(&mut self) -> bool { let old = self.dirty; self.dirty = false; old }
+    fn mem(&self) -> &Vec<u8> {
+        &self.mem
+    }
+    fn save_file(&self) -> &PathBuf {
+        &self.save_file
+    }
+    fn dirty(&mut self) -> bool {
+        let old = self.dirty;
+        self.dirty = false;
+        old
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -105,8 +117,8 @@ enum Mode {
 enum Command {
     WR(usize, usize), // Write
     RD(usize, usize), // Read
-    RDSR, // Read Status Register
-    WREN, // Write Enable
+    RDSR,             // Read Status Register
+    WREN,             // Write Enable
 }
 
 impl Command {
@@ -142,11 +154,18 @@ pub struct EEPROMSmall {}
 pub struct EEPROMNormal {}
 
 impl EEPROMType for EEPROMSmall {
-    fn is_small() -> bool { true }
-    fn debug_str() -> &'static str { "Small" }
+    fn is_small() -> bool {
+        true
+    }
+    fn debug_str() -> &'static str {
+        "Small"
+    }
 }
 impl EEPROMType for EEPROMNormal {
-    fn is_small() -> bool { false }
-    fn debug_str() -> &'static str { "Normal" }
+    fn is_small() -> bool {
+        false
+    }
+    fn debug_str() -> &'static str {
+        "Normal"
+    }
 }
-

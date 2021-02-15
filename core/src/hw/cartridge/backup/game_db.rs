@@ -20,9 +20,19 @@ impl GameInfo {
 impl dyn Backup {
     // TODO: Don't hardcode size - Fixed with better const fn
     pub const GAME_DB: [GameInfo; 6774] = Backup::gen_game_db();
-    
-    pub const SRAM_SIZES: [usize; 10] = [0, 0x200, 8 * 0x400, 64 * 0x400, 128 * 0x400, 256 * 0x400, 512 * 0x400,
-        0x10_0000, 8 * 0x10_0000, 32 * 0x10_0000];
+
+    pub const SRAM_SIZES: [usize; 10] = [
+        0,
+        0x200,
+        8 * 0x400,
+        64 * 0x400,
+        128 * 0x400,
+        256 * 0x400,
+        512 * 0x400,
+        0x10_0000,
+        8 * 0x10_0000,
+        32 * 0x10_0000,
+    ];
 
     const fn gen_game_db() -> [GameInfo; 6774] {
         // From melonDS

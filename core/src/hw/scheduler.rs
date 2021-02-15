@@ -1,9 +1,9 @@
-use std::cmp::{PartialEq, Eq, Reverse};
+use std::cmp::{Eq, PartialEq, Reverse};
 use std::hash::Hash;
 
 use priority_queue::PriorityQueue;
 
-use super::{HW, spu};
+use super::{spu, HW};
 
 type EventHandler = fn(&mut HW, Event);
 
@@ -17,7 +17,9 @@ impl HW {
 
     pub fn clock_until_event(&mut self) {
         let (_, Reverse(cycle)) = self.scheduler.event_queue.peek().unwrap();
-        if self.scheduler.cycle > *cycle { return }
+        if self.scheduler.cycle > *cycle {
+            return;
+        }
         let (wrapper, Reverse(cycle)) = self.scheduler.event_queue.pop().unwrap();
         self.scheduler.cycle = cycle;
         (wrapper.handler)(self, wrapper.event);
@@ -25,10 +27,16 @@ impl HW {
 
     pub fn cycles_until_event(&self) -> usize {
         let (_wrapper, Reverse(cycle)) = self.scheduler.event_queue.peek().unwrap();
-        if self.scheduler.cycle > *cycle { 0 } else { cycle - self.scheduler.cycle }
+        if self.scheduler.cycle > *cycle {
+            0
+        } else {
+            cycle - self.scheduler.cycle
+        }
     }
 
-    fn dummy_handler(&mut self, _event: Event) { unreachable!() }
+    fn dummy_handler(&mut self, _event: Event) {
+        unreachable!()
+    }
 }
 
 pub struct Scheduler {
@@ -50,7 +58,9 @@ impl Scheduler {
         let (_event_type, Reverse(cycle)) = self.event_queue.peek().unwrap();
         if self.cycle >= *cycle {
             Some(self.event_queue.pop().unwrap().0)
-        } else { None }
+        } else {
+            None
+        }
     }
 
     pub fn schedule(&mut self, event: Event, handler: EventHandler, delay: usize) {
@@ -90,10 +100,7 @@ struct EventWrapper {
 
 impl EventWrapper {
     pub fn new(event: Event, handler: EventHandler) -> Self {
-        EventWrapper {
-            event,
-            handler,
-        }
+        EventWrapper { event, handler }
     }
 }
 

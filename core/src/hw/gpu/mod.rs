@@ -1,23 +1,23 @@
-mod registers;
+pub mod debug;
 mod engine2d;
 mod engine3d;
+mod registers;
 mod vram;
-pub mod debug;
 
 use crate::hw::{
-    HW,
-    scheduler::{Event, Scheduler},
-    interrupt_controller::{InterruptController, InterruptRequest},
     dma::DMAOccasion,
+    interrupt_controller::{InterruptController, InterruptRequest},
+    scheduler::{Event, Scheduler},
+    HW,
 };
 
 pub use engine2d::Engine2D;
 pub use engine3d::Engine3D;
+pub use registers::{DISPSTATFlags, DISPCAPCNT, DISPSTAT, POWCNT1};
 pub use vram::VRAM;
-pub use registers::{DISPSTAT, DISPSTATFlags, DISPCAPCNT, POWCNT1};
 
-use registers::CaptureSource;
 use engine2d::DisplayMode;
+use registers::CaptureSource;
 
 pub struct GPU {
     // Registers and Values Shared between Engines
@@ -49,7 +49,11 @@ impl GPU {
     const NUM_LINES: usize = 263;
 
     pub fn new(scheduler: &mut Scheduler) -> GPU {
-        scheduler.schedule(Event::HBlank, HW::on_hblank, GPU::HBLANK_DOT * GPU::CYCLES_PER_DOT);
+        scheduler.schedule(
+            Event::HBlank,
+            HW::on_hblank,
+            GPU::HBLANK_DOT * GPU::CYCLES_PER_DOT,
+        );
         GPU {
             // Registers and Values Shared between Engines
             dispstats: [DISPSTAT::new(), DISPSTAT::new()],
@@ -69,7 +73,9 @@ impl GPU {
 
     // Dot: 0 - TODO: Check for drift
     pub fn start_next_line(&mut self) {
-        for dispstat in self.dispstats.iter_mut() { dispstat.remove(DISPSTATFlags::HBLANK) }
+        for dispstat in self.dispstats.iter_mut() {
+            dispstat.remove(DISPSTATFlags::HBLANK)
+        }
 
         if self.vcount == 262 {
             self.engine_a.latch_affine();
@@ -85,33 +91,46 @@ impl GPU {
     pub fn render_line(&mut self) {
         // TODO: Use POWCNT to selectively render engines
         if self.powcnt1.contains(POWCNT1::ENABLE_ENGINE_A) {
-            self.engine_a.render_line(&self.engine3d, &self.vram, self.vcount);
+            self.engine_a
+                .render_line(&self.engine3d, &self.vram, self.vcount);
             if self.capturing && (self.vcount as usize) < self.dispcapcnt.capture_size.height() {
                 self.capture();
             }
         }
         if self.powcnt1.contains(POWCNT1::ENABLE_ENGINE_B) {
-            self.engine_b.render_line(&self.engine3d, &self.vram, self.vcount)
+            self.engine_b
+                .render_line(&self.engine3d, &self.vram, self.vcount)
         }
     }
 
     pub fn capture(&mut self) {
         let start_addr = self.vcount as usize * GPU::WIDTH;
         let width = self.dispcapcnt.capture_size.width();
-        fn get_engine_a_color(engine_a: &Engine2D::<EngineA>, _: &Engine3D, index: usize) -> u16 { engine_a.pixels()[index] }
-        fn get_engine3d_color(_: &Engine2D::<EngineA>, engine_3d: &Engine3D, index: usize) -> u16 { engine_3d.pixel_color(index) }
-        let src_a: fn(&Engine2D::<EngineA>, &Engine3D, usize) -> u16 = if self.dispcapcnt.src_a_is_3d_only ||
-        self.engine_a.dispcnt.display_mode != DisplayMode::Mode0 {
-            get_engine3d_color
-        } else { get_engine_a_color };
+        fn get_engine_a_color(engine_a: &Engine2D<EngineA>, _: &Engine3D, index: usize) -> u16 {
+            engine_a.pixels()[index]
+        }
+        fn get_engine3d_color(_: &Engine2D<EngineA>, engine_3d: &Engine3D, index: usize) -> u16 {
+            engine_3d.pixel_color(index)
+        }
+        let src_a: fn(&Engine2D<EngineA>, &Engine3D, usize) -> u16 =
+            if self.dispcapcnt.src_a_is_3d_only
+                || self.engine_a.dispcnt.display_mode != DisplayMode::Mode0
+            {
+                get_engine3d_color
+            } else {
+                get_engine_a_color
+            };
         let src_a_range = start_addr..start_addr + width;
         let mut src_b = [0; 2 * GPU::WIDTH];
         if self.dispcapcnt.src_b_fifo {
             todo!()
         } else {
-            let offset = 2 * start_addr + if self.engine_a.dispcnt.display_mode == DisplayMode::Mode2 {
-                0
-            } else { self.dispcapcnt.vram_read_offset.offset() };
+            let offset = 2 * start_addr
+                + if self.engine_a.dispcnt.display_mode == DisplayMode::Mode2 {
+                    0
+                } else {
+                    self.dispcapcnt.vram_read_offset.offset()
+                };
             let block = self.engine_a.dispcnt.vram_block as usize;
             // TODO: Figure out how to avoid this copy and keep borrow checker happy
             src_b[..2 * width].copy_from_slice(&self.vram.banks[block][offset..offset + 2 * width]);
@@ -121,31 +140,37 @@ impl GPU {
         let bank = &mut self.vram.banks[self.dispcapcnt.vram_write_block];
         // TODO: Replace write_mem and read_mem with slice conversions
         match self.dispcapcnt.capture_src {
-            CaptureSource::A => for (i, index) in src_a_range.enumerate() {
-                let pixel = src_a(&self.engine_a, &self.engine3d, index);
-                HW::write_mem(bank, offset as u32 + 2 * i as u32, pixel);
-            },
-            CaptureSource::B =>
-                bank[offset..offset + 2 * width].copy_from_slice(&src_b[..2 * width]),
-            CaptureSource::AB => for (i, a_index) in src_a_range.enumerate() {
-                let a_pixel = src_a(&self.engine_a, &self.engine3d, a_index);
-                let b_pixel = HW::read_mem::<u16>(&src_b, i as u32 * 2);
-                let a_alpha = a_pixel >> 15 & 0x1;
-                let b_alpha = b_pixel >> 15 & 0x1;
-                let mut intensity = 0;
-                // TODO: Move blending into a utility function
-                for i in (0..3).rev() {
-                    let val_a = a_pixel >> (5 * i) & 0x1F;
-                    let val_b = b_pixel >> (5 * i) & 0x1F;
-                    let new_val = (val_a * a_alpha * self.dispcapcnt.eva as u16 +
-                        val_b * b_alpha * self.dispcapcnt.evb as u16) / 16;
-                    intensity = intensity << 5 | new_val;
+            CaptureSource::A => {
+                for (i, index) in src_a_range.enumerate() {
+                    let pixel = src_a(&self.engine_a, &self.engine3d, index);
+                    HW::write_mem(bank, offset as u32 + 2 * i as u32, pixel);
                 }
-                let alpha = a_alpha != 0 && self.dispcapcnt.eva > 0 ||
-                    b_alpha != 0 && self.dispcapcnt.evb > 0;
-                let final_pixel = (alpha as u16) << 15 | intensity;
-                HW::write_mem(bank, offset as u32 + 2 * i as u32, final_pixel);
-            },
+            }
+            CaptureSource::B => {
+                bank[offset..offset + 2 * width].copy_from_slice(&src_b[..2 * width])
+            }
+            CaptureSource::AB => {
+                for (i, a_index) in src_a_range.enumerate() {
+                    let a_pixel = src_a(&self.engine_a, &self.engine3d, a_index);
+                    let b_pixel = HW::read_mem::<u16>(&src_b, i as u32 * 2);
+                    let a_alpha = a_pixel >> 15 & 0x1;
+                    let b_alpha = b_pixel >> 15 & 0x1;
+                    let mut intensity = 0;
+                    // TODO: Move blending into a utility function
+                    for i in (0..3).rev() {
+                        let val_a = a_pixel >> (5 * i) & 0x1F;
+                        let val_b = b_pixel >> (5 * i) & 0x1F;
+                        let new_val = (val_a * a_alpha * self.dispcapcnt.eva as u16
+                            + val_b * b_alpha * self.dispcapcnt.evb as u16)
+                            / 16;
+                        intensity = intensity << 5 | new_val;
+                    }
+                    let alpha = a_alpha != 0 && self.dispcapcnt.eva > 0
+                        || b_alpha != 0 && self.dispcapcnt.evb > 0;
+                    let final_pixel = (alpha as u16) << 15 | intensity;
+                    HW::write_mem(bank, offset as u32 + 2 * i as u32, final_pixel);
+                }
+            }
         }
     }
 
@@ -170,48 +195,62 @@ impl GPU {
 
 impl HW {
     fn start_next_line(&mut self, _event: Event) {
-        self.scheduler.schedule(Event::HBlank, HW::on_hblank, GPU::HBLANK_DOT * GPU::CYCLES_PER_DOT);
+        self.scheduler.schedule(
+            Event::HBlank,
+            HW::on_hblank,
+            GPU::HBLANK_DOT * GPU::CYCLES_PER_DOT,
+        );
         self.gpu.start_next_line();
         if self.gpu.vcount == 0 {
             self.gpu.capturing = self.gpu.dispcapcnt.enable;
-            for dispstat in self.gpu.dispstats.iter_mut() { dispstat.remove(DISPSTATFlags::VBLANK) }
+            for dispstat in self.gpu.dispstats.iter_mut() {
+                dispstat.remove(DISPSTATFlags::VBLANK)
+            }
         } else if self.gpu.vcount == GPU::HEIGHT as u16 {
-            if self.gpu.capturing { self.gpu.dispcapcnt.enable = false }
-            for dispstat in self.gpu.dispstats.iter_mut() { dispstat.insert(DISPSTATFlags::VBLANK) }
+            if self.gpu.capturing {
+                self.gpu.dispcapcnt.enable = false
+            }
+            for dispstat in self.gpu.dispstats.iter_mut() {
+                dispstat.insert(DISPSTATFlags::VBLANK)
+            }
             self.gpu.rendered_frame = true;
-            
+
             self.on_vblank(Event::VBlank);
-            self.check_dispstats(&mut |dispstat, interrupts|
+            self.check_dispstats(&mut |dispstat, interrupts| {
                 if dispstat.contains(DISPSTATFlags::VBLANK_IRQ_ENABLE) {
                     interrupts.request |= InterruptRequest::VBLANK;
                 }
-            );
+            });
         }
 
         let vcount = self.gpu.vcount;
-        self.check_dispstats(&mut |dispstat, interrupts|
-            if dispstat.contains(DISPSTATFlags::VBLANK_IRQ_ENABLE) && vcount == dispstat.vcount_setting {
+        self.check_dispstats(&mut |dispstat, interrupts| {
+            if dispstat.contains(DISPSTATFlags::VBLANK_IRQ_ENABLE)
+                && vcount == dispstat.vcount_setting
+            {
                 interrupts.request |= InterruptRequest::VCOUNTER_MATCH;
             }
-        );
+        });
     }
 
     fn on_hblank(&mut self, _event: Event) {
         self.scheduler.schedule(
             Event::StartNextLine,
             HW::start_next_line,
-            (GPU::DOTS_PER_LINE - GPU::HBLANK_DOT) * GPU::CYCLES_PER_DOT
+            (GPU::DOTS_PER_LINE - GPU::HBLANK_DOT) * GPU::CYCLES_PER_DOT,
         );
-        for dispstat in self.gpu.dispstats.iter_mut() { dispstat.insert(DISPSTATFlags::HBLANK) }
+        for dispstat in self.gpu.dispstats.iter_mut() {
+            dispstat.insert(DISPSTATFlags::HBLANK)
+        }
         if self.gpu.vcount < GPU::HEIGHT as u16 {
             self.gpu.render_line();
             self.run_dmas(DMAOccasion::HBlank);
         }
-        self.check_dispstats(&mut |dispstat, interrupts|
+        self.check_dispstats(&mut |dispstat, interrupts| {
             if dispstat.contains(DISPSTATFlags::HBLANK_IRQ_ENABLE) {
                 interrupts.request |= InterruptRequest::HBLANK;
             }
-        );
+        });
     }
 
     fn on_vblank(&mut self, _event: Event) {
@@ -219,14 +258,19 @@ impl HW {
         // TODO: Render using multiple threads
         if self.gpu.powcnt1.contains(POWCNT1::ENABLE_3D_RENDERING) {
             self.gpu.engine3d.render(&self.gpu.vram);
-            
+
             self.gpu.engine3d.exec_commands();
             self.check_geometry_command_fifo();
         }
     }
 
-    fn check_dispstats<F>(&mut self, check: &mut F) where F: FnMut(&mut DISPSTAT, &mut InterruptController) {
-        for i in 0..2 { check(&mut self.gpu.dispstats[i], &mut self.interrupts[i]) }
+    fn check_dispstats<F>(&mut self, check: &mut F)
+    where
+        F: FnMut(&mut DISPSTAT, &mut InterruptController),
+    {
+        for i in 0..2 {
+            check(&mut self.gpu.dispstats[i], &mut self.interrupts[i])
+        }
     }
 }
 
@@ -237,5 +281,13 @@ pub trait EngineType {
 pub struct EngineA {}
 pub struct EngineB {}
 
-impl EngineType for EngineA { fn is_a() -> bool { true }}
-impl EngineType for EngineB { fn is_a() -> bool { false }}
+impl EngineType for EngineA {
+    fn is_a() -> bool {
+        true
+    }
+}
+impl EngineType for EngineB {
+    fn is_a() -> bool {
+        false
+    }
+}

@@ -1,11 +1,11 @@
 #[macro_use]
 mod instructions;
 mod arm;
-mod thumb;
 mod registers;
+mod thumb;
 
+use crate::hw::{AccessType, MemoryValue, HW};
 use crate::num;
-use crate::hw::{AccessType, HW, MemoryValue};
 use registers::{Mode, Reg, RegValues};
 
 pub struct ARM7 {
@@ -24,7 +24,11 @@ impl ARM7 {
     pub fn new(hw: &mut HW, direct_boot: bool) -> ARM7 {
         let mut cpu = ARM7 {
             cycles_spent: 0,
-            regs: if direct_boot { RegValues::direct_boot(hw.init_arm7()) } else { RegValues::new() },
+            regs: if direct_boot {
+                RegValues::direct_boot(hw.init_arm7())
+            } else {
+                RegValues::new()
+            },
             instr_buffer: [0; 2],
             next_access_type: AccessType::N,
             do_internal: false,
@@ -39,8 +43,11 @@ impl ARM7 {
 
     pub fn emulate_instr(&mut self, hw: &mut HW) -> usize {
         self.cycles_spent = 0;
-        if self.regs.get_t() { self.emulate_thumb_instr(hw) }
-        else { self.emulate_arm_instr(hw) }
+        if self.regs.get_t() {
+            self.emulate_thumb_instr(hw)
+        } else {
+            self.emulate_arm_instr(hw)
+        }
         self.cycles_spent
     }
 
@@ -51,7 +58,13 @@ impl ARM7 {
         value
     }
 
-    pub fn write<T: MemoryValue>(&mut self, hw: &mut HW, access_type: AccessType, addr: u32, value: T) {
+    pub fn write<T: MemoryValue>(
+        &mut self,
+        hw: &mut HW,
+        access_type: AccessType,
+        addr: u32,
+        value: T,
+    ) {
         self.cycles_spent += hw.arm7_get_access_time::<T>(self.next_access_type, addr);
         self.next_access_type = access_type;
         hw.arm7_write::<T>(addr, value);
@@ -60,7 +73,8 @@ impl ARM7 {
     pub fn instruction_prefetch<T: MemoryValue>(&mut self, hw: &mut HW, access_type: AccessType) {
         // Internal Cycle merges with instruction prefetch
         // TODO: Increment PC here
-        self.instr_buffer[1] = num::cast::<T, u32>(self.read::<T>(hw, access_type, self.regs.pc)).unwrap();
+        self.instr_buffer[1] =
+            num::cast::<T, u32>(self.read::<T>(hw, access_type, self.regs.pc)).unwrap();
         self.do_internal = false;
     }
 
@@ -70,7 +84,9 @@ impl ARM7 {
     }
 
     pub fn handle_irq(&mut self, hw: &mut HW) {
-        if self.regs.get_i() || !hw.arm7_interrupts_requested() { return }
+        if self.regs.get_i() || !hw.arm7_interrupts_requested() {
+            return;
+        }
         hw.haltcnt.unhalt();
         self.regs.change_mode(Mode::IRQ);
         let lr = if self.regs.get_t() {
@@ -91,78 +107,133 @@ impl ARM7 {
         self.condition_lut[(self.regs.get_flags() | condition) as usize]
     }
 
-    pub(self) fn shift(&mut self, shift_type: u32, operand: u32, shift: u32,
-        immediate: bool, change_status: bool) -> u32 {
+    pub(self) fn shift(
+        &mut self,
+        shift_type: u32,
+        operand: u32,
+        shift: u32,
+        immediate: bool,
+        change_status: bool,
+    ) -> u32 {
         if immediate && shift == 0 {
             match shift_type {
                 // LSL #0
                 0 => operand,
                 // LSR #32
                 1 => {
-                    if change_status { self.regs.set_c(operand >> 31 != 0) }
+                    if change_status {
+                        self.regs.set_c(operand >> 31 != 0)
+                    }
                     0
-                },
+                }
                 // ASR #32
                 2 => {
                     let bit = operand >> 31 != 0;
-                    if change_status { self.regs.set_c(bit); }
-                    if bit { 0xFFFF_FFFF } else { 0 } },
+                    if change_status {
+                        self.regs.set_c(bit);
+                    }
+                    if bit {
+                        0xFFFF_FFFF
+                    } else {
+                        0
+                    }
+                }
                 // RRX #1
                 3 => {
                     let new_c = operand & 0x1 != 0;
                     let op2 = (self.regs.get_c() as u32) << 31 | operand >> 1;
-                    if change_status { self.regs.set_c(new_c) }
+                    if change_status {
+                        self.regs.set_c(new_c)
+                    }
                     op2
-                },
+                }
                 _ => unreachable!(),
             }
         } else if shift > 31 {
             assert_eq!(immediate, false);
-            if !immediate { self.internal() }
+            if !immediate {
+                self.internal()
+            }
             match shift_type {
                 // LSL
                 0 => {
                     if change_status {
-                        if shift == 32 { self.regs.set_c(operand << (shift - 1) & 0x8000_0000 != 0) }
-                        else { self.regs.set_c(false) }
+                        if shift == 32 {
+                            self.regs.set_c(operand << (shift - 1) & 0x8000_0000 != 0)
+                        } else {
+                            self.regs.set_c(false)
+                        }
                     }
                     0
-                },
+                }
                 // LSR
                 1 => {
                     if change_status {
-                        if shift == 32 { self.regs.set_c(operand >> (shift - 1) & 0x1 != 0)
-                    } else { self.regs.set_c(false) } }
+                        if shift == 32 {
+                            self.regs.set_c(operand >> (shift - 1) & 0x1 != 0)
+                        } else {
+                            self.regs.set_c(false)
+                        }
+                    }
                     0
-                },
+                }
                 // ASR
                 2 => {
                     let c = operand & 0x8000_0000 != 0;
-                    if change_status { self.regs.set_c(c) }
-                    if c { 0xFFFF_FFFF } else { 0 }
-                },
+                    if change_status {
+                        self.regs.set_c(c)
+                    }
+                    if c {
+                        0xFFFF_FFFF
+                    } else {
+                        0
+                    }
+                }
                 // ROR
                 3 => {
                     let shift = shift & 0x1F;
                     let shift = if shift == 0 { 0x20 } else { shift };
-                    if change_status { self.regs.set_c(operand >> (shift - 1) & 0x1 != 0) }
+                    if change_status {
+                        self.regs.set_c(operand >> (shift - 1) & 0x1 != 0)
+                    }
                     operand.rotate_right(shift)
-                },
+                }
                 _ => unreachable!(),
             }
         } else {
-            if !immediate { self.internal() }
+            if !immediate {
+                self.internal()
+            }
             let change_status = change_status && shift != 0;
             match shift_type {
                 // LSL
-                0 => { if change_status { self.regs.set_c(operand << (shift - 1) & 0x8000_0000 != 0); } operand << shift },
+                0 => {
+                    if change_status {
+                        self.regs.set_c(operand << (shift - 1) & 0x8000_0000 != 0);
+                    }
+                    operand << shift
+                }
                 // LSR
-                1 => { if change_status { self.regs.set_c(operand >> (shift - 1) & 0x1 != 0); } operand >> shift },
+                1 => {
+                    if change_status {
+                        self.regs.set_c(operand >> (shift - 1) & 0x1 != 0);
+                    }
+                    operand >> shift
+                }
                 // ASR
-                2 => { if change_status { self.regs.set_c((operand as i32) >> (shift - 1) & 0x1 != 0) };
-                        ((operand as i32) >> shift) as u32 },
+                2 => {
+                    if change_status {
+                        self.regs.set_c((operand as i32) >> (shift - 1) & 0x1 != 0)
+                    };
+                    ((operand as i32) >> shift) as u32
+                }
                 // ROR
-                3 => { if change_status { self.regs.set_c(operand >> (shift - 1) & 0x1 != 0); } operand.rotate_right(shift) },
+                3 => {
+                    if change_status {
+                        self.regs.set_c(operand >> (shift - 1) & 0x1 != 0);
+                    }
+                    operand.rotate_right(shift)
+                }
                 _ => unreachable!(),
             }
         }
@@ -186,7 +257,8 @@ impl ARM7 {
             self.regs.set_c(result.1 || result2.1);
             self.regs.set_z(result2.0 == 0);
             self.regs.set_n(result2.0 & 0x8000_0000 != 0);
-            self.regs.set_v((!(op1 ^ op2)) & (op1 ^ result2.0) & 0x8000_0000 != 0);
+            self.regs
+                .set_v((!(op1 ^ op2)) & (op1 ^ result2.0) & 0x8000_0000 != 0);
         }
         result2.0 as u32
     }
@@ -195,7 +267,9 @@ impl ARM7 {
         let old_c = self.regs.get_c();
         self.regs.set_c(true);
         let result = self.adc(op1, !op2, change_status); // Simulate adding op1 + !op2 + 1
-        if !change_status { self.regs.set_c(old_c) }
+        if !change_status {
+            self.regs.set_c(old_c)
+        }
         result
     }
 
@@ -208,7 +282,9 @@ impl ARM7 {
         loop {
             self.internal();
             let value = op1 & mask;
-            if mask == 0 || value == 0 || signed && value == mask { break }
+            if mask == 0 || value == 0 || signed && value == mask {
+                break;
+            }
             mask <<= 8;
         }
     }

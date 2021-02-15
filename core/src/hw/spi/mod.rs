@@ -1,6 +1,6 @@
 mod tsc;
 
-use super::{HW, GPU, mem::IORegister, Scheduler};
+use super::{mem::IORegister, Scheduler, GPU, HW};
 use crate::hw::cartridge::{Backup, Flash};
 use tsc::TSC;
 
@@ -19,7 +19,13 @@ impl SPI {
         }
     }
 
-    pub fn read_cnt(&self, byte: usize) -> u8 { if self.cnt.enable { self.cnt.read(byte) } else { 0 } }
+    pub fn read_cnt(&self, byte: usize) -> u8 {
+        if self.cnt.enable {
+            self.cnt.read(byte)
+        } else {
+            0
+        }
+    }
     pub fn read_data(&self) -> u8 {
         match self.cnt.device {
             Device::Firmware => self.firmware.read(),
@@ -27,7 +33,7 @@ impl SPI {
             _ => 0,
         }
     }
-    
+
     pub fn write_cnt(&mut self, scheduler: &mut Scheduler, byte: usize, value: u8) {
         let prev_enable = self.cnt.enable;
         let prev_device = self.cnt.device;
@@ -43,7 +49,9 @@ impl SPI {
     }
 
     pub fn write_data(&mut self, value: u8) {
-        if !self.cnt.enable { return }
+        if !self.cnt.enable {
+            return;
+        }
         match self.cnt.device {
             Device::Firmware => self.firmware.write(self.cnt.hold, value),
             Device::Touchscreen => self.tsc.write(value),
@@ -51,8 +59,12 @@ impl SPI {
         }
     }
 
-    pub fn press_screen(&mut self, x: usize, y: usize) { self.tsc.press_screen(x, y) }
-    pub fn release_screen(&mut self) { self.tsc.release_screen() }
+    pub fn press_screen(&mut self, x: usize, y: usize) {
+        self.tsc.press_screen(x, y)
+    }
+    pub fn release_screen(&mut self) {
+        self.tsc.release_screen()
+    }
     pub fn init_firmware(firmware: Vec<u8>) -> Vec<u8> {
         let mut firmware = firmware;
         let user_settings_addr = 0x3FE00;
@@ -66,20 +78,35 @@ impl SPI {
         firmware[user_settings_addr as usize + 0x5C] = 0;
         firmware[user_settings_addr as usize + 0x5D] = 0;
         // Bottom Right Corner
-        HW::write_mem(&mut firmware, user_settings_addr + 0x5E, (max_x as u16) << 4);
-        HW::write_mem(&mut firmware, user_settings_addr + 0x60, (max_y as u16) << 4);
+        HW::write_mem(
+            &mut firmware,
+            user_settings_addr + 0x5E,
+            (max_x as u16) << 4,
+        );
+        HW::write_mem(
+            &mut firmware,
+            user_settings_addr + 0x60,
+            (max_y as u16) << 4,
+        );
         firmware[user_settings_addr as usize + 0x62] = max_x as u8;
         firmware[user_settings_addr as usize + 0x63] = max_y as u8;
         let crc16 = {
             let mut crc = 0xFFFF;
-            let vals = [0xC0C1, 0xC181, 0xC301, 0xC601, 0xCC01, 0xD801, 0xF001, 0xA001];
-            for byte in firmware[user_settings_addr as usize..user_settings_addr as usize + 0x70].iter() {
+            let vals = [
+                0xC0C1, 0xC181, 0xC301, 0xC601, 0xCC01, 0xD801, 0xF001, 0xA001,
+            ];
+            for byte in
+                firmware[user_settings_addr as usize..user_settings_addr as usize + 0x70].iter()
+            {
                 crc ^= *byte as u32;
                 for (i, val) in vals.iter().enumerate() {
                     let new_crc = crc >> 1;
-                    crc = if crc & 0x1 != 0 { // Carry Occurred
-                        new_crc ^ (val << (7 - i)) 
-                    } else { new_crc };
+                    crc = if crc & 0x1 != 0 {
+                        // Carry Occurred
+                        new_crc ^ (val << (7 - i))
+                    } else {
+                        new_crc
+                    };
                 }
             }
             crc as u16
@@ -117,8 +144,13 @@ impl IORegister for CNT {
     fn read(&self, byte: usize) -> u8 {
         match byte {
             0 => (self.busy as u8) << 7 | self.baudrate,
-            1 => (self.enable as u8) << 7 | (self.irq as u8) << 6 | (self.hold as u8) << 3 |
-                (self.transfer16 as u8) << 2 | (self.device as u8),
+            1 => {
+                (self.enable as u8) << 7
+                    | (self.irq as u8) << 6
+                    | (self.hold as u8) << 3
+                    | (self.transfer16 as u8) << 2
+                    | (self.device as u8)
+            }
             _ => unreachable!(),
         }
     }
@@ -128,7 +160,7 @@ impl IORegister for CNT {
             0 => {
                 // TODO: Set busy flag properly
                 self.baudrate = value & 0x3;
-            },
+            }
             1 => {
                 self.enable = value >> 7 & 0x1 != 0;
                 self.irq = value >> 6 & 0x1 != 0;
@@ -137,11 +169,10 @@ impl IORegister for CNT {
                 self.transfer16 = value >> 2 & 0x1 != 0;
                 assert!(!self.transfer16);
                 self.device = Device::from_bits(value & 0x3);
-            },
+            }
             _ => unreachable!(),
         }
     }
-    
 }
 
 #[derive(Clone, Copy, Debug)]

@@ -47,7 +47,7 @@ pub(super) const fn gen_condition_table() -> [bool; 256] {
                 0xD => z || n != v,
                 0xE => true,
                 0xF => true, // True so that some ARMv5 instructions can execute
-                _ => true, // TODO: Add unreachable!()
+                _ => true,   // TODO: Add unreachable!()
             };
             condition += 1;
         }

@@ -2,11 +2,11 @@ pub mod arm7;
 pub mod arm9;
 pub mod cp15;
 
+use super::{Scheduler, HW};
+use crate::num::{self, cast::FromPrimitive, NumCast, PrimInt, Unsigned};
+pub use cp15::CP15;
 use std::mem::size_of;
 use std::ops::BitOrAssign;
-pub use cp15::CP15;
-use crate::num::{self, cast::FromPrimitive, NumCast, PrimInt, Unsigned};
-use super::{HW, Scheduler};
 
 impl HW {
     const MAIN_MEM_MASK: u32 = HW::MAIN_MEM_SIZE as u32 - 1;
@@ -14,7 +14,9 @@ impl HW {
 
     // TODO: Replace with const generic
     fn ipc_fifo_recv<T: MemoryValue>(&mut self, is_arm9: bool, addr: u32) -> T {
-        if addr != 0x0410_0000 || size_of::<T>() != 4 { todo!() }
+        if addr != 0x0410_0000 || size_of::<T>() != 4 {
+            todo!()
+        }
         if is_arm9 {
             let (value, interrupt) = self.ipc.arm9_recv();
             self.interrupts[0].request |= interrupt;
@@ -27,7 +29,9 @@ impl HW {
     }
 
     fn ipc_fifo_send<T: MemoryValue>(&mut self, is_arm9: bool, addr: u32, value: T) {
-        if addr != 0x0400_0188 || size_of::<T>() != 4 { todo!() }
+        if addr != 0x0400_0188 || size_of::<T>() != 4 {
+            todo!()
+        }
         let value = num::cast::<T, u32>(value).unwrap();
         if is_arm9 {
             self.interrupts[1].request |= self.ipc.arm7_send(value);
@@ -37,9 +41,14 @@ impl HW {
     }
 
     fn read_game_card<T: MemoryValue>(&mut self, is_arm9: bool, addr: u32) -> T {
-        if addr != 0x0410_0010 || size_of::<T>() != 4 { todo!() }
-        let value = self.cartridge.read_gamecard(&mut self.scheduler, is_arm9,
-            self.exmem.nds_arm7_access != is_arm9);
+        if addr != 0x0410_0010 || size_of::<T>() != 4 {
+            todo!()
+        }
+        let value = self.cartridge.read_gamecard(
+            &mut self.scheduler,
+            is_arm9,
+            self.exmem.nds_arm7_access != is_arm9,
+        );
         num::cast::<u32, T>(value).unwrap()
     }
 
@@ -58,16 +67,15 @@ impl HW {
                 2 => value,
                 4 => (self.read_gba_rom::<u16>(is_arm9, addr + 1) as u32) << 16 | value,
                 _ => unreachable!(),
-            }).unwrap()
+            })
+            .unwrap()
         } else {
             num::zero()
         }
     }
 
     pub(super) fn read_mem<T: MemoryValue>(mem: &[u8], addr: u32) -> T {
-        unsafe {
-            *(&mem[addr as usize] as *const u8 as *const T)
-        }
+        unsafe { *(&mem[addr as usize] as *const u8 as *const T) }
     }
 
     pub(super) fn write_mem<T: MemoryValue>(mem: &mut [u8], addr: u32, value: T) {
@@ -76,18 +84,32 @@ impl HW {
         }
     }
 
-    fn read_from_bytes<T: MemoryValue, F: Fn(&D, u32) -> u8, D>(device: &D, read_fn: &F, addr: u32) -> T {
+    fn read_from_bytes<T: MemoryValue, F: Fn(&D, u32) -> u8, D>(
+        device: &D,
+        read_fn: &F,
+        addr: u32,
+    ) -> T {
         let mut value: T = num::zero();
         for i in 0..(size_of::<T>() as u32) {
-            value = num::cast::<u8, T>(read_fn(device, addr + i)).unwrap() << (8 * i as usize) | value;
+            value =
+                num::cast::<u8, T>(read_fn(device, addr + i)).unwrap() << (8 * i as usize) | value;
         }
         value
     }
 
-    fn write_from_bytes<T: MemoryValue, F: Fn(&mut D, u32, u8), D>(device: &mut D, write_fn: &F, addr: u32, value: T) {
+    fn write_from_bytes<T: MemoryValue, F: Fn(&mut D, u32, u8), D>(
+        device: &mut D,
+        write_fn: &F,
+        addr: u32,
+        value: T,
+    ) {
         let mask = FromPrimitive::from_u8(0xFF).unwrap();
         for i in 0..size_of::<T>() {
-            write_fn(device, addr + i as u32, num::cast::<T, u8>(value >> 8 * i & mask).unwrap());
+            write_fn(
+                device,
+                addr + i as u32,
+                num::cast::<T, u8>(value >> 8 * i & mask).unwrap(),
+            );
         }
     }
 
@@ -103,7 +125,10 @@ impl HW {
     }
 }
 
-pub trait MemoryValue: Unsigned + PrimInt + NumCast + FromPrimitive + std::fmt::UpperHex + BitOrAssign {}
+pub trait MemoryValue:
+    Unsigned + PrimInt + NumCast + FromPrimitive + std::fmt::UpperHex + BitOrAssign
+{
+}
 
 impl MemoryValue for u8 {}
 impl MemoryValue for u16 {}
@@ -140,15 +165,25 @@ impl EXMEM {
         }
     }
 
-    pub fn read_arm7(&self) -> u8 { (self.gba_arm7_access as u8) << 7 | self.gba[0].read() }
-    pub fn read_arm9(&self) -> u8 { (self.gba_arm7_access as u8) << 7 | self.gba[1].read() }
+    pub fn read_arm7(&self) -> u8 {
+        (self.gba_arm7_access as u8) << 7 | self.gba[0].read()
+    }
+    pub fn read_arm9(&self) -> u8 {
+        (self.gba_arm7_access as u8) << 7 | self.gba[1].read()
+    }
     pub fn read_common(&self) -> u8 {
         // TODO: Is bit 5 set or clear?
-        (self.main_mem_arm7_priority as u8) << 7 | (self.main_mem_interface_mode as u8) << 6 |
-        (self.nds_arm7_access as u8) << 3
+        (self.main_mem_arm7_priority as u8) << 7
+            | (self.main_mem_interface_mode as u8) << 6
+            | (self.nds_arm7_access as u8) << 3
     }
-    pub fn write_arm7(&mut self, value: u8) { self.gba[0].write(value) }
-    pub fn write_arm9(&mut self, value: u8) { self.gba_arm7_access = value >> 7 & 0x1 != 0; self.gba[1].write(value) }
+    pub fn write_arm7(&mut self, value: u8) {
+        self.gba[0].write(value)
+    }
+    pub fn write_arm9(&mut self, value: u8) {
+        self.gba_arm7_access = value >> 7 & 0x1 != 0;
+        self.gba[1].write(value)
+    }
     pub fn write_common(&mut self, value: u8) {
         self.main_mem_arm7_priority = value >> 7 & 0x1 != 0;
         self.main_mem_interface_mode = value >> 6 & 0x1 != 0;
@@ -172,9 +207,12 @@ impl ExMemGBA {
             phi: 0,
         }
     }
-    
+
     pub fn read(&self) -> u8 {
-        self.phi << 5 | self.rom_s_access_time << 4 | self.rom_n_access_time << 2 | self.sram_access_time
+        self.phi << 5
+            | self.rom_s_access_time << 4
+            | self.rom_n_access_time << 2
+            | self.sram_access_time
     }
 
     pub fn write(&mut self, value: u8) {
@@ -214,7 +252,7 @@ impl WRAMCNT {
                 self.arm7_mask = 0;
                 self.arm9_offset = 0;
                 self.arm9_mask = HW::SHARED_WRAM_SIZE as u32 - 1;
-            },
+            }
             1 => {
                 self.arm7_offset = 0;
                 self.arm7_mask = HW::SHARED_WRAM_SIZE as u32 / 2 - 1;
@@ -226,12 +264,12 @@ impl WRAMCNT {
                 self.arm7_mask = HW::SHARED_WRAM_SIZE as u32 / 2 - 1;
                 self.arm9_offset = 0;
                 self.arm9_mask = HW::SHARED_WRAM_SIZE as u32 / 2 - 1;
-            },
+            }
             3 => {
                 self.arm7_offset = 0;
                 self.arm7_mask = HW::SHARED_WRAM_SIZE as u32 - 1;
                 self.arm9_mask = 0;
-            },
+            }
             _ => unreachable!(),
         }
     }
@@ -268,7 +306,7 @@ impl IORegister for POWCNT2 {
     fn read(&self, byte: usize) -> u8 {
         match byte {
             0 => (self.enable_wifi as u8) << 1 | (self.enable_sound as u8),
-            1 ..= 3 => 0,
+            1..=3 => 0,
             _ => unreachable!(),
         }
     }
@@ -278,12 +316,11 @@ impl IORegister for POWCNT2 {
             0 => {
                 self.enable_sound = value & 0x1 != 0;
                 self.enable_wifi = value >> 1 & 0x1 != 0;
-            },
-            1 ..= 3 => (),
+            }
+            1..=3 => (),
             _ => unreachable!(),
         }
     }
-    
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -317,17 +354,23 @@ impl HALTCNT {
         }
     }
 
-    pub fn unhalt(&mut self) { self.mode = HaltMode::None; }
-    pub fn halted(&self) -> bool { self.mode == HaltMode::Halt }
+    pub fn unhalt(&mut self) {
+        self.mode = HaltMode::None;
+    }
+    pub fn halted(&self) -> bool {
+        self.mode == HaltMode::Halt
+    }
 }
 
 impl IORegister for HALTCNT {
-    fn read(&self, byte: usize) -> u8 { assert_eq!(byte, 0); (self.mode as u8) << 6 }
+    fn read(&self, byte: usize) -> u8 {
+        assert_eq!(byte, 0);
+        (self.mode as u8) << 6
+    }
 
     fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8) {
         assert_eq!(byte, 0);
         self.mode = HaltMode::from_bits(value >> 6);
         assert!(self.mode != HaltMode::GBA && self.mode != HaltMode::Sleep); // TODO: Implement
     }
-    
 }
