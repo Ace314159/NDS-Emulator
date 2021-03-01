@@ -3,8 +3,7 @@ pub extern crate log;
 use num_traits as num;
 pub use simplelog;
 
-mod arm7;
-mod arm9;
+mod arm;
 mod hw;
 
 pub mod nds;

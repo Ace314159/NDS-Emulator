@@ -1,15 +1,14 @@
 use std::path::PathBuf;
 
-use crate::arm7::ARM7;
-use crate::arm9::ARM9;
+use crate::arm::ARM;
 use crate::hw::HW;
 
 pub use crate::hw::{Engine, GraphicsType, Key};
 
 pub struct NDS {
     arm9_cycles_ahead: i32, // Measured in 66 MHz ARM9 cycles
-    arm7: ARM7,
-    arm9: ARM9,
+    arm7: ARM<false>,
+    arm9: ARM<true>,
     hw: HW,
 }
 
@@ -27,8 +26,8 @@ impl NDS {
         let mut hw = HW::new(bios7, bios9, firmware, rom, save_file, direct_boot);
         NDS {
             arm9_cycles_ahead: 0,
-            arm7: ARM7::new(&mut hw, direct_boot),
-            arm9: ARM9::new(&mut hw, direct_boot),
+            arm7: ARM::new(&mut hw, direct_boot),
+            arm9: ARM::new(&mut hw, direct_boot),
             hw,
         }
     }
