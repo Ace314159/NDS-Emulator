@@ -30,6 +30,7 @@ fn main() {
         LevelFilter::Warn,
         Config::default(),
         TerminalMode::Mixed,
+        ColorChoice::Auto,
     )];
     if let Ok(file) = arm7_file {
         loggers.push(WriteLogger::new(
