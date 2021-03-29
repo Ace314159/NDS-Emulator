@@ -2,7 +2,7 @@ mod debug;
 mod display;
 
 use std::fs;
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 
 use nds_core::log::*;
 use nds_core::nds::{Engine, GraphicsType, NDS};
@@ -13,14 +13,20 @@ use display::Display;
 use imgui::*;
 
 fn main() {
-    let rom_path = PathBuf::from("examples/3D/BoxTest.nds");
-    let bios7_path = PathBuf::from("bios7.bin");
-    let bios9_path = PathBuf::from("bios9.bin");
-    let firmware_path = PathBuf::from("firmware.bin");
+    let args: Vec<_> = std::env::args().collect();
 
-    std::env::set_current_dir("ROMs").unwrap();
-    let arm7_file_name = "arm7.log";
-    let arm9_file_name = "arm9.log";
+    if args.len() != 2 {
+        println!("Usage: {} <ROM file>", args[0]);
+        std::process::exit(1);
+    }
+
+    let rom_path = Path::new(&args[1]);
+    let bios7_path = PathBuf::from("ROMs/bios7.bin");
+    let bios9_path = PathBuf::from("ROMs/bios9.bin");
+    let firmware_path = PathBuf::from("ROMs/firmware.bin");
+
+    let arm7_file_name = "ROMs/arm7.log";
+    let arm9_file_name = "ROMs/arm9.log";
     let instructions7_filter = LevelFilter::Off;
     let instructions9_filter = LevelFilter::Off;
 
@@ -67,7 +73,7 @@ fn main() {
     let mut imgui = Context::create();
     let mut display = Display::new(&mut imgui);
 
-    let mut nds = load_rom(&bios7_path, &bios9_path, &firmware_path, &rom_path);
+    let mut nds = load_rom(&bios7_path, &bios9_path, &firmware_path, rom_path);
 
     let mut main_menu_height = 0.0;
     let mut palettes_window = DebugWindow::<PalettesWindowState>::new("Palettes");
@@ -122,7 +128,7 @@ fn main() {
         bios7_path: &PathBuf,
         bios9_path: &PathBuf,
         firmware_path: &PathBuf,
-        rom_path: &PathBuf,
+        rom_path: &Path,
     ) -> NDS {
         NDS::new(
             fs::read(bios7_path).unwrap(),

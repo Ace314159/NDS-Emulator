@@ -11,6 +11,7 @@
             "preLaunchTask": "build",
             "program": "${workspaceRoot}/target/debug/nds-emulator.exe",
             "stopAtEntry": false,
+            "args": ["ROMs/examples/3D/BoxTest.nds"],
             // "args": [">", "stdout.log"],
             "cwd": "${workspaceRoot}",
             "externalConsole": true,
