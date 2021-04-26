@@ -20,7 +20,7 @@ impl<T: EEPROMType> EEPROM<T> {
     pub fn new(save_file: PathBuf, size: usize) -> EEPROM<T> {
         EEPROM {
             eeprom_type: PhantomData,
-            mem: Backup::get_initial_mem(&save_file, 0, size),
+            mem: <dyn Backup>::get_initial_mem(&save_file, 0, size),
             save_file,
             dirty: false,
 

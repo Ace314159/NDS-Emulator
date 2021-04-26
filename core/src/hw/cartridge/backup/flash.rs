@@ -16,7 +16,7 @@ pub struct Flash {
 impl Flash {
     pub fn new_backup(save_file: PathBuf, size: usize) -> Self {
         Flash {
-            mem: Backup::get_initial_mem(&save_file, 0xFF, size),
+            mem: <dyn Backup>::get_initial_mem(&save_file, 0xFF, size),
             save_file,
             dirty: false,
 

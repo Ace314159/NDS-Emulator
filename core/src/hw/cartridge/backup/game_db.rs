@@ -19,7 +19,7 @@ impl GameInfo {
 
 impl dyn Backup {
     // TODO: Don't hardcode size - Fixed with better const fn
-    pub const GAME_DB: [GameInfo; 6774] = Backup::gen_game_db();
+    pub const GAME_DB: [GameInfo; 6774] = <dyn Backup>::gen_game_db();
 
     pub const SRAM_SIZES: [usize; 10] = [
         0,

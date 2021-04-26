@@ -36,7 +36,7 @@ pub struct Cartridge {
 impl Cartridge {
     pub fn new(rom: Vec<u8>, save_file: PathBuf) -> Self {
         let header = Header::new(&rom);
-        let backup = Backup::detect_type(&header, save_file);
+        let backup = <dyn Backup>::detect_type(&header, save_file);
         Cartridge {
             chip_id: 0x000_01FC2u32, // TODO: Actually Calculate
             header,
@@ -336,7 +336,7 @@ impl SPICNT {
 pub struct ROMCTRL {
     key1_gap1_len: u16,
     key2_encrypt_data: bool,
-    key2_apply_seed: bool,
+    _key2_apply_seed: bool,
     key1_gap2_len: u8,
     key2_encrypt_cmd: bool,
     data_word_ready: bool,
@@ -353,7 +353,7 @@ impl ROMCTRL {
         ROMCTRL {
             key1_gap1_len: 0,
             key2_encrypt_data: false,
-            key2_apply_seed: false,
+            _key2_apply_seed: false,
             key1_gap2_len: 0,
             key2_encrypt_cmd: false,
             data_word_ready: false,
@@ -408,7 +408,7 @@ impl ROMCTRL {
             1 => {
                 self.key1_gap1_len = self.key1_gap1_len & !0x1F00 | (value as u16 & 0x1F) << 4;
                 self.key2_encrypt_data = value >> 5 & 0x1 != 0;
-                self.key2_apply_seed = value >> 7 & 0x1 != 0;
+                self._key2_apply_seed = value >> 7 & 0x1 != 0;
             }
             2 => {
                 self.key1_gap2_len = value & 0x3F;

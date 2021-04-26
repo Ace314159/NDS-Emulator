@@ -13,7 +13,6 @@ pub struct ARM9 {
     regs: RegValues,
     instr_buffer: [u32; 2],
     next_access_type: AccessType,
-    do_internal: bool,
 
     condition_lut: [bool; 256],
     arm_lut: [instructions::InstructionHandler<u32>; 4096],
@@ -31,7 +30,6 @@ impl ARM9 {
             },
             instr_buffer: [0; 2],
             next_access_type: AccessType::N,
-            do_internal: false,
 
             condition_lut: instructions::gen_condition_table(),
             arm_lut: arm::gen_lut(),
@@ -75,7 +73,6 @@ impl ARM9 {
         // TODO: Increment PC here
         self.instr_buffer[1] =
             num::cast::<T, u32>(self.read::<T>(hw, access_type, self.regs[15])).unwrap();
-        self.do_internal = false;
     }
 
     pub fn internal(&mut self) {
