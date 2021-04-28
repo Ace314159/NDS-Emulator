@@ -24,7 +24,7 @@ impl<const IS_ARM9: bool> ARM<IS_ARM9> {
         let mut cpu = ARM {
             cycles_spent: 0,
             regs: if direct_boot {
-                RegValues::direct_boot(hw.init_arm9())
+                RegValues::direct_boot(if IS_ARM9 { hw.init_arm9() } else { hw.init_arm7() })
             } else {
                 RegValues::new()
             },
@@ -50,8 +50,15 @@ impl<const IS_ARM9: bool> ARM<IS_ARM9> {
     }
 
     pub fn read<T: MemoryValue>(&mut self, hw: &mut HW, access_type: AccessType, addr: u32) -> T {
-        let value = hw.arm9_read::<T>(addr);
-        self.cycles_spent += hw.arm9_get_access_time::<T>(self.next_access_type, addr);
+        let value = if IS_ARM9 {
+            let value = hw.arm9_read::<T>(addr);
+            self.cycles_spent += hw.arm9_get_access_time::<T>(self.next_access_type, addr);
+            value
+        } else {
+            let value = hw.arm7_read::<T>(addr);
+            self.cycles_spent += hw.arm7_get_access_time::<T>(self.next_access_type, addr);
+            value
+        };
         self.next_access_type = access_type;
         value
     }
@@ -63,9 +70,14 @@ impl<const IS_ARM9: bool> ARM<IS_ARM9> {
         addr: u32,
         value: T,
     ) {
-        self.cycles_spent += hw.arm9_get_access_time::<T>(self.next_access_type, addr);
+        if IS_ARM9 {
+            self.cycles_spent += hw.arm9_get_access_time::<T>(self.next_access_type, addr);
+            hw.arm9_write::<T>(addr, value);
+        } else {
+            self.cycles_spent += hw.arm7_get_access_time::<T>(self.next_access_type, addr);
+            hw.arm7_write::<T>(addr, value);
+        }
         self.next_access_type = access_type;
-        hw.arm9_write::<T>(addr, value);
     }
 
     pub fn instruction_prefetch<T: MemoryValue>(&mut self, hw: &mut HW, access_type: AccessType) {
@@ -81,10 +93,15 @@ impl<const IS_ARM9: bool> ARM<IS_ARM9> {
     }
 
     pub fn handle_irq(&mut self, hw: &mut HW) {
-        if self.regs.get_i() || !hw.arm9_interrupts_requested() {
+        let (interrupts_requested, interrupt_base) = if IS_ARM9 {
+            (hw.arm9_interrupts_requested(), hw.cp15.interrupt_base())
+        } else {
+            (hw.arm7_interrupts_requested(), 0)
+        };
+        if self.regs.get_i() || !interrupts_requested {
             return;
         }
-        hw.cp15.arm9_halted = false;
+        if IS_ARM9 { hw.cp15.arm9_halted = false } else { hw.haltcnt.unhalt(); }
         self.regs.change_mode(Mode::IRQ);
         let lr = if self.regs.get_t() {
             self.read::<u16>(hw, AccessType::N, self.regs[15]);
@@ -96,7 +113,7 @@ impl<const IS_ARM9: bool> ARM<IS_ARM9> {
         self.regs.set_lr(lr);
         self.regs.set_t(false);
         self.regs.set_i(true);
-        self.regs[15] = hw.cp15.interrupt_base() | 0x18;
+        self.regs[15] = interrupt_base | 0x18;
         self.fill_arm_instr_buffer(hw);
     }
 
