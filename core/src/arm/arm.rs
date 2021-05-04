@@ -532,7 +532,7 @@ impl<const IS_ARM9: bool> ARM<IS_ARM9> {
         let base_offset = base & 0x3;
         let base = base - base_offset;
         let mut r_list = (instr & 0xFFFF) as u16;
-        let write_back = write_back && !(load && r_list & (1 << base_reg) != 0);
+        let write_back = write_back && (IS_ARM9 || !(load && r_list & (1 << base_reg) != 0));
         let actual_mode = self.regs.get_mode();
         if psr_force_usr && !(load && r_list & (1 << 15) != 0) {
             self.regs.set_mode(Mode::USR)
@@ -621,7 +621,7 @@ impl<const IS_ARM9: bool> ARM<IS_ARM9> {
                     final_addr - 0x40
                 };
                 self.regs[base_reg] = value;
-            } else {
+            } else if !IS_ARM9 {
                 exec(start_addr, 15, true);
             }
         } else {
