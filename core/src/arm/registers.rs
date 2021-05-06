@@ -78,15 +78,23 @@ impl RegValues {
         regs
     }
 
-    pub fn direct_boot(pc: u32) -> RegValues {
+    pub fn direct_boot<const IS_ARM9: bool>(pc: u32) -> RegValues {
         let mut reg_values = RegValues::new();
-        reg_values.regs[12] = pc;
-        reg_values.regs[13] = 0x03003FC0;
-        reg_values.regs[15] = pc;
-        reg_values.irq[0] = 0x03003F80; // R13
-        reg_values.svc[0] = 0x03002F7C; // R13
+        reg_values.usr[4] = pc; // R12
         reg_values.svc[1] = pc; // R14
         reg_values.cpsr.bits = 0xD3;
+        if IS_ARM9 {
+            reg_values.usr[5] = 0x03003FC0; // R13
+            reg_values.irq[0] = 0x03003F80; // R13
+            reg_values.svc[0] = 0x03002F7C; // R13
+        } else {
+            let mut reg_values = RegValues::new();
+            reg_values.usr[5] = 0x0380FFC0; // R13
+            reg_values.irq[0] = 0x0380FF80; // R13
+            reg_values.svc[0] = 0x0380FD80; // R13
+        };
+        reg_values.load_banked(reg_values.get_mode());
+        reg_values.regs[15] = pc;
         reg_values
     }
 

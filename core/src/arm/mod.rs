@@ -24,7 +24,7 @@ impl<const IS_ARM9: bool> ARM<IS_ARM9> {
         let mut cpu = ARM {
             cycles_spent: 0,
             regs: if direct_boot {
-                RegValues::direct_boot(if IS_ARM9 { hw.init_arm9() } else { hw.init_arm7() })
+                RegValues::direct_boot::<IS_ARM9>(if IS_ARM9 { hw.init_arm9() } else { hw.init_arm7() })
             } else {
                 RegValues::new()
             },
