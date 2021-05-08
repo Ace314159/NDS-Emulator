@@ -155,13 +155,12 @@ impl<const IS_ARM9: bool> ARM<IS_ARM9> {
             0b10 => src,
             0b11 => {
                 self.instruction_prefetch::<u16>(hw, AccessType::N);
-                if IS_ARM9 && dest_reg_msb != 0 {
+                if dest_reg_msb != 0 {
+                    assert!(IS_ARM9);
                     // BLX
                     assert_ne!(src_reg, 15);
                     // LR is PC + 3 (not PC + 2 because thumb bit)
                     self.regs.set_lr(self.regs[15].wrapping_sub(1));
-                } else {
-                    assert_eq!(dest_reg_msb, 0);
                 }
                 self.regs[15] = src;
                 if src & 0x1 != 0 {
@@ -548,7 +547,7 @@ impl<const IS_ARM9: bool> ARM<IS_ARM9> {
         if !load {
             self.regs[15] = self.regs[15].wrapping_sub(2)
         }
-        if !IS_ARM9 && write_back {
+        if !IS_ARM9 || write_back {
             self.regs[base_reg] = base + base_offset
         }
     }
