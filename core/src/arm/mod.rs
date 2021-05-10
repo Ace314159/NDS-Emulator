@@ -26,7 +26,7 @@ impl<const IS_ARM9: bool> ARM<IS_ARM9> {
             regs: if direct_boot {
                 RegValues::direct_boot::<IS_ARM9>(if IS_ARM9 { hw.init_arm9() } else { hw.init_arm7() })
             } else {
-                RegValues::new()
+                RegValues::new::<IS_ARM9>()
             },
             instr_buffer: [0; 2],
             next_access_type: AccessType::N,

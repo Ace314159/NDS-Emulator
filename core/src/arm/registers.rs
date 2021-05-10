@@ -63,7 +63,7 @@ pub struct RegValues {
 }
 
 impl RegValues {
-    pub fn new() -> RegValues {
+    pub fn new<const IS_ARM9: bool>() -> RegValues {
         let mut regs = RegValues {
             regs: [0; 16],
             svc: [0; 2], // R13 and R14
@@ -72,12 +72,12 @@ impl RegValues {
             cpsr: StatusReg::reset(),
             spsr: [StatusReg::reset(); 3], // SVC, IRQ, FIQ
         };
-        regs[15] = 0xFFFF_0000;
+        regs[15] = if IS_ARM9 { 0xFFFF_0000 } else { 0x0 };
         regs
     }
 
     pub fn direct_boot<const IS_ARM9: bool>(pc: u32) -> RegValues {
-        let mut reg_values = RegValues::new();
+        let mut reg_values = RegValues::new::<IS_ARM9>();
         // regs contains svc banked
         // svc contains usr banked
         // TODO: Figure out actual values
