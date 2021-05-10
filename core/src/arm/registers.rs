@@ -55,7 +55,6 @@ impl StatusReg {
 #[derive(Clone, Debug, PartialEq)]
 pub struct RegValues {
     regs: [u32; 16],
-    usr: [u32; 7], // R8-R14
     svc: [u32; 2], // R13 and R14
     irq: [u32; 2], // R13 and R14
     fiq: [u32; 7], // R8-R14
@@ -67,7 +66,6 @@ impl RegValues {
     pub fn new() -> RegValues {
         let mut regs = RegValues {
             regs: [0; 16],
-            usr: [0; 7], // R8-R14
             svc: [0; 2], // R13 and R14
             irq: [0; 2], // R13 and R14
             fiq: [0; 7], // R8-R14
@@ -80,20 +78,22 @@ impl RegValues {
 
     pub fn direct_boot<const IS_ARM9: bool>(pc: u32) -> RegValues {
         let mut reg_values = RegValues::new();
-        reg_values.usr[4] = pc; // R12
-        reg_values.svc[1] = pc; // R14
+        // regs contains svc banked
+        // svc contains usr banked
+        // TODO: Figure out actual values
+        reg_values.regs[12] = pc; // R12
+        reg_values.regs[1] = pc; // R14
         reg_values.cpsr.bits = 0xD3;
         if IS_ARM9 {
-            reg_values.usr[5] = 0x03003FC0; // R13
+            reg_values.svc[0] = 0x03003FC0; // R13
             reg_values.irq[0] = 0x03003F80; // R13
-            reg_values.svc[0] = 0x03002F7C; // R13
+            reg_values.regs[13] = 0x03002F7C; // R13
         } else {
-            let mut reg_values = RegValues::new();
-            reg_values.usr[5] = 0x0380FFC0; // R13
+            reg_values.svc[0] = 0x0380FFC0; // R13
             reg_values.irq[0] = 0x0380FF80; // R13
-            reg_values.svc[0] = 0x0380FD80; // R13
+            reg_values.regs[13] = 0x0380FD80; // R13
         };
-        reg_values.load_banked(reg_values.get_mode());
+        assert_eq!(reg_values.get_mode(), Mode::SVC);
         reg_values.regs[15] = pc;
         reg_values
     }
@@ -120,27 +120,27 @@ impl RegValues {
 
     pub fn save_banked(&mut self) {
         let banked: &mut [u32] = match self.cpsr.get_mode() {
-            Mode::USR | Mode::SYS => &mut self.usr,
+            Mode::USR | Mode::SYS => return,
             Mode::SVC => &mut self.svc,
             Mode::IRQ => &mut self.irq,
             Mode::FIQ => &mut self.fiq,
             Mode::ABT | Mode::UND => unreachable!(), // Unused modes (hopefully)
         };
         let start = 15 - banked.len();
-        banked.copy_from_slice(&self.regs[start..15]);
+        banked.swap_with_slice(&mut self.regs[start..15]);
     }
 
     pub fn load_banked(&mut self, mode: Mode) {
         assert_eq!(self.cpsr.get_mode(), mode);
-        let banked: &[u32] = match mode {
-            Mode::USR | Mode::SYS => &self.usr,
-            Mode::SVC => &self.svc,
-            Mode::IRQ => &self.irq,
-            Mode::FIQ => &self.fiq,
+        let banked: &mut [u32] = match mode {
+            Mode::USR | Mode::SYS => return,
+            Mode::SVC => &mut self.svc,
+            Mode::IRQ => &mut self.irq,
+            Mode::FIQ => &mut self.fiq,
             Mode::ABT | Mode::UND => unreachable!(), // Unused modes (hopefully)
         };
         let start = 15 - banked.len();
-        self.regs[start..15].copy_from_slice(banked);
+        self.regs[start..15].swap_with_slice(banked);
     }
 
     pub fn spsr(&self) -> u32 {
