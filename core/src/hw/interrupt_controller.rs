@@ -16,8 +16,8 @@ impl InterruptController {
         }
     }
 
-    pub fn interrupts_requested(&self) -> bool {
-        self.master_enable.bits() != 0 && (self.request.bits() & self.enable.bits()) != 0
+    pub fn interrupts_requested(&self, ignore_ime: bool) -> bool {
+        (ignore_ime || self.master_enable.bits() != 0) && (self.request.bits() & self.enable.bits()) != 0
     }
 }
 

@@ -98,7 +98,8 @@ impl<const IS_ARM9: bool> ARM<IS_ARM9> {
         } else {
             (hw.arm7_interrupts_requested(), 0)
         };
-        if self.regs.get_i() || !interrupts_requested {
+        let use_i = IS_ARM9 || !hw.haltcnt.halted();
+        if (use_i && self.regs.get_i()) || !interrupts_requested {
             return;
         }
         if IS_ARM9 { hw.cp15.arm9_halted = false } else { hw.haltcnt.unhalt(); }

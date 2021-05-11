@@ -132,14 +132,14 @@ impl HW {
         if self.keypad.interrupt_requested() {
             self.interrupts[0].request |= InterruptRequest::KEYPAD
         }
-        self.interrupts[0].interrupts_requested()
+        self.interrupts[0].interrupts_requested(self.haltcnt.halted())
     }
 
     pub fn arm9_interrupts_requested(&mut self) -> bool {
         if self.keypad.interrupt_requested() {
             self.interrupts[1].request |= InterruptRequest::KEYPAD
         }
-        self.interrupts[1].interrupts_requested()
+        self.interrupts[1].interrupts_requested(false)
     }
 
     pub fn rendered_frame(&mut self) -> bool {
