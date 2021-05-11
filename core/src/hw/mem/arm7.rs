@@ -77,7 +77,8 @@ impl HW {
             0x0400_0134..=0x0400_0135 => 0, // TODO: Debug RCNT
             0x0400_0136 => self.keypad.extkeyin.read(0),
             0x0400_0137 => self.keypad.extkeyin.read(1),
-            0x0400_0138..=0x0400_0139 => 0, // TODO: RTC
+            0x0400_0138 => self.rtc.read(0),
+            0x0400_0139 => self.rtc.read(1),
             0x0400_0180 => self.ipc.read_sync7(0),
             0x0400_0181 => self.ipc.read_sync7(1),
             0x0400_0182 => self.ipc.read_sync7(2),
@@ -162,7 +163,8 @@ impl HW {
             0x0400_0134..=0x0400_0135 => (), // TODO: Debug RCNT
             0x0400_0136 => self.keypad.extkeyin.write(&mut self.scheduler, 0, value),
             0x0400_0137 => self.keypad.extkeyin.write(&mut self.scheduler, 1, value),
-            0x0400_0138..=0x0400_0139 => (), // TODO: RTC
+            0x0400_0138 => self.rtc.write(&mut self.scheduler, 0, value),
+            0x0400_0139 => self.rtc.write(&mut self.scheduler, 1, value),
             0x0400_0180 => self.interrupts[1].request |= self.ipc.write_sync7(0, value),
             0x0400_0181 => self.interrupts[1].request |= self.ipc.write_sync7(1, value),
             0x0400_0182 => self.interrupts[1].request |= self.ipc.write_sync7(2, value),

@@ -7,6 +7,7 @@ mod keypad;
 mod math;
 pub mod mem;
 mod scheduler;
+mod rtc;
 mod spi;
 mod spu;
 mod timers;
@@ -25,6 +26,7 @@ use math::{Div, Sqrt};
 pub use mem::{AccessType, MemoryValue};
 use mem::{CP15, EXMEM, HALTCNT, POWCNT2, WRAMCNT};
 use scheduler::Scheduler;
+use rtc::RTC;
 use spi::SPI;
 use spu::SPU;
 use timers::Timers;
@@ -49,6 +51,7 @@ pub struct HW {
     dma_fill: [u32; 4],
     timers: [Timers; 2],
     ipc: IPC,
+    rtc: RTC,
     spi: SPI,
     // Registers
     wramcnt: WRAMCNT,
@@ -100,6 +103,7 @@ impl HW {
             dma_fill: [0; 4],
             timers: [Timers::new(false), Timers::new(true)],
             ipc: IPC::new(),
+            rtc: RTC::new(),
             spi: SPI::new(firmware),
             // Registesr
             wramcnt: WRAMCNT::new(3),
