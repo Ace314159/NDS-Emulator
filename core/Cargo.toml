@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 bitflags = "1.2.1"
 cpal = "0.13.1"
+chrono = "0.4.19"
 log = "0.4.11"
 num-traits = "0.2.12"
 num-integer = "0.1.43"

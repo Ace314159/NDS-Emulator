@@ -1,5 +1,7 @@
 use super::{mem::IORegister, scheduler::Scheduler};
 
+use chrono::{Datelike, Timelike, offset::Local};
+
 pub struct RTC {
     // Register
     data: bool,
@@ -245,16 +247,6 @@ struct DateTime {
     gp_bits2: u8,
     int2_enable: bool,
     test_mode: bool,
-    // Date
-    year: BCD,
-    month: BCD,
-    day: BCD,
-    day_of_week: BCD,
-    // Time
-    is_pm: bool,
-    hour: BCD,
-    minute: BCD,
-    second: BCD,
     // Alarms
     alarm1: AlarmReg,
     alarm2: AlarmReg,
@@ -274,16 +266,6 @@ impl DateTime {
             gp_bits2: 0,
             int2_enable: false,
             test_mode: false,
-            // Date
-            year: BCD::new(0x0, 0x99),
-            month: BCD::new(0x1, 0x12),
-            day: BCD::new(0x1, 0x30),
-            day_of_week: BCD::new(0x1, 0x07),
-            // Time
-            is_pm: false,
-            hour: BCD::new(0x0, 0x23),
-            minute: BCD::new(0x0, 0x59),
-            second: BCD::new(0x0, 0x59),
             // Alarms
             alarm1: AlarmReg::new(),
             alarm2: AlarmReg::new(),
@@ -294,20 +276,33 @@ impl DateTime {
     }
 
     fn read(&self, byte: u8) -> u8 {
-        match byte {
-            0 => self.year.value(),
-            1 => self.month.value(),
-            2 => self.day.value(),
-            3 => self.day_of_week.value(),
+        let now = Local::now();
+        let to_bcd = |num| {
+            let tens = num / 10;
+            let ones = num % 10;
+            tens << 4 | ones
+        };
+
+        let value = match byte {
+            0 => now.year() as u32 - 2000,
+            1 => now.month(),
+            2 => now.day(),
+            3 => now.weekday().num_days_from_monday(),
             4 => {
-                let hour = self.hour.value();
-                let bit_6 = if self.is_24h { hour >= 0x12 } else { self.is_pm };
-                (bit_6 as u8) << 6 | hour
+                let (bit_6, hour) = if self.is_24h {
+                    now.hour12()
+                } else {
+                    let hour = now.hour();
+                    (hour >= 12, hour)
+                };
+                return (bit_6 as u8) << 6 | to_bcd(hour as u8);
             },
-            5 => self.minute.value(),
-            6 => self.second.value(),
+            5 => now.minute(),
+            6 => now.second(),
             _ => unreachable!(),
-        }
+        } as u8;
+
+        to_bcd(value)
     }
 
     fn read_status_reg1(&self) -> u8 {
@@ -318,18 +313,15 @@ impl DateTime {
         (self.test_mode as u8) << 7 | (self.int2_enable as u8) << 6 | (self.gp_bits2 << 4) | (self.int_mode)
     }
 
-    fn write(&mut self, byte: u8, value: u8) {
+    fn write(&mut self, byte: u8, _value: u8) {
         match byte {
-            0 => self.year.set_value(value),
-            1 => self.month.set_value(value),
-            2 => self.day.set_value(value),
-            3 => self.day_of_week.set_value(value),
-            4 => {
-                self.hour.set_value(value);
-                if !self.is_24h { self.is_pm = value >> 6 & 0x1 != 0 };
-            },
-            5 => self.minute.set_value(value),
-            6 => self.second.set_value(value),
+            0 => warn!("Ignoring Setting Year"),
+            1 => warn!("Ignoring Setting Month"),
+            2 => warn!("Ignoring Setting Day"),
+            3 => warn!("Ignoring Setting Day of Week"),
+            4 => warn!("Ignoring Setting Hour"),
+            5 => warn!("Ignoring Setting Minute"),
+            6 => warn!("Ignoring Setting Second"),
             _ => unreachable!(),
         }
     }
@@ -406,43 +398,4 @@ impl AlarmReg {
             _ => unreachable!(),
         }
     }
-}
-
-struct BCD {
-    initial: u8,
-    value: u8,
-    max: u8,
-}
-
-impl BCD {
-    pub fn new(initial: u8, max: u8) -> BCD {
-        BCD {
-            initial,
-            value: initial,
-            max,
-        }
-    }
-
-    pub fn inc(&mut self) -> bool {
-        self.inc_with_max(self.max)
-    }
-
-    pub fn inc_with_max(&mut self, max: u8) -> bool {
-        self.value += 1;
-        if self.value > max {
-            self.value = self.initial;
-            assert!(self.value & 0xF < 0xA && self.value >> 4 < 0xA);
-            true
-        } else {
-            if self.value & 0xF > 0x9 {
-                // Shouldn't need to check overflow on upper nibble
-                self.value = (self.value & 0xF0) + 0x10;
-            }
-            assert!(self.value & 0xF < 0xA && self.value >> 4 < 0xA);
-            false
-        }
-    }
-
-    pub fn value(&self) -> u8 { self.value }
-    pub fn set_value(&mut self, value: u8) { self.value = value; assert!(self.value & 0xF < 0xA && self.value >> 4 < 0xA) }
 }
