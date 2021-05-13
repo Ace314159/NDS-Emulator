@@ -1,5 +1,6 @@
 mod backup;
 mod header;
+mod key1_encryption;
 
 use std::collections::VecDeque;
 use std::convert::TryInto;
@@ -14,6 +15,7 @@ use super::{
 };
 
 use header::Header;
+use key1_encryption::Key1Encryption;
 
 pub(super) use backup::{Backup, Flash}; // For Firmware
 
@@ -21,6 +23,7 @@ pub struct Cartridge {
     chip_id: u32,
     header: Header,
     rom: Vec<u8>,
+    key1_encryption: Key1Encryption,
     // Registers
     pub spicnt: SPICNT,
     romctrl: ROMCTRL,
@@ -41,6 +44,7 @@ impl Cartridge {
             chip_id: 0x000_01FC2u32, // TODO: Actually Calculate
             header,
             rom,
+            key1_encryption: Key1Encryption::new(),
             // Registers
             spicnt: SPICNT::new(),
             romctrl: ROMCTRL::new(),
@@ -53,7 +57,7 @@ impl Cartridge {
         }
     }
 
-    pub fn run_command(&mut self, scheduler: &mut Scheduler, is_arm9: bool) {
+    pub fn run_command(&mut self, bios7: &[u8], scheduler: &mut Scheduler, is_arm9: bool) {
         //self.romctrl.key1_gap1_len = 0x10;
         //self.romctrl.key1_gap2_len = 0x10;
         //self.romctrl.key2_encrypt_data = false;
@@ -72,6 +76,72 @@ impl Cartridge {
         };
         self.romctrl.block_busy = true;
         self.romctrl.data_word_ready = false;
+        self.game_card_words.clear();
+
+        if self.key1_encryption.in_use {
+            self.run_encrypted_command();
+        } else {
+            self.run_unencrypted_command(bios7);
+        }
+
+        // TODO: Take into account WR bit
+        if self.rom_bytes_left == 0 {
+            // 8 command bytes transferred
+            scheduler.schedule(
+                Event::ROMBlockEnded(is_arm9),
+                HW::on_rom_block_ended,
+                self.transfer_byte_time() * 8,
+            );
+        } else {
+            // 8 command bytes + 4 bytes for word
+            scheduler.schedule(
+                Event::ROMWordTransfered,
+                HW::on_rom_word_transfered,
+                self.transfer_byte_time() * (8 + 4),
+            );
+        }
+    }
+
+    pub fn run_encrypted_command(&mut self) {
+        // Command is in given as big endian, but the decryption works with little endian
+        self.command.reverse();
+        self.key1_encryption.decrypt(bytemuck::cast_slice_mut(&mut self.command));
+        self.command.reverse();
+
+        // TODO: Verify command parameters
+        match self.command[0] >> 4 {
+            0x1 => {
+                // 0x910 dummy bytes and 4 bytes of chip id
+                // But making them all chip id works anyway
+                for _ in 0..self.rom_bytes_left / 4 {
+                    self.game_card_words.push_back(self.chip_id);
+                }
+            },
+            0x4 => {
+                // Endless stream of HIGH-Z bytes?
+                for _ in 0..self.rom_bytes_left / 4 {
+                    self.game_card_words.push_back(0xFFFF_FFFF);
+                }
+            },
+            0xA => {
+                // TODO: Add 3rd mode instead of using same mode for boot and key2 encrypted
+                self.key1_encryption.in_use = false;
+                // 0x910 dummy bytes followed by KEY2 encrypted 0s
+                // Making them all 0s works
+                for _ in 0..self.rom_bytes_left / 4 {
+                    self.game_card_words.push_back(0);
+                }
+            },
+            _ => {
+                warn!("Unimplemented Encrypted Cartridge Command: {:X?}", self.command);
+                for _ in 0..self.rom_bytes_left / 4 {
+                    self.game_card_words.push_back(0);
+                }
+            },
+        }
+    }
+
+    pub fn run_unencrypted_command(&mut self, bios7: &[u8]) {
         let out_words = &mut self.game_card_words;
         let rom = &self.rom;
         let mut copy_rom = |range: Range<usize>| {
@@ -79,6 +149,7 @@ impl Cartridge {
                 out_words.push_back(u32::from_le_bytes(rom[addr..addr + 4].try_into().unwrap()));
             }
         };
+
         match self.command[0] {
             0x00 => {
                 for byte in self.command[1..].iter() {
@@ -87,6 +158,9 @@ impl Cartridge {
                 assert!(self.rom_bytes_left < 0x10000); // TODO: Support
                 copy_rom(0..self.rom_bytes_left);
             }
+            0x3C => {
+                self.key1_encryption.init_key_code(self.header.game_code, 2, 2, bios7);
+            },
             0xB7 => {
                 for byte in self.command[5..].iter() {
                     assert_eq!(*byte, 0)
@@ -135,29 +209,12 @@ impl Cartridge {
                 }
             }
             _ => {
-                warn!("Unimplemented Cartridge Command: {:X}", self.command[0]);
+                warn!("Unimplemented Unencrypted Cartridge Command: {:X?}", self.command);
                 for _ in 0..self.rom_bytes_left / 4 {
                     self.game_card_words.push_back(0);
                 }
             }
         };
-
-        // TODO: Take into account WR bit
-        if self.rom_bytes_left == 0 {
-            // 8 command bytes transferred
-            scheduler.schedule(
-                Event::ROMBlockEnded(is_arm9),
-                HW::on_rom_block_ended,
-                self.transfer_byte_time() * 8,
-            );
-        } else {
-            // 8 command bytes + 4 bytes for word
-            scheduler.schedule(
-                Event::ROMWordTransfered,
-                HW::on_rom_word_transfered,
-                self.transfer_byte_time() * (8 + 4),
-            );
-        }
     }
 
     pub fn read_gamecard(
@@ -172,6 +229,7 @@ impl Cartridge {
         }
         if self.romctrl.data_word_ready {
             self.romctrl.data_word_ready = false;
+            assert!(self.rom_bytes_left > 0);
             self.rom_bytes_left -= 4;
 
             if self.rom_bytes_left > 0 {
@@ -219,6 +277,7 @@ impl Cartridge {
 
     pub fn write_romctrl(
         &mut self,
+        bios7: &[u8],
         scheduler: &mut Scheduler,
         is_arm9: bool,
         has_access: bool,
@@ -226,7 +285,7 @@ impl Cartridge {
         value: u8,
     ) {
         if self.romctrl.write(has_access, byte, value) {
-            self.run_command(scheduler, is_arm9)
+            self.run_command(bios7, scheduler, is_arm9)
         }
     }
 

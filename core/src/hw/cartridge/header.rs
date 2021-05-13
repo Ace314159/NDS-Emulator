@@ -2,7 +2,7 @@ use std::convert::TryInto;
 
 pub struct Header {
     pub game_title: [u8; 12], // ASCII
-    pub game_code: [u8; 4],   // ASCII - 0 = homebrew
+    pub game_code: u32,   // ASCII - 0 = homebrew
     pub maker_code: [u8; 2],  // ASCII - 0 = homebrew
     pub unit_code: UnitCode,
     pub encryption_seed: u8, // 0x0 - 0x7
@@ -54,7 +54,7 @@ impl Header {
     pub fn new(rom: &Vec<u8>) -> Header {
         Header {
             game_title: rom[0x000..0x00C].try_into().unwrap(),
-            game_code: rom[0x00C..0x010].try_into().unwrap(),
+            game_code: u32::from_le_bytes(rom[0x00C..0x010].try_into().unwrap()),
             maker_code: rom[0x010..0x012].try_into().unwrap(),
             unit_code: UnitCode::from_byte(rom[0x012]),
             encryption_seed: rom[0x013],

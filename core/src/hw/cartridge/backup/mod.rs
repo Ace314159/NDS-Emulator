@@ -23,10 +23,9 @@ pub trait Backup {
 
 impl dyn Backup {
     pub fn detect_type(header: &Header, save_file: PathBuf) -> Box<dyn Backup> {
-        let game_code = u32::from_le_bytes(header.game_code);
         if let Some(pos) = <dyn Backup>::GAME_DB
             .iter()
-            .position(|game_info| game_info.game_code == game_code)
+            .position(|game_info| game_info.game_code == header.game_code)
         {
             let game_info = &<dyn Backup>::GAME_DB[pos];
             let sram_size = <dyn Backup>::SRAM_SIZES[game_info.sram_type];
