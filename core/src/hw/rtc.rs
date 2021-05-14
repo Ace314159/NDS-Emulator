@@ -164,7 +164,7 @@ impl IORegister for RTC {
             },
             Mode::SetCmd(_, _) => self.mode,
 
-            Mode::ExecCmd(parameter, AccessType::Read(byte, 7)) if prev_sck && !self.sck => {
+            Mode::ExecCmd(parameter, AccessType::Read(byte, 7)) if !prev_sck && self.sck => {
                 let done = self.last_byte;
                 self.data = byte & 0x1 != 0;
                 if done { Mode::EndCmd } else {
@@ -172,7 +172,7 @@ impl IORegister for RTC {
                     Mode::ExecCmd(next_parameter, AccessType::Read(parameter_byte, 0))
                 }
             },
-            Mode::ExecCmd(parameter, AccessType::Read(byte, bit)) if prev_sck && !self.sck => {
+            Mode::ExecCmd(parameter, AccessType::Read(byte, bit)) if !prev_sck && self.sck => {
                 self.data = byte & 0x1 != 0;
                 Mode::ExecCmd(parameter, AccessType::Read(byte >> 1, bit + 1))
             },
