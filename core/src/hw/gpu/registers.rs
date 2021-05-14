@@ -25,7 +25,10 @@ impl IORegister for POWCNT1 {
         assert!(byte < 4);
         HW::write_byte_to_value(&mut self.bits, byte, value);
         self.bits &= POWCNT1::all().bits;
-        assert!(self.contains(POWCNT1::ENABLE_LCDS)); // TODO: Figure out what this does
+        if !self.contains(POWCNT1::ENABLE_LCDS) {
+            // TODO: Figure out what this does
+            warn!("Disabling LCDs");
+        }
     }
 }
 
