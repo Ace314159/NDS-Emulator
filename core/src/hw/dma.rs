@@ -237,10 +237,12 @@ impl HW {
 
     pub fn run_dmas(&mut self, occasion: DMAOccasion) {
         let mut events = Vec::new();
+        let mut is_nds9 = false;
         for dma in self.dmas.iter() {
             for num in dma.by_type[occasion as usize].iter() {
-                events.push(Event::DMA(true, *num));
+                events.push(Event::DMA(is_nds9, *num));
             }
+            is_nds9 = true;
         }
         for event in events.drain(..) {
             self.on_dma(event)
