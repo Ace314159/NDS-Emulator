@@ -1,22 +1,27 @@
+use std::convert::TryInto;
+
 pub struct Key1Encryption {
     pub in_use: bool,
     key_buf: [u32; Key1Encryption::KEY_TABLE_SIZE],
+    original_key_buf: [u32; Key1Encryption::KEY_TABLE_SIZE],
 }
 
 impl Key1Encryption {
     const KEY_TABLE_SIZE: usize = 0x1048 / 4;
 
-    pub fn new() -> Self {
+    pub fn new(bios7: &[u8]) -> Self {
+        let original_key_buf = bytemuck::cast_slice(&bios7[0x30..=0x1077]).try_into().unwrap();
         Key1Encryption {
             in_use: false,
-            key_buf: [0; Key1Encryption::KEY_TABLE_SIZE],
+            key_buf: original_key_buf,
+            original_key_buf,
         }
     }
 
     // Modulo should be div by 4 before passing in
-    pub fn init_key_code(&mut self, id_code: u32, level: u32, modulo: u32, bios7: &[u8]) {
+    pub fn init_key_code(&mut self, id_code: u32, level: u32, modulo: u32) {
         self.in_use = true;
-        self.key_buf.copy_from_slice(bytemuck::cast_slice(&bios7[0x30..=0x1077]));
+        self.key_buf = self.original_key_buf;
         
         let mut key_code = [id_code, id_code / 2, id_code * 2];
         if level >= 1 { self.apply_keycode(&mut key_code, modulo) }

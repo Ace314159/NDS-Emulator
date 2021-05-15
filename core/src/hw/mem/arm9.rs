@@ -332,7 +332,6 @@ impl HW {
                 .write_spi_data(!self.exmem.nds_arm7_access, value),
             0x0400_01A3 => (), // TODO: Does this write do anything?
             0x0400_01A4 => self.cartridge.write_romctrl(
-                &self.bios7,
                 &mut self.scheduler,
                 false,
                 !self.exmem.nds_arm7_access,
@@ -340,7 +339,6 @@ impl HW {
                 value,
             ),
             0x0400_01A5 => self.cartridge.write_romctrl(
-                &self.bios7,
                 &mut self.scheduler,
                 false,
                 !self.exmem.nds_arm7_access,
@@ -348,7 +346,6 @@ impl HW {
                 value,
             ),
             0x0400_01A6 => self.cartridge.write_romctrl(
-                &self.bios7,
                 &mut self.scheduler,
                 false,
                 !self.exmem.nds_arm7_access,
@@ -356,7 +353,6 @@ impl HW {
                 value,
             ),
             0x0400_01A7 => self.cartridge.write_romctrl(
-                &self.bios7,
                 &mut self.scheduler,
                 false,
                 !self.exmem.nds_arm7_access,

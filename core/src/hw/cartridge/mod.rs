@@ -37,14 +37,14 @@ pub struct Cartridge {
 }
 
 impl Cartridge {
-    pub fn new(rom: Vec<u8>, save_file: PathBuf) -> Self {
+    pub fn new(rom: Vec<u8>, save_file: PathBuf, bios7: &[u8]) -> Self {
         let header = Header::new(&rom);
         let backup = <dyn Backup>::detect_type(&header, save_file);
         Cartridge {
-            chip_id: 0x000_01FC2u32, // TODO: Actually Calculate
+            chip_id: 0x000_00FC2u32, // TODO: Actually Calculate
             header,
             rom,
-            key1_encryption: Key1Encryption::new(),
+            key1_encryption: Key1Encryption::new(bios7),
             // Registers
             spicnt: SPICNT::new(),
             romctrl: ROMCTRL::new(),
@@ -57,7 +57,7 @@ impl Cartridge {
         }
     }
 
-    pub fn run_command(&mut self, bios7: &[u8], scheduler: &mut Scheduler, is_arm9: bool) {
+    pub fn run_command(&mut self, scheduler: &mut Scheduler, is_arm9: bool) {
         //self.romctrl.key1_gap1_len = 0x10;
         //self.romctrl.key1_gap2_len = 0x10;
         //self.romctrl.key2_encrypt_data = false;
@@ -81,7 +81,7 @@ impl Cartridge {
         if self.key1_encryption.in_use {
             self.run_encrypted_command();
         } else {
-            self.run_unencrypted_command(bios7);
+            self.run_unencrypted_command();
         }
 
         // TODO: Take into account WR bit
@@ -141,7 +141,7 @@ impl Cartridge {
         }
     }
 
-    pub fn run_unencrypted_command(&mut self, bios7: &[u8]) {
+    pub fn run_unencrypted_command(&mut self) {
         let out_words = &mut self.game_card_words;
         let rom = &self.rom;
         let mut copy_rom = |range: Range<usize>| {
@@ -159,7 +159,7 @@ impl Cartridge {
                 copy_rom(0..self.rom_bytes_left);
             }
             0x3C => {
-                self.key1_encryption.init_key_code(self.header.game_code, 2, 2, bios7);
+                self.key1_encryption.init_key_code(self.header.game_code, 2, 2);
             },
             0xB7 => {
                 for byte in self.command[5..].iter() {
@@ -277,7 +277,6 @@ impl Cartridge {
 
     pub fn write_romctrl(
         &mut self,
-        bios7: &[u8],
         scheduler: &mut Scheduler,
         is_arm9: bool,
         has_access: bool,
@@ -285,7 +284,7 @@ impl Cartridge {
         value: u8,
     ) {
         if self.romctrl.write(has_access, byte, value) {
-            self.run_command(bios7, scheduler, is_arm9)
+            self.run_command(scheduler, is_arm9)
         }
     }
 

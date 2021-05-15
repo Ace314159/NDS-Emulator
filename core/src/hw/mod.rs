@@ -83,12 +83,13 @@ impl HW {
         direct_boot: bool,
     ) -> Self {
         let mut scheduler = Scheduler::new();
+        let cartridge = Cartridge::new(rom, save_file, &bios7);
         let hw = HW {
             // Memory
             cp15: CP15::new(),
             bios7,
             bios9,
-            cartridge: Cartridge::new(rom, save_file),
+            cartridge,
             itcm: vec![0; HW::ITCM_SIZE],
             dtcm: vec![0; HW::DTCM_SIZE],
             main_mem: vec![0; HW::MAIN_MEM_SIZE],
