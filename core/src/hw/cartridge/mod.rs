@@ -102,6 +102,12 @@ impl Cartridge {
         }
     }
 
+    fn copy_rom(&mut self, range: Range<usize>) {
+        for addr in range.step_by(4) {
+            self.game_card_words.push_back(u32::from_le_bytes(self.rom[addr..addr + 4].try_into().unwrap()));
+        }
+    }
+
     pub fn run_encrypted_command(&mut self) {
         // Command is in given as big endian, but the decryption works with little endian
         self.command.reverse();
@@ -142,21 +148,13 @@ impl Cartridge {
     }
 
     pub fn run_unencrypted_command(&mut self) {
-        let out_words = &mut self.game_card_words;
-        let rom = &self.rom;
-        let mut copy_rom = |range: Range<usize>| {
-            for addr in range.step_by(4) {
-                out_words.push_back(u32::from_le_bytes(rom[addr..addr + 4].try_into().unwrap()));
-            }
-        };
-
         match self.command[0] {
             0x00 => {
                 for byte in self.command[1..].iter() {
                     assert_eq!(*byte, 0)
                 }
                 assert!(self.rom_bytes_left < 0x10000); // TODO: Support
-                copy_rom(0..self.rom_bytes_left);
+                self.copy_rom(0..self.rom_bytes_left);
             }
             0x3C => {
                 self.key1_encryption.init_key_code(self.header.game_code, 2, 2);
@@ -178,10 +176,10 @@ impl Cartridge {
                     let block4k_start = addr & !0xFFF;
                     let block4k_end = block4k_start + 0x1000;
                     let extra_len = transfer_len - (block4k_end - addr);
-                    copy_rom(addr..block4k_end);
-                    copy_rom(block4k_start..block4k_start + extra_len);
+                    self.copy_rom(addr..block4k_end);
+                    self.copy_rom(block4k_start..block4k_start + extra_len);
                 } else {
-                    copy_rom(addr..addr + transfer_len);
+                    self.copy_rom(addr..addr + transfer_len);
                 }
             }
             0xB8 => {
