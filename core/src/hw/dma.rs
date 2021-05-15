@@ -361,6 +361,21 @@ impl DMAOccasion {
         9
     }
 
+    fn val(self, is_nds9: bool) -> u8 {
+        if is_nds9 {
+            self as u8
+        } else {
+            let val = match self {
+                DMAOccasion::Immediate => 0,
+                DMAOccasion::VBlank => 1,
+                DMAOccasion::DSCartridge => 2,
+                DMAOccasion::WirelessInterrupt | DMAOccasion::GBACartridge => 3,
+                _ => unreachable!(),
+            };
+            val << 1
+        }
+    }
+
     fn get(is_nds9: bool, dma_num: usize, start_timing: u8) -> Self {
         if is_nds9 {
             match start_timing {
@@ -384,7 +399,7 @@ impl DMAOccasion {
                 _ => unreachable!(),
             }
         } else {
-            match start_timing & 0x3 {
+            match start_timing >> 1 {
                 0 => DMAOccasion::Immediate,
                 1 => {
                     warn!("ARM7 VBlank DMA not implemented!");
@@ -461,7 +476,7 @@ impl IORegister for DMACNT {
             3 => {
                 (self.enable as u8) << 7
                     | (self.irq as u8) << 6
-                    | (self.start_timing as u8) << 3
+                    | (self.start_timing.val(self.is_nds9)) << 3
                     | (self.transfer_32 as u8) << 2
                     | (self.repeat as u8) << 1
                     | self.src_addr_ctrl >> 1
