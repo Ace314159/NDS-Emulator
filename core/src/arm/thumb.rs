@@ -535,9 +535,9 @@ impl<const IS_ARM9: bool> ARM<IS_ARM9> {
                 reg += 1;
                 r_list >>= 1;
             }
-            write_back = if IS_ARM9 && original_r_list & (1 << base_reg) != 0 && load {
-                // reg is the last register loaded
-                original_r_list.count_ones() == 1 || base_reg != reg
+            write_back = if original_r_list & (1 << base_reg) != 0 && load {
+                // ARM and thumb behave differently
+                false
             } else {
                 write_back
             };
@@ -547,7 +547,7 @@ impl<const IS_ARM9: bool> ARM<IS_ARM9> {
         if !load {
             self.regs[15] = self.regs[15].wrapping_sub(2)
         }
-        if !IS_ARM9 || write_back {
+        if write_back {
             self.regs[base_reg] = base + base_offset
         }
     }
