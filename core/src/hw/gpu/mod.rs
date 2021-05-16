@@ -244,7 +244,7 @@ impl HW {
         }
         if self.gpu.vcount < GPU::HEIGHT as u16 {
             self.gpu.render_line();
-            self.run_dmas(DMAOccasion::HBlank);
+            self.run_dmas_both(DMAOccasion::HBlank);
         }
         self.check_dispstats(&mut |dispstat, interrupts| {
             if dispstat.contains(DISPSTATFlags::HBLANK_IRQ_ENABLE) {
@@ -254,7 +254,7 @@ impl HW {
     }
 
     fn on_vblank(&mut self, _event: Event) {
-        self.run_dmas(DMAOccasion::VBlank);
+        self.run_dmas_both(DMAOccasion::VBlank);
         // TODO: Render using multiple threads
         if self.gpu.powcnt1.contains(POWCNT1::ENABLE_3D_RENDERING) {
             self.gpu.engine3d.render(&self.gpu.vram);

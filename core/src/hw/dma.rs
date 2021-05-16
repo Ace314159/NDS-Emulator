@@ -231,22 +231,23 @@ impl HW {
 
     pub fn check_geometry_command_fifo(&mut self) {
         if self.gpu.engine3d.should_run_fifo() {
-            self.run_dmas(DMAOccasion::GeometryCommandFIFO);
+            self.run_dmas_both(DMAOccasion::GeometryCommandFIFO);
         }
     }
 
-    pub fn run_dmas(&mut self, occasion: DMAOccasion) {
+    pub fn run_dmas_single(&mut self, occasion: DMAOccasion, is_arm9: bool) {
         let mut events = Vec::new();
-        let mut is_nds9 = false;
-        for dma in self.dmas.iter() {
-            for num in dma.by_type[occasion as usize].iter() {
-                events.push(Event::DMA(is_nds9, *num));
-            }
-            is_nds9 = true;
+        for num in self.dmas[is_arm9 as usize].by_type[occasion as usize].iter() {
+            events.push(Event::DMA(is_arm9, *num));
         }
         for event in events.drain(..) {
             self.on_dma(event)
         }
+    }
+
+    pub fn run_dmas_both(&mut self, occasion: DMAOccasion) {
+        self.run_dmas_single(occasion, false);
+        self.run_dmas_single(occasion, true);
     }
 }
 

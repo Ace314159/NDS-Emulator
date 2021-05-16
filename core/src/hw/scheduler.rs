@@ -86,7 +86,7 @@ pub enum Event {
     VBlank,
     CheckGeometryCommandFIFO,
     TimerOverflow(bool, usize),
-    ROMWordTransfered,
+    ROMWordTransfered(bool),
     ROMBlockEnded(bool),
     GenerateAudioSample,
     StepAudioChannel(spu::ChannelSpec),

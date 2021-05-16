@@ -95,7 +95,7 @@ impl Cartridge {
         } else {
             // 8 command bytes + 4 bytes for word
             scheduler.schedule(
-                Event::ROMWordTransfered,
+                Event::ROMWordTransfered(is_arm9),
                 HW::on_rom_word_transfered,
                 self.transfer_byte_time() * (8 + 4),
             );
@@ -233,7 +233,7 @@ impl Cartridge {
             if self.rom_bytes_left > 0 {
                 // 1 word (4 bytes) transferred
                 scheduler.schedule(
-                    Event::ROMWordTransfered,
+                    Event::ROMWordTransfered(is_arm9),
                     HW::on_rom_word_transfered,
                     self.transfer_byte_time() * 4,
                 );
@@ -309,10 +309,14 @@ impl Cartridge {
 }
 
 impl HW {
-    fn on_rom_word_transfered(&mut self, _event: Event) {
+    fn on_rom_word_transfered(&mut self, event: Event) {
+        let is_arm9 = match event {
+            Event::ROMWordTransfered(is_arm9) => is_arm9,
+            _ => unreachable!(),
+        };
         self.cartridge.cur_game_card_word = self.cartridge.game_card_words.pop_front().unwrap();
         self.cartridge.romctrl.data_word_ready = true;
-        self.run_dmas(DMAOccasion::DSCartridge);
+        self.run_dmas_single(DMAOccasion::DSCartridge, is_arm9);
     }
 
     fn on_rom_block_ended(&mut self, event: Event) {
