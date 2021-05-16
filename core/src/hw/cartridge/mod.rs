@@ -162,6 +162,15 @@ impl Cartridge {
                     self.game_card_words.push_back(self.chip_id);
                 }
             },
+            0x2 => {
+                let addr = (self.command[2] as usize & 0xF0) << (12 - 4) |
+                    (self.command[1] as usize) << 8 |
+                    self.command[0] as usize & 0x0F;
+                assert!((0x4000..=0x7000).contains(&addr));
+                assert_eq!(addr & 0xFFF, 0);
+                assert_eq!(self.rom_bytes_left, 0x1000);
+                self.copy_rom(addr..addr + self.rom_bytes_left);
+            },
             0x4 => {
                 // Endless stream of HIGH-Z bytes?
                 for _ in 0..self.rom_bytes_left / 4 {
