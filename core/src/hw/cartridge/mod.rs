@@ -37,9 +37,15 @@ pub struct Cartridge {
 }
 
 impl Cartridge {
+    const DESTROYED_SECURE_AREA_ID: u32 = 0xE7FFDEFF;
+    const DECRYPTED_SECURE_AREA_ID: &'static str = "encryObj";
+    const SECURE_AREA_RANGE: Range<usize> = 0x4000..0x8000;
+    const SECURE_AREA_SIZE: usize = 0x800;
+
     pub fn new(rom: Vec<u8>, save_file: PathBuf, bios7: &[u8]) -> Self {
         let header = Header::new(&rom);
         let backup = <dyn Backup>::detect_type(&header, save_file);
+
         Cartridge {
             chip_id: 0x000_00FC2u32, // TODO: Actually Calculate
             header,
@@ -55,6 +61,39 @@ impl Cartridge {
             game_card_words: VecDeque::new(),
             backup,
         }
+    }
+
+    pub fn encrypt_secure_area(&mut self) {
+        let start = self.header.arm9_rom_offset as usize;
+        if !Self::SECURE_AREA_RANGE.contains(&start) {
+            return
+        }
+
+        let secure_area_range = || start..start + Self::SECURE_AREA_SIZE;
+        let secure_area = &mut self.rom[secure_area_range()];
+        let secure_area_32: &[u32] = bytemuck::cast_slice(&secure_area);
+        // Check secure area exists
+        for i in 0..3 {
+            if secure_area_32[i] != Self::DESTROYED_SECURE_AREA_ID {
+                return
+            }
+        }
+        if secure_area[0xC] != 0xFF || secure_area[0xD] != 0xDE {
+            return
+        }
+
+        // First 8 bytes over secure area is overwritten by BIOS after decryption, so put correct string
+        secure_area[..0x8].copy_from_slice(Self::DECRYPTED_SECURE_AREA_ID.as_bytes());
+        let secure_area_32: &mut [u32] = bytemuck::cast_slice_mut(&mut self.rom[secure_area_range()]);
+        // Level 3 for entire secure area
+        self.key1_encryption.init_key_code(self.header.game_code, 3, 2);
+        for chunk in secure_area_32.chunks_exact_mut(2) {
+            self.key1_encryption.encrypt(chunk);
+        }
+        // Level 2 for first 8 bytes (first 8 bytes encrypted twice)
+        self.key1_encryption.init_key_code(self.header.game_code, 2, 2);
+        self.key1_encryption.encrypt(&mut secure_area_32[..0x8]);
+        self.key1_encryption.in_use = false;
     }
 
     pub fn run_command(&mut self, scheduler: &mut Scheduler, is_arm9: bool) {

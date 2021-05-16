@@ -84,7 +84,7 @@ impl HW {
     ) -> Self {
         let mut scheduler = Scheduler::new();
         let cartridge = Cartridge::new(rom, save_file, &bios7);
-        let hw = HW {
+        let mut hw = HW {
             // Memory
             cp15: CP15::new(),
             bios7,
@@ -122,6 +122,7 @@ impl HW {
         if direct_boot {
             hw.init_mem()
         } else {
+            hw.cartridge.encrypt_secure_area();
             hw
         }
     }

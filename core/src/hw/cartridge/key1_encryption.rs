@@ -37,6 +37,10 @@ impl Key1Encryption {
         Self::encrypt_decrypt64::<false>(&self.key_buf, ptr)
     }
 
+    pub fn encrypt(&self, ptr: &mut [u32]) {
+        Self::encrypt_decrypt64::<true>(&self.key_buf, ptr)
+    }
+
     fn encrypt_decrypt64<const ENCRYPT: bool>(key_buf: &[u32], ptr: &mut [u32]) {
         let mut y = ptr[0 / 4];
         let mut x = ptr[4 / 4];
