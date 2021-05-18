@@ -333,28 +333,28 @@ impl HW {
             0x0400_01A3 => (), // TODO: Does this write do anything?
             0x0400_01A4 => self.cartridge.write_romctrl(
                 &mut self.scheduler,
-                false,
+                true,
                 !self.exmem.nds_arm7_access,
                 0,
                 value,
             ),
             0x0400_01A5 => self.cartridge.write_romctrl(
                 &mut self.scheduler,
-                false,
+                true,
                 !self.exmem.nds_arm7_access,
                 1,
                 value,
             ),
             0x0400_01A6 => self.cartridge.write_romctrl(
                 &mut self.scheduler,
-                false,
+                true,
                 !self.exmem.nds_arm7_access,
                 2,
                 value,
             ),
             0x0400_01A7 => self.cartridge.write_romctrl(
                 &mut self.scheduler,
-                false,
+                true,
                 !self.exmem.nds_arm7_access,
                 3,
                 value,
