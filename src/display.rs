@@ -132,8 +132,11 @@ impl Display {
         io[Key::Z] = glfw::Key::Z as _;
     }
 
-    pub fn should_close(&self) -> bool {
-        self.window.should_close()
+    pub fn run_main_loop<F: FnMut(&mut Display)>(&mut self, main_loop: F) {
+        let mut main_loop = main_loop;
+        while !self.window.should_close() {
+            main_loop(self);
+        }
     }
 
     fn prepare_frame(&mut self, io: &mut imgui::Io) {

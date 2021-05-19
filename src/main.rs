@@ -70,9 +70,6 @@ fn main() {
     }
     CombinedLogger::init(loggers).unwrap();
 
-    let mut imgui = Context::create();
-    let mut display = Display::new(&mut imgui);
-
     let mut nds = load_rom(&bios7_path, &bios9_path, &firmware_path, rom_path);
 
     let mut main_menu_height = 0.0;
@@ -82,7 +79,10 @@ fn main() {
     let mut vram_window = DebugWindow::<VRAMWindowState>::new("VRAM");
     let mut stats_window = StatsWindow::new();
 
-    while !display.should_close() {
+    let mut imgui = Context::create();
+    let mut display = Display::new(&mut imgui);
+
+    let main_loop = move |display: &mut Display| {
         nds.emulate_frame();
         stats_window.frame_completed();
 
@@ -122,7 +122,9 @@ fn main() {
         } else if files_dropped.len() > 1 {
             error!("More than 1 file dropped!")
         }
-    }
+    };
+
+    display.run_main_loop(main_loop);
 
     fn load_rom(
         bios7_path: &PathBuf,
