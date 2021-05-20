@@ -257,5 +257,3 @@ impl TMCNT {
         }
     }
 }
-
-impl HW {}
