@@ -33,7 +33,7 @@ impl Display {
         let width = (Display::WIDTH * Display::SCALE) as u32;
         let height = 19 + (Display::HEIGHT * Display::SCALE) as u32; // TODO: Don't hardcode main menu bar height
         let (mut window, events) = glfw
-            .create_window(width, height, "GBA Emulator", glfw::WindowMode::Windowed)
+            .create_window(width, height, "NDS Emulator", glfw::WindowMode::Windowed)
             .expect("Failed to create GLFW window!");
         window.make_current();
         window.set_all_polling(true);
