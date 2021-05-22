@@ -324,9 +324,6 @@ impl DateTime {
     }
 
     fn write_status_reg1(&mut self, value: u8) {
-        if value & 0x1 != 0 {
-            todo!("RTC Reset");
-        }
         self.is_24h = value >> 1 & 0x1 != 0;
         self.gp_bits1 = value >> 2 & 0x3;
     }
