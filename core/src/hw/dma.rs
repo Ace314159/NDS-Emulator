@@ -12,7 +12,7 @@ pub struct DMAController {
 
 impl DMAController {
     pub fn new(is_nds9: bool) -> Self {
-        let mut controller = DMAController {
+        DMAController {
             channels: [
                 DMAChannel::new(is_nds9, 0),
                 DMAChannel::new(is_nds9, 1),
@@ -20,11 +20,7 @@ impl DMAController {
                 DMAChannel::new(is_nds9, 3),
             ],
             by_type: Default::default(), // TODO: Use ArrayVec or smth maybe?
-        };
-        for i in 0..4 {
-            controller.by_type[controller.channels[i].cnt.start_timing as usize].push(i)
         }
-        controller
     }
 
     pub fn read(&self, channel: usize, addr: u32) -> u8 {
