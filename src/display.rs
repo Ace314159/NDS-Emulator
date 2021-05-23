@@ -82,6 +82,7 @@ impl Display {
                 screen_tex,
                 0,
             );
+            gl::ClearColor(0.0, 0.0, 0.0, 1.0);
         }
 
         Display {
@@ -213,7 +214,6 @@ impl Display {
         let y_end = height - tex_y;
 
         unsafe {
-            gl::ClearColor(0.0, 0.0, 0.0, 1.0);
             gl::BindTexture(gl::TEXTURE_2D, self.screen_tex);
             gl::Clear(gl::COLOR_BUFFER_BIT);
             gl::TexSubImage2D(
