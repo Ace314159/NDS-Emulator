@@ -56,10 +56,11 @@ impl StatusReg {
 pub struct RegValues {
     regs: [u32; 16],
     svc: [u32; 2], // R13 and R14
+    und: [u32; 2], // R13 and R14
     irq: [u32; 2], // R13 and R14
     fiq: [u32; 7], // R8-R14
     cpsr: StatusReg,
-    spsr: [StatusReg; 3], // SVC, IRQ, IRQ
+    spsr: [StatusReg; 4], // SVC, IRQ, IRQ
 }
 
 impl RegValues {
@@ -67,10 +68,11 @@ impl RegValues {
         let mut regs = RegValues {
             regs: [0; 16],
             svc: [0; 2], // R13 and R14
+            und: [0; 2], // R13 and R14
             irq: [0; 2], // R13 and R14
             fiq: [0; 7], // R8-R14
             cpsr: StatusReg::reset(),
-            spsr: [StatusReg::reset(); 3], // SVC, IRQ, FIQ
+            spsr: [StatusReg::reset(); 4], // SVC, UND, IRQ, FIQ
         };
         regs[15] = if IS_ARM9 { 0xFFFF_0000 } else { 0x0 };
         regs
@@ -122,9 +124,10 @@ impl RegValues {
         let banked: &mut [u32] = match self.cpsr.get_mode() {
             Mode::USR | Mode::SYS => return,
             Mode::SVC => &mut self.svc,
+            Mode::UND => &mut self.und,
             Mode::IRQ => &mut self.irq,
             Mode::FIQ => &mut self.fiq,
-            Mode::ABT | Mode::UND => unreachable!(), // Unused modes (hopefully)
+            Mode::ABT => unreachable!(), // Unused modes (hopefully)
         };
         let start = 15 - banked.len();
         banked.swap_with_slice(&mut self.regs[start..15]);
@@ -135,9 +138,10 @@ impl RegValues {
         let banked: &mut [u32] = match mode {
             Mode::USR | Mode::SYS => return,
             Mode::SVC => &mut self.svc,
+            Mode::UND => &mut self.und,
             Mode::IRQ => &mut self.irq,
             Mode::FIQ => &mut self.fiq,
-            Mode::ABT | Mode::UND => unreachable!(), // Unused modes (hopefully)
+            Mode::ABT => unreachable!(), // Unused modes (hopefully)
         };
         let start = 15 - banked.len();
         self.regs[start..15].swap_with_slice(banked);
@@ -146,9 +150,10 @@ impl RegValues {
     pub fn spsr(&self) -> u32 {
         match self.cpsr.get_mode() {
             Mode::SVC => self.spsr[0].bits,
-            Mode::IRQ => self.spsr[1].bits,
-            Mode::FIQ => self.spsr[2].bits,
-            Mode::ABT | Mode::UND => unreachable!(), // Unused modes (hopefully)
+            Mode::UND => self.spsr[1].bits,
+            Mode::IRQ => self.spsr[2].bits,
+            Mode::FIQ => self.spsr[3].bits,
+            Mode::ABT => unreachable!(), // Unused modes (hopefully)
             _ => self.cpsr.bits,
         }
     }
@@ -156,9 +161,10 @@ impl RegValues {
     pub fn spsr_mut(&mut self) -> &mut u32 {
         match self.cpsr.get_mode() {
             Mode::SVC => &mut self.spsr[0].bits,
-            Mode::IRQ => &mut self.spsr[1].bits,
-            Mode::FIQ => &mut self.spsr[2].bits,
-            Mode::ABT | Mode::UND => unreachable!(), // Unused modes (hopefully)
+            Mode::UND => &mut self.spsr[1].bits,
+            Mode::IRQ => &mut self.spsr[2].bits,
+            Mode::FIQ => &mut self.spsr[3].bits,
+            Mode::ABT => unreachable!(), // Unused modes (hopefully)
             _ => &mut self.cpsr.bits,
         }
     }
