@@ -288,6 +288,8 @@ impl Cartridge {
             } else {
                 scheduler.run_now(Event::ROMBlockEnded(is_arm9), HW::on_rom_block_ended);
             }
+        } else {
+            warn!("Reading Old Game Card Value");
         }
         self.cur_game_card_word
     }
