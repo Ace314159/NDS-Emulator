@@ -135,11 +135,10 @@ impl IORegister for RTC {
         let prev_sck = self.sck;
         self.cs_write = value >> 6 & 0x1 != 0;
         self.sck_write = value >> 5 & 0x1 != 0;
-        assert!(self.cs_write && self.sck_write);
         self.data_write = value >> 4 & 0x1 != 0;
-        self.cs = value >> 2 & 0x1 != 0;
-        self.sck = value >> 1 & 0x1 != 0;
-        self.data = value >> 0 & 0x1 != 0;
+        if self.cs_write { self.cs = value >> 2 & 0x1 != 0 }
+        if self.sck_write { self.sck = value >> 1 & 0x1 != 0 }
+        if self.data_write { self.data = value >> 0 & 0x1 != 0 }
 
         self.mode = match self.mode {
             Mode::StartCmd(false) if !self.cs => Mode::StartCmd(true),
