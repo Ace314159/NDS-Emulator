@@ -101,13 +101,13 @@ impl SPU {
             ChannelOutput::Mixer => mixer.0,
             ChannelOutput::Ch1 => ch1.0,
             ChannelOutput::Ch3 => ch3.0,
-            ChannelOutput::Ch1Ch3 => todo!(),
+            ChannelOutput::Ch1Ch3 => ch1.0 + ch3.0,
         } >> 16;
         let right_sample = match self.cnt.right_output {
             ChannelOutput::Mixer => mixer.1,
             ChannelOutput::Ch1 => ch1.1,
             ChannelOutput::Ch3 => ch3.1,
-            ChannelOutput::Ch1Ch3 => todo!(),
+            ChannelOutput::Ch1Ch3 => ch1.0 + ch3.0,
         } >> 16;
         let final_sample = (
             ((left_sample * self.cnt.master_volume()) >> 7) as i16,
