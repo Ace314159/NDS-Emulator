@@ -4,8 +4,8 @@ mod key1_encryption;
 
 use std::collections::VecDeque;
 use std::convert::TryInto;
+use std::fs::File;
 use std::ops::Range;
-use std::path::PathBuf;
 
 use super::{
     dma::DMAOccasion,
@@ -42,7 +42,7 @@ impl Cartridge {
     const SECURE_AREA_RANGE: Range<usize> = 0x4000..0x8000;
     const SECURE_AREA_SIZE: usize = 0x800;
 
-    pub fn new(rom: Vec<u8>, save_file: PathBuf, bios7: &[u8]) -> Self {
+    pub fn new(rom: Vec<u8>, save_file: File, bios7: &[u8]) -> Self {
         let header = Header::new(&rom);
         let backup = <dyn Backup>::detect_type(&header, save_file);
 
@@ -201,7 +201,7 @@ impl Cartridge {
                 for byte in self.command[1..].iter() {
                     assert_eq!(*byte, 0)
                 }
-                assert!(self.rom_bytes_left < 0x10000); // TODO: Support
+                assert!(self.rom_bytes_left < 0x1000); // TODO: Support
                 self.copy_rom(0..self.rom_bytes_left);
             }
             0x3C => {
@@ -344,9 +344,6 @@ impl Cartridge {
     }
     pub fn header(&self) -> &Header {
         &self.header
-    }
-    pub fn save_backup(&mut self) {
-        self.backup.save()
     }
 
     fn transfer_byte_time(&self) -> usize {

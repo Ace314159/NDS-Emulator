@@ -3,8 +3,8 @@ mod flash;
 mod game_db;
 mod no_backup;
 
-use std::fs;
-use std::path::PathBuf;
+use std::{fs::File, io::Write};
+use memmap::{MmapMut, MmapOptions};
 
 use super::Header;
 
@@ -15,14 +15,10 @@ use no_backup::NoBackup;
 pub trait Backup {
     fn read(&self) -> u8;
     fn write(&mut self, hold: bool, value: u8);
-
-    fn mem(&self) -> &Vec<u8>;
-    fn save_file(&self) -> &PathBuf;
-    fn dirty(&mut self) -> bool;
 }
 
 impl dyn Backup {
-    pub fn detect_type(header: &Header, save_file: PathBuf) -> Box<dyn Backup> {
+    pub fn detect_type(header: &Header, save_file: File) -> Box<dyn Backup> {
         if let Some(pos) = <dyn Backup>::GAME_DB
             .iter()
             .position(|game_info| game_info.game_code == header.game_code)
@@ -41,22 +37,12 @@ impl dyn Backup {
         }
     }
 
-    fn get_initial_mem(save_file: &PathBuf, default_val: u8, size: usize) -> Vec<u8> {
-        if let Ok(mem) = fs::read(save_file) {
-            if mem.len() == size {
-                mem
-            } else {
-                vec![default_val; size]
-            }
-        } else {
-            vec![default_val; size]
+    fn mmap(save_file: File, default_val: u8, size: usize) -> MmapMut {
+        let mut save_file = save_file;
+        if save_file.metadata().unwrap().len() as usize != size {
+            save_file.write_all(&vec![default_val; size]).unwrap();
         }
-    }
 
-    pub fn save(&mut self) {
-        if self.dirty() {
-            fs::write(self.save_file(), self.mem())
-                .unwrap_or_else(|err| warn!("Unable to Save to File: {}!", err))
-        }
+        unsafe { MmapOptions::new().map_mut(&save_file).unwrap() }
     }
 }

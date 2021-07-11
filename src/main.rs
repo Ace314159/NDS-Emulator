@@ -1,7 +1,7 @@
 mod debug;
 mod display;
 
-use std::fs;
+use std::fs::{self, File, OpenOptions};
 use std::path::{PathBuf, Path};
 
 use nds_core::log::*;
@@ -30,8 +30,8 @@ fn main() {
     let instructions7_filter = LevelFilter::Off;
     let instructions9_filter = LevelFilter::Off;
 
-    let arm7_file = fs::File::create(arm7_file_name);
-    let arm9_file = fs::File::create(arm9_file_name);
+    let arm7_file = File::create(arm7_file_name);
+    let arm9_file = File::create(arm9_file_name);
     let mut loggers: Vec<Box<dyn SharedLogger>> = vec![TermLogger::new(
         LevelFilter::Warn,
         Config::default(),
@@ -132,12 +132,22 @@ fn main() {
         firmware_path: &PathBuf,
         rom_path: &Path,
     ) -> NDS {
+        let save_file_path = rom_path.with_extension("sav");
+        let save_file = OpenOptions::new().read(true).write(true).create(true).open(&save_file_path).unwrap();
+        let mut firmware_file = OpenOptions::new().read(true).write(true).create(true).open(&firmware_path).unwrap();
+        let firmware_bak = PathBuf::from(firmware_path.to_str().unwrap().to_owned() + ".bak");
+
+        let mut firmware_bak_file = OpenOptions::new().read(true).write(true).create(true).open(&firmware_bak).unwrap();
+        if firmware_file.metadata().unwrap().len() != firmware_bak_file.metadata().unwrap().len() {
+            std::io::copy(&mut firmware_file, &mut firmware_bak_file).unwrap();
+        }
+
         NDS::new(
             fs::read(bios7_path).unwrap(),
             fs::read(bios9_path).unwrap(),
-            fs::read(firmware_path).unwrap(),
+            firmware_file,
             fs::read(rom_path).unwrap(),
-            rom_path.with_extension("sav"),
+            save_file,
         )
     }
 }

@@ -1,5 +1,8 @@
 mod tsc;
 
+use std::fs::File;
+use memmap::{MmapMut, MmapOptions};
+
 use super::{mem::IORegister, Scheduler, GPU, HW};
 use crate::hw::cartridge::{Backup, Flash};
 use tsc::TSC;
@@ -11,10 +14,10 @@ pub struct SPI {
 }
 
 impl SPI {
-    pub fn new(firmware: Vec<u8>) -> Self {
+    pub fn new(firmware_file: File) -> Self {
         SPI {
             cnt: CNT::new(),
-            firmware: Flash::new_firmware(SPI::init_firmware(firmware)),
+            firmware: Flash::new_firmware(SPI::init_firmware(firmware_file)),
             tsc: TSC::new(),
         }
     }
@@ -65,26 +68,29 @@ impl SPI {
     pub fn release_screen(&mut self) {
         self.tsc.release_screen()
     }
-    pub fn init_firmware(firmware: Vec<u8>) -> Vec<u8> {
-        let mut firmware = firmware;
+    pub fn init_firmware(firmware_file: File) -> MmapMut {
+        let mut mmap = unsafe { MmapOptions::new().map_mut(&firmware_file).unwrap() };
+        let firmware = unsafe {
+            std::slice::from_raw_parts_mut(mmap.as_mut_ptr(), mmap.len())
+        };
         let user_settings_addr = 0x3FE00;
 
         // Set Touch Screen Calibration
         let max_x = GPU::WIDTH - 1;
         let max_y = GPU::HEIGHT - 1;
         // Top Left Corner
-        HW::write_mem(&mut firmware, user_settings_addr + 0x58, 0u16);
-        HW::write_mem(&mut firmware, user_settings_addr + 0x5A, 0u16);
+        HW::write_mem(firmware, user_settings_addr + 0x58, 0u16);
+        HW::write_mem(firmware, user_settings_addr + 0x5A, 0u16);
         firmware[user_settings_addr as usize + 0x5C] = 0;
         firmware[user_settings_addr as usize + 0x5D] = 0;
         // Bottom Right Corner
         HW::write_mem(
-            &mut firmware,
+            firmware,
             user_settings_addr + 0x5E,
             (max_x as u16) << 4,
         );
         HW::write_mem(
-            &mut firmware,
+            firmware,
             user_settings_addr + 0x60,
             (max_y as u16) << 4,
         );
@@ -111,8 +117,8 @@ impl SPI {
             }
             crc as u16
         };
-        HW::write_mem(&mut firmware, user_settings_addr + 0x72, crc16);
-        firmware
+        HW::write_mem(firmware, user_settings_addr + 0x72, crc16);
+        mmap
     }
 }
 

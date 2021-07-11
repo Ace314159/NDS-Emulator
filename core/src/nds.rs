@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::fs::File;
 
 use crate::arm::ARM;
 use crate::hw::HW;
@@ -18,12 +18,12 @@ impl NDS {
     pub fn new(
         bios7: Vec<u8>,
         bios9: Vec<u8>,
-        firmware: Vec<u8>,
+        firmware_file: File,
         rom: Vec<u8>,
-        save_file: PathBuf,
+        save_file: File,
     ) -> Self {
         let direct_boot = true;
-        let mut hw = HW::new(bios7, bios9, firmware, rom, save_file, direct_boot);
+        let mut hw = HW::new(bios7, bios9, firmware_file, rom, save_file, direct_boot);
         NDS {
             arm9_cycles_ahead: 0,
             arm7: ARM::new(&mut hw, direct_boot),
@@ -56,7 +56,6 @@ impl NDS {
                 self.hw.clock_until_event()
             }
         }
-        self.hw.save_backup();
     }
 
     pub fn get_screens(&self) -> [&Vec<u16>; 2] {

@@ -13,7 +13,7 @@ mod spu;
 mod timers;
 
 use std::convert::TryInto;
-use std::path::PathBuf;
+use std::fs::File;
 
 use cartridge::Cartridge;
 use dma::DMAController;
@@ -77,9 +77,9 @@ impl HW {
     pub fn new(
         bios7: Vec<u8>,
         bios9: Vec<u8>,
-        firmware: Vec<u8>,
+        firmware_file: File,
         rom: Vec<u8>,
-        save_file: PathBuf,
+        save_file: File,
         direct_boot: bool,
     ) -> Self {
         let mut scheduler = Scheduler::new();
@@ -105,7 +105,7 @@ impl HW {
             timers: [Timers::new(false), Timers::new(true)],
             ipc: IPC::new(),
             rtc: RTC::new(),
-            spi: SPI::new(firmware),
+            spi: SPI::new(firmware_file),
             // Registesr
             wramcnt: WRAMCNT::new(3),
             powcnt2: POWCNT2::new(),
@@ -150,10 +150,6 @@ impl HW {
 
     pub fn rendered_frame(&mut self) -> bool {
         self.gpu.rendered_frame()
-    }
-
-    pub fn save_backup(&mut self) {
-        self.cartridge.save_backup();
     }
 
     pub fn press_key(&mut self, key: Key) {

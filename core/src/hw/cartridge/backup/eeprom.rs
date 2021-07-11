@@ -1,13 +1,12 @@
 use std::marker::PhantomData;
-use std::path::PathBuf;
+use std::fs::File;
+use memmap::MmapMut;
 
 use super::Backup;
 
 pub struct EEPROM<T: EEPROMType> {
     eeprom_type: PhantomData<T>,
-    mem: Vec<u8>,
-    save_file: PathBuf,
-    dirty: bool,
+    mem: MmapMut,
 
     mode: Mode,
     value: u8,
@@ -17,12 +16,10 @@ pub struct EEPROM<T: EEPROMType> {
 }
 
 impl<T: EEPROMType> EEPROM<T> {
-    pub fn new(save_file: PathBuf, size: usize) -> EEPROM<T> {
+    pub fn new(save_file: File, size: usize) -> EEPROM<T> {
         EEPROM {
             eeprom_type: PhantomData,
-            mem: <dyn Backup>::get_initial_mem(&save_file, 0, size),
-            save_file,
-            dirty: false,
+            mem: <dyn Backup>::mmap(save_file, 0, size),
 
             mode: Mode::ReadCommand,
             value: 0,
@@ -55,7 +52,6 @@ impl<T: EEPROMType> EEPROM<T> {
 
             Command::WR(0, addr) => {
                 if self.write_enable {
-                    self.dirty = true;
                     self.mem[addr] = value
                 }
                 Mode::HandleCommand(Command::WR(0, addr + 1))
@@ -93,18 +89,6 @@ impl<T: EEPROMType> Backup for EEPROM<T> {
         if !hold {
             self.mode = Mode::ReadCommand
         }
-    }
-
-    fn mem(&self) -> &Vec<u8> {
-        &self.mem
-    }
-    fn save_file(&self) -> &PathBuf {
-        &self.save_file
-    }
-    fn dirty(&mut self) -> bool {
-        let old = self.dirty;
-        self.dirty = false;
-        old
     }
 }
 
