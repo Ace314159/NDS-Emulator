@@ -16,3 +16,10 @@ nds-core = { path = "core" }
 
 [profile.release]
 debug = true
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "games"
+harness = false
