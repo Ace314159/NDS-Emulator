@@ -1,8 +1,8 @@
 mod debug;
 mod display;
 
-use std::fs::{self, File, OpenOptions};
-use std::path::{PathBuf, Path};
+use std::fs::File;
+use std::path::{Path, PathBuf};
 
 use nds_core::log::*;
 use nds_core::nds::{Engine, GraphicsType, NDS};
@@ -70,7 +70,7 @@ fn main() {
     }
     CombinedLogger::init(loggers).unwrap();
 
-    let mut nds = load_rom(&bios7_path, &bios9_path, &firmware_path, rom_path);
+    let mut nds = NDS::load_rom(&bios7_path, &bios9_path, &firmware_path, rom_path);
 
     let mut main_menu_height = 0.0;
     let mut palettes_window = DebugWindow::<PalettesWindowState>::new("Palettes");
@@ -111,7 +111,12 @@ fn main() {
             if let Some(ext) = files_dropped[0].extension() {
                 if let Some(str) = ext.to_str() {
                     if str.to_lowercase() == "nds" {
-                        nds = load_rom(&bios7_path, &bios9_path, &firmware_path, &files_dropped[0]);
+                        nds = NDS::load_rom(
+                            &bios7_path,
+                            &bios9_path,
+                            &firmware_path,
+                            &files_dropped[0],
+                        );
                     } else {
                         error!("File is not a .nds file!")
                     }
@@ -125,29 +130,4 @@ fn main() {
     };
 
     display.run_main_loop(main_loop);
-
-    fn load_rom(
-        bios7_path: &PathBuf,
-        bios9_path: &PathBuf,
-        firmware_path: &PathBuf,
-        rom_path: &Path,
-    ) -> NDS {
-        let save_file_path = rom_path.with_extension("sav");
-        let save_file = OpenOptions::new().read(true).write(true).create(true).open(&save_file_path).unwrap();
-        let mut firmware_file = OpenOptions::new().read(true).write(true).create(true).open(&firmware_path).unwrap();
-        let firmware_bak = PathBuf::from(firmware_path.to_str().unwrap().to_owned() + ".bak");
-
-        let mut firmware_bak_file = OpenOptions::new().read(true).write(true).create(true).open(&firmware_bak).unwrap();
-        if firmware_file.metadata().unwrap().len() != firmware_bak_file.metadata().unwrap().len() {
-            std::io::copy(&mut firmware_file, &mut firmware_bak_file).unwrap();
-        }
-
-        NDS::new(
-            fs::read(bios7_path).unwrap(),
-            fs::read(bios9_path).unwrap(),
-            firmware_file,
-            fs::read(rom_path).unwrap(),
-            save_file,
-        )
-    }
 }

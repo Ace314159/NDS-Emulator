@@ -1,4 +1,7 @@
-use std::fs::File;
+use std::{
+    fs::{self, File, OpenOptions},
+    path::{Path, PathBuf},
+};
 
 use crate::arm::ARM;
 use crate::hw::HW;
@@ -119,6 +122,46 @@ impl NDS {
 
     pub fn render_bank(&self, bank: usize, ignore_alpha: bool) -> (Vec<u16>, usize, usize) {
         self.hw.render_bank(ignore_alpha, bank)
+    }
+
+    pub fn load_rom(
+        bios7_path: &PathBuf,
+        bios9_path: &PathBuf,
+        firmware_path: &PathBuf,
+        rom_path: &Path,
+    ) -> Self {
+        let save_file_path = rom_path.with_extension("sav");
+        let save_file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(&save_file_path)
+            .unwrap();
+        let mut firmware_file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(&firmware_path)
+            .unwrap();
+        let firmware_bak = PathBuf::from(firmware_path.to_str().unwrap().to_owned() + ".bak");
+
+        let mut firmware_bak_file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(&firmware_bak)
+            .unwrap();
+        if firmware_file.metadata().unwrap().len() != firmware_bak_file.metadata().unwrap().len() {
+            std::io::copy(&mut firmware_file, &mut firmware_bak_file).unwrap();
+        }
+
+        NDS::new(
+            fs::read(bios7_path).unwrap(),
+            fs::read(bios9_path).unwrap(),
+            firmware_file,
+            fs::read(rom_path).unwrap(),
+            save_file,
+        )
     }
 }
 
