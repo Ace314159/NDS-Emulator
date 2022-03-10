@@ -8,7 +8,7 @@ use std::fs::File;
 use std::ops::Range;
 
 use super::{
-    dma::DMAOccasion,
+    dma,
     interrupt_controller::InterruptRequest,
     scheduler::{Event, Scheduler},
     HW,
@@ -363,7 +363,7 @@ impl HW {
         };
         self.cartridge.cur_game_card_word = self.cartridge.game_card_words.pop_front().unwrap();
         self.cartridge.romctrl.data_word_ready = true;
-        self.run_dmas_single(DMAOccasion::DSCartridge, is_arm9);
+        self.run_dmas_single(dma::Occasion::DSCartridge, is_arm9);
     }
 
     fn on_rom_block_ended(&mut self, event: Event) {

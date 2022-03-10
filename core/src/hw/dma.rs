@@ -5,19 +5,19 @@ use super::{
     HW,
 };
 
-pub struct DMAController {
-    channels: [DMAChannel; 4],
-    pub by_type: [Vec<usize>; DMAOccasion::num()],
+pub struct Controller {
+    channels: [Channel; 4],
+    pub by_type: [Vec<usize>; Occasion::num()],
 }
 
-impl DMAController {
+impl Controller {
     pub fn new(is_nds9: bool) -> Self {
-        DMAController {
+        Controller {
             channels: [
-                DMAChannel::new(is_nds9, 0),
-                DMAChannel::new(is_nds9, 1),
-                DMAChannel::new(is_nds9, 2),
-                DMAChannel::new(is_nds9, 3),
+                Channel::new(is_nds9, 0),
+                Channel::new(is_nds9, 1),
+                Channel::new(is_nds9, 2),
+                Channel::new(is_nds9, 3),
             ],
             by_type: Default::default(), // TODO: Use ArrayVec or smth maybe?
         }
@@ -58,10 +58,10 @@ impl DMAController {
                 if channel.cnt.transfer_32 { 32 } else { 16 }
             );
             match channel.cnt.start_timing {
-                DMAOccasion::Immediate => {
+                Occasion::Immediate => {
                     scheduler.run_now(Event::DMA(channel.is_nds9, channel.num), HW::on_dma)
                 }
-                DMAOccasion::GeometryCommandFIFO => scheduler.run_now(
+                Occasion::GeometryCommandFIFO => scheduler.run_now(
                     Event::CheckGeometryCommandFIFO,
                     HW::check_geometry_command_fifo_handler,
                 ),
@@ -77,15 +77,15 @@ impl DMAController {
     }
 }
 
-impl std::ops::Index<usize> for DMAController {
-    type Output = DMAChannel;
+impl std::ops::Index<usize> for Controller {
+    type Output = Channel;
 
     fn index(&self, index: usize) -> &Self::Output {
         &self.channels[index]
     }
 }
 
-impl std::ops::IndexMut<usize> for DMAController {
+impl std::ops::IndexMut<usize> for Controller {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.channels[index]
     }
@@ -153,7 +153,7 @@ impl HW {
         let transfer_32 = channel.cnt.transfer_32;
         let irq = channel.cnt.irq;
         channel.cnt.enable =
-            channel.cnt.start_timing != DMAOccasion::Immediate && channel.cnt.repeat;
+            channel.cnt.start_timing != Occasion::Immediate && channel.cnt.repeat;
         info!(
             "Running {:?} ARM{} DMA{}: Writing {} values to {:08X} from {:08X}, size: {}",
             channel.cnt.start_timing,
@@ -227,11 +227,11 @@ impl HW {
 
     pub fn check_geometry_command_fifo(&mut self) {
         if self.gpu.engine3d.should_run_fifo() {
-            self.run_dmas_both(DMAOccasion::GeometryCommandFIFO);
+            self.run_dmas_both(Occasion::GeometryCommandFIFO);
         }
     }
 
-    pub fn run_dmas_single(&mut self, occasion: DMAOccasion, is_arm9: bool) {
+    pub fn run_dmas_single(&mut self, occasion: Occasion, is_arm9: bool) {
         let mut events = Vec::new();
         for num in self.dmas[is_arm9 as usize].by_type[occasion as usize].iter() {
             events.push(Event::DMA(is_arm9, *num));
@@ -241,34 +241,34 @@ impl HW {
         }
     }
 
-    pub fn run_dmas_both(&mut self, occasion: DMAOccasion) {
+    pub fn run_dmas_both(&mut self, occasion: Occasion) {
         self.run_dmas_single(occasion, false);
         self.run_dmas_single(occasion, true);
     }
 }
 
-pub struct DMAChannel {
+pub struct Channel {
     pub num: usize,
     pub is_nds9: bool,
     pub sad_latch: u32,
     pub dad_latch: u32,
     pub count_latch: u32,
 
-    pub cnt: DMACNT,
+    pub cnt: Control,
     sad: Address,
     dad: Address,
 }
 
-impl DMAChannel {
+impl Channel {
     pub fn new(is_nds9: bool, num: usize) -> Self {
-        DMAChannel {
+        Channel {
             num,
             is_nds9,
             sad_latch: 0,
             dad_latch: 0,
             count_latch: 0,
 
-            cnt: DMACNT::new(is_nds9, num),
+            cnt: Control::new(is_nds9, num),
             sad: Address::new(if is_nds9 {
                 0x0FFF_FFFF
             } else {
@@ -302,7 +302,7 @@ impl DMAChannel {
     }
 }
 
-impl IORegister for DMAChannel {
+impl IORegister for Channel {
     fn read(&self, byte: usize) -> u8 {
         match byte {
             0x0 => self.sad.read(0),
@@ -341,7 +341,7 @@ impl IORegister for DMAChannel {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum DMAOccasion {
+pub enum Occasion {
     Immediate = 0,
     VBlank = 1,
     HBlank = 2,
@@ -353,7 +353,7 @@ pub enum DMAOccasion {
     WirelessInterrupt = 8,
 }
 
-impl DMAOccasion {
+impl Occasion {
     const fn num() -> usize {
         9
     }
@@ -363,10 +363,10 @@ impl DMAOccasion {
             self as u8
         } else {
             let val = match self {
-                DMAOccasion::Immediate => 0,
-                DMAOccasion::VBlank => 1,
-                DMAOccasion::DSCartridge => 2,
-                DMAOccasion::WirelessInterrupt | DMAOccasion::GBACartridge => 3,
+                Occasion::Immediate => 0,
+                Occasion::VBlank => 1,
+                Occasion::DSCartridge => 2,
+                Occasion::WirelessInterrupt | Occasion::GBACartridge => 3,
                 _ => unreachable!(),
             };
             val << 1
@@ -376,40 +376,40 @@ impl DMAOccasion {
     fn get(is_nds9: bool, dma_num: usize, start_timing: u8) -> Self {
         if is_nds9 {
             match start_timing {
-                0 => DMAOccasion::Immediate,
-                1 => DMAOccasion::VBlank,
-                2 => DMAOccasion::HBlank,
+                0 => Occasion::Immediate,
+                1 => Occasion::VBlank,
+                2 => Occasion::HBlank,
                 3 => {
                     warn!("ARM9 Start Of Display DMA not implemented!");
-                    DMAOccasion::StartOfDisplay
+                    Occasion::StartOfDisplay
                 }
                 4 => {
                     warn!("ARM9 Main Memory Display DMA not implemented!");
-                    DMAOccasion::MainMemoryDisplay
+                    Occasion::MainMemoryDisplay
                 }
-                5 => DMAOccasion::DSCartridge,
+                5 => Occasion::DSCartridge,
                 6 => {
                     warn!("ARM9 GBA Cartridge DMA not implemented!");
-                    DMAOccasion::GBACartridge
+                    Occasion::GBACartridge
                 }
-                7 => DMAOccasion::GeometryCommandFIFO,
+                7 => Occasion::GeometryCommandFIFO,
                 _ => unreachable!(),
             }
         } else {
             match start_timing >> 1 {
-                0 => DMAOccasion::Immediate,
+                0 => Occasion::Immediate,
                 1 => {
                     warn!("ARM7 VBlank DMA not implemented!");
-                    DMAOccasion::VBlank
+                    Occasion::VBlank
                 }
-                2 => DMAOccasion::DSCartridge,
+                2 => Occasion::DSCartridge,
                 3 if dma_num % 2 == 0 => {
                     warn!("ARM7 WirelessInterrupt DMA not implemented!");
-                    DMAOccasion::WirelessInterrupt
+                    Occasion::WirelessInterrupt
                 }
                 3 => {
                     warn!("ARM7 GBA Cartridge DMA not implemented!");
-                    DMAOccasion::GBACartridge
+                    Occasion::GBACartridge
                 }
                 _ => unreachable!(),
             }
@@ -417,14 +417,14 @@ impl DMAOccasion {
     }
 }
 
-pub struct DMACNT {
+pub struct Control {
     count: u32,
     pub count_latch: u32,
     pub dest_addr_ctrl: u8,
     pub src_addr_ctrl: u8,
     pub repeat: bool,
     pub transfer_32: bool,
-    pub start_timing: DMAOccasion,
+    pub start_timing: Occasion,
     pub irq: bool,
     pub enable: bool,
 
@@ -433,16 +433,16 @@ pub struct DMACNT {
     count_mask: u32,
 }
 
-impl DMACNT {
+impl Control {
     pub fn new(is_nds9: bool, num: usize) -> Self {
-        DMACNT {
+        Control {
             count: 0,
             count_latch: 0,
             dest_addr_ctrl: 0,
             src_addr_ctrl: 0,
             repeat: false,
             transfer_32: false,
-            start_timing: DMAOccasion::Immediate,
+            start_timing: Occasion::Immediate,
             irq: false,
             enable: false,
 
@@ -461,7 +461,7 @@ impl DMACNT {
     }
 }
 
-impl IORegister for DMACNT {
+impl IORegister for Control {
     fn read(&self, byte: usize) -> u8 {
         match byte {
             0 | 1 => HW::read_byte_from_value(&self.count, byte),
@@ -495,7 +495,7 @@ impl IORegister for DMACNT {
             3 => {
                 self.enable = value >> 7 & 0x1 != 0;
                 self.irq = value >> 6 & 0x1 != 0;
-                self.start_timing = DMAOccasion::get(self.is_nds9, self.num, value >> 3 & 0x7);
+                self.start_timing = Occasion::get(self.is_nds9, self.num, value >> 3 & 0x7);
                 self.transfer_32 = value >> 2 & 0x1 != 0;
                 self.repeat = value >> 1 & 0x1 != 0;
                 self.src_addr_ctrl = self.src_addr_ctrl & !0x2 | value << 1 & 0x2;

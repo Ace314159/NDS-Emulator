@@ -16,7 +16,6 @@ use std::convert::TryInto;
 use std::fs::File;
 
 use cartridge::Cartridge;
-use dma::DMAController;
 pub use gpu::{EngineA, EngineB, GPU};
 use interrupt_controller::{InterruptController, InterruptRequest};
 use ipc::IPC;
@@ -47,7 +46,7 @@ pub struct HW {
     spu: SPU,
     keypad: Keypad,
     interrupts: [InterruptController; 2],
-    dmas: [DMAController; 2],
+    dmas: [dma::Controller; 2],
     dma_fill: [u32; 4],
     timers: [Timers; 2],
     ipc: IPC,
@@ -100,7 +99,7 @@ impl HW {
             spu: SPU::new(&mut scheduler),
             keypad: Keypad::new(),
             interrupts: [InterruptController::new(), InterruptController::new()],
-            dmas: [DMAController::new(false), DMAController::new(true)],
+            dmas: [dma::Controller::new(false), dma::Controller::new(true)],
             dma_fill: [0; 4],
             timers: [Timers::new(false), Timers::new(true)],
             ipc: IPC::new(),
