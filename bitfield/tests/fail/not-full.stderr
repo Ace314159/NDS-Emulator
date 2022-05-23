@@ -2,6 +2,6 @@ error: Bitfield must account for all bits in base type
  --> tests/fail/not-full.rs:4:5
   |
 4 | /     struct Bitfield: u8 {
-5 | |         a: u8, 0..=6,
+5 | |         a: u8 @ 0..=6,
 6 | |     }
   | |_____^

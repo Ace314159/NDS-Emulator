@@ -2,13 +2,13 @@ use bitfield::bitfield;
 
 bitfield! {
     struct BasicBitfield: u16 {
-        a: bool, 0,
-        b: bool, 1,
-        c: u8, 2..=3,
-        d: u8, 4..=6,
-        e: bool, 7,
-        f: u8, 8..=12,
-        g: u8, 13..=15,
+        a: bool @ 0,
+        b: bool @ 1,
+        c: u8 @ 2..=3,
+        d: u8 @ 4..=6,
+        e: bool @ 7,
+        f: u8 @ 8..=12,
+        g: u8 @ 13..=15,
     }
 }
 
@@ -59,10 +59,10 @@ fn basic_usage() {
 
 bitfield! {
     struct SkippedBitfield: u8 {
-        _: bool, 0,
-        a: bool, 1,
-        _: u8, 2..=5,
-        b: u8, 6..=7,
+        _: bool @ 0,
+        a: bool @ 1,
+        _: u8 @ 2..=5,
+        b: u8 @ 6..=7,
     }
 }
 

@@ -1,5 +1,5 @@
 error: Bitfield range bounds cannot be the same. A range is not needed
- --> tests/fail/same-range-bounds.rs:6:16
+ --> tests/fail/same-range-bounds.rs:6:17
   |
-6 |         b: u8, 7..=7,
-  |                ^^^^^
+6 |         b: u8 @ 7..=7,
+  |                 ^^^^^

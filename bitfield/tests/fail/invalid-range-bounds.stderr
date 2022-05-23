@@ -1,5 +1,5 @@
 error: Bitfield range bounds are invalid
- --> tests/fail/invalid-range-bounds.rs:5:16
+ --> tests/fail/invalid-range-bounds.rs:5:17
   |
-5 |         a: u8, 6..=0,
-  |                ^^^^^
+5 |         a: u8 @ 6..=0,
+  |                 ^^^^^

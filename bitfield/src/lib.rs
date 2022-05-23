@@ -147,7 +147,7 @@ struct BitfieldField {
     pub ident: Option<Ident>,
     pub _colon_token: Token![:],
     pub used_type: Type,
-    pub _comma_token: Token![,],
+    pub _range_sep_token: Token![@],
     pub range: BitfieldRange,
 }
 
@@ -212,14 +212,14 @@ impl Parse for BitfieldField {
         };
         let _colon_token = input.parse()?;
         let used_type = input.parse()?;
-        let _comma_token = input.parse()?;
+        let _range_sep_token = input.parse()?;
         let range = input.parse()?;
         Ok(BitfieldField {
             vis,
             ident,
             _colon_token,
             used_type,
-            _comma_token,
+            _range_sep_token,
             range,
         })
     }

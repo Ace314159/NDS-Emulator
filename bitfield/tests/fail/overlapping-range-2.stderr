@@ -1,5 +1,5 @@
 error: Bitfield range overlaps with another bitfield range
- --> tests/fail/overlapping-range-2.rs:6:18
+ --> tests/fail/overlapping-range-2.rs:6:19
   |
-6 |         b: bool, 5,
-  |                  ^
+6 |         b: bool @ 5,
+  |                   ^
