@@ -1,3 +1,4 @@
+use bitfield::bitfield;
 use bitflags::*;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
@@ -379,67 +380,26 @@ impl IORegister for WindowDimensions {
     }
 }
 
-#[derive(Clone, Copy, PartialEq)]
-pub struct WindowControl {
-    pub bg0_enable: bool,
-    pub bg1_enable: bool,
-    pub bg2_enable: bool,
-    pub bg3_enable: bool,
-    pub obj_enable: bool,
-    pub color_special_enable: bool,
+bitfield! {
+    #[derive(Clone, Copy)]
+    pub struct WindowControl: u8 {
+        pub bg0_enable: bool @ 0,
+        pub bg1_enable: bool @ 1,
+        pub bg2_enable: bool @ 2,
+        pub bg3_enable: bool @ 3,
+        pub obj_enable: bool @ 4,
+        pub color_special_enable: bool @ 5,
+        _: u8 @ 6..=7,
+    }
 }
 
 impl WindowControl {
-    pub fn new() -> WindowControl {
-        WindowControl {
-            bg0_enable: false,
-            bg1_enable: false,
-            bg2_enable: false,
-            bg3_enable: false,
-            obj_enable: false,
-            color_special_enable: false,
-        }
+    pub fn none() -> WindowControl {
+        WindowControl::new()
     }
 
     pub fn all() -> WindowControl {
-        WindowControl {
-            bg0_enable: true,
-            bg1_enable: true,
-            bg2_enable: true,
-            bg3_enable: true,
-            obj_enable: true,
-            color_special_enable: true,
-        }
-    }
-}
-
-impl IORegister for WindowControl {
-    fn read(&self, byte: usize) -> u8 {
-        match byte {
-            0 => {
-                (self.color_special_enable as u8) << 5
-                    | (self.obj_enable as u8) << 4
-                    | (self.bg3_enable as u8) << 3
-                    | (self.bg2_enable as u8) << 2
-                    | (self.bg1_enable as u8) << 1
-                    | (self.bg0_enable as u8) << 0
-            }
-            _ => unreachable!(),
-        }
-    }
-
-    fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8) {
-        match byte {
-            0 => {
-                self.color_special_enable = value >> 5 & 0x1 != 0;
-                self.obj_enable = value >> 4 & 0x1 != 0;
-                self.bg3_enable = value >> 3 & 0x1 != 0;
-                self.bg2_enable = value >> 2 & 0x1 != 0;
-                self.bg1_enable = value >> 1 & 0x1 != 0;
-                self.bg0_enable = value >> 0 & 0x1 != 0;
-            }
-            _ => unreachable!(),
-        }
+        WindowControl(0x3F)
     }
 }
 

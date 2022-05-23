@@ -66,10 +66,10 @@ impl<E: EngineType> Engine2D<E> {
             bgys_latch: [ReferencePointCoord::new(); 2],
             winhs: [WindowDimensions::new(); 2],
             winvs: [WindowDimensions::new(); 2],
-            win_0_cnt: WindowControl::new(),
-            win_1_cnt: WindowControl::new(),
-            win_out_cnt: WindowControl::new(),
-            win_obj_cnt: WindowControl::new(),
+            win_0_cnt: WindowControl::none(),
+            win_1_cnt: WindowControl::none(),
+            win_out_cnt: WindowControl::none(),
+            win_obj_cnt: WindowControl::none(),
             mosaic: MOSAIC::new(),
             master_bright: MasterBright::new(),
             // Color Special Effects
@@ -247,11 +247,11 @@ impl<E: EngineType> Engine2D<E> {
             self.windows_lines[1][dot_x] = false;
             self.windows_lines[2][dot_x] = false;
             let enabled = [
-                master_enabled[0] && window_control.bg0_enable,
-                master_enabled[1] && window_control.bg1_enable,
-                master_enabled[2] && window_control.bg2_enable,
-                master_enabled[3] && window_control.bg3_enable,
-                master_enabled[4] && window_control.obj_enable,
+                master_enabled[0] && window_control.bg0_enable(),
+                master_enabled[1] && window_control.bg1_enable(),
+                master_enabled[2] && window_control.bg2_enable(),
+                master_enabled[3] && window_control.bg3_enable(),
+                master_enabled[4] && window_control.obj_enable(),
             ];
 
             // Store top 2 layers
@@ -293,7 +293,7 @@ impl<E: EngineType> Engine2D<E> {
             let target1_enabled =
                 self.bldcnt.target_pixel1.enabled[layers[0] as usize] || trans_obj;
             let target2_enabled = self.bldcnt.target_pixel2.enabled[layers[1] as usize];
-            let final_color = if window_control.color_special_enable && target1_enabled {
+            let final_color = if window_control.color_special_enable() && target1_enabled {
                 let effect = if trans_obj && target2_enabled {
                     ColorSFX::AlphaBlend
                 } else {
@@ -1169,10 +1169,10 @@ impl<E: EngineType> Engine2D<E> {
             0x045 => self.winvs[0].read(1),
             0x046 => self.winvs[1].read(0),
             0x047 => self.winvs[1].read(1),
-            0x048 => self.win_0_cnt.read(0),
-            0x049 => self.win_1_cnt.read(0),
-            0x04A => self.win_out_cnt.read(0),
-            0x04B => self.win_obj_cnt.read(0),
+            0x048 => self.win_0_cnt.byte0(),
+            0x049 => self.win_1_cnt.byte0(),
+            0x04A => self.win_out_cnt.byte0(),
+            0x04B => self.win_obj_cnt.byte0(),
             0x04C => self.mosaic.read(0),
             0x04D => self.mosaic.read(1),
             0x04E..=0x04F => 0,
@@ -1286,10 +1286,10 @@ impl<E: EngineType> Engine2D<E> {
             0x045 => self.winvs[0].write(scheduler, 1, value),
             0x046 => self.winvs[1].write(scheduler, 0, value),
             0x047 => self.winvs[1].write(scheduler, 1, value),
-            0x048 => self.win_0_cnt.write(scheduler, 0, value),
-            0x049 => self.win_1_cnt.write(scheduler, 0, value),
-            0x04A => self.win_out_cnt.write(scheduler, 0, value),
-            0x04B => self.win_obj_cnt.write(scheduler, 0, value),
+            0x048 => self.win_0_cnt.set_byte0(value),
+            0x049 => self.win_1_cnt.set_byte0(value),
+            0x04A => self.win_out_cnt.set_byte0(value),
+            0x04B => self.win_obj_cnt.set_byte0(value),
             0x04C => self.mosaic.write(scheduler, 0, value),
             0x04D => self.mosaic.write(scheduler, 1, value),
             0x04E..=0x04F => (),
