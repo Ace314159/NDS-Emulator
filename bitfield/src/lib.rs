@@ -108,6 +108,10 @@ fn parse_tokens(input: proc_macro::TokenStream) -> Result<TokenStream> {
     let expanded = quote! {
         #expanded_struct
         impl #name {
+            pub fn new() -> Self {
+                Self(0)
+            }
+
             #(#fns)*
             #(#byte_fns)*
         }

@@ -14,7 +14,7 @@ bitfield! {
 
 #[test]
 fn basic_usage() {
-    let mut basic_bitfield = BasicBitfield(0);
+    let mut basic_bitfield = BasicBitfield::new();
 
     // Check access
     assert_eq!(basic_bitfield.0, 0);
