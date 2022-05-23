@@ -688,25 +688,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "modular-bitfield"
-version = "0.11.2"
-source = "git+https://github.com/Ace314159/modular-bitfield?branch=references#3ff981ad00ccdd92909a1d67ad100c546f39be32"
-dependencies = [
- "modular-bitfield-impl",
- "static_assertions",
-]
-
-[[package]]
-name = "modular-bitfield-impl"
-version = "0.11.2"
-source = "git+https://github.com/Ace314159/modular-bitfield?branch=references#3ff981ad00ccdd92909a1d67ad100c546f39be32"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "ndk"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -772,7 +753,6 @@ dependencies = [
  "cpal",
  "log",
  "memmap",
- "modular-bitfield",
  "num-integer",
  "num-traits",
  "priority-queue",
@@ -1217,12 +1197,6 @@ name = "smallvec"
 version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2dd574626839106c320a323308629dcb1acfc96e32a8cba364ddc61ac23ee83"
-
-[[package]]
-name = "static_assertions"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stdweb"
