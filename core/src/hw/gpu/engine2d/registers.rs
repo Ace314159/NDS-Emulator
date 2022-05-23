@@ -239,32 +239,11 @@ impl IORegister for BGCNT {
     }
 }
 
-#[derive(Clone, Copy)]
-pub struct OFS {
-    pub offset: u16,
-}
-
-impl OFS {
-    pub fn new() -> OFS {
-        OFS { offset: 0 }
-    }
-}
-
-impl IORegister for OFS {
-    fn read(&self, byte: usize) -> u8 {
-        match byte {
-            0 => self.offset as u8,
-            1 => (self.offset >> 8) as u8,
-            _ => unreachable!(),
-        }
-    }
-
-    fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8) {
-        match byte {
-            0 => self.offset = self.offset & !0xFF | value as u16,
-            1 => self.offset = self.offset & !0x100 | (value as u16) << 8 & 0x100,
-            _ => unreachable!(),
-        }
+bitfield! {
+    #[derive(Clone, Copy)]
+    pub struct Offset: u16 {
+        pub offset: u16 @ 0..=8,
+        _: u16 @ 9..=15,
     }
 }
 
