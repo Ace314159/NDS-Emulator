@@ -98,7 +98,7 @@ impl<E: EngineType> Engine2D<E> {
             BGMode::Mode4 => bg_i == 2,
             _ => false,
         };
-        let (width, height) = match bgcnt.screen_size {
+        let (width, height) = match bgcnt.screen_size() {
             0 => [(256, 256), (128, 128)][affine as usize],
             1 => [(512, 256), (256, 256)][affine as usize],
             2 => [(256, 512), (512, 512)][affine as usize],
@@ -108,7 +108,7 @@ impl<E: EngineType> Engine2D<E> {
         let mut pixels = vec![0u16; width * height];
         let tile_start_addr = self.calc_tile_start_addr(&bgcnt);
         let map_start_addr = self.calc_map_start_addr(&bgcnt);
-        let bit_depth = if bgcnt.bpp8 || affine { 8 } else { 4 }; // Also bytes per row of tile
+        let bit_depth = if bgcnt.bpp8() || affine { 8 } else { 4 }; // Also bytes per row of tile
 
         for y in 0..height {
             for x in 0..width {
@@ -140,7 +140,7 @@ impl<E: EngineType> Engine2D<E> {
                     let map_x = x / 8;
                     let map_y = y / 8;
                     let map_start_addr = map_start_addr
-                        + match bgcnt.screen_size {
+                        + match bgcnt.screen_size() {
                             0 => 0,
                             1 => {
                                 if (map_x / 32) % 2 == 1 {

@@ -10,7 +10,7 @@ pub struct Engine2D<E: EngineType> {
     // Registers
     pub(super) dispcnt: DISPCNT<E>,
     // Backgrounds
-    pub(super) bgcnts: [BGCNT; 4],
+    pub(super) bgcnts: [BGControl; 4],
     hofs: [Offset; 4],
     vofs: [Offset; 4],
     dxs: [RotationScalingParameter; 2],
@@ -53,7 +53,7 @@ impl<E: EngineType> Engine2D<E> {
             // Registers
             dispcnt: DISPCNT::new(),
             // Backgrounds
-            bgcnts: [BGCNT::new(); 4],
+            bgcnts: [BGControl::new(); 4],
             hofs: [Offset::new(); 4],
             vofs: [Offset::new(); 4],
             dxs: [RotationScalingParameter::new(); 2],
@@ -220,7 +220,7 @@ impl<E: EngineType> Engine2D<E> {
         let mut bgs: Vec<(usize, u8)> = Vec::new();
         for bg_i in start_line..=end_line {
             if self.dispcnt.bits() & (1 << (8 + bg_i)) != 0 {
-                bgs.push((bg_i, self.bgcnts[bg_i].priority))
+                bgs.push((bg_i, self.bgcnts[bg_i].priority()))
             }
         }
         bgs.sort_by_key(|a| a.1);
@@ -612,8 +612,8 @@ impl<E: EngineType> Engine2D<E> {
     fn render_extended_line(&mut self, vram: &VRAM, bg_i: usize) {
         // TODO: Use Screen Base
         let bgcnt = self.bgcnts[bg_i];
-        if bgcnt.bpp8 {
-            if bgcnt.tile_block & 0x1 != 0 {
+        if bgcnt.bpp8() {
+            if bgcnt.tile_block() & 0x1 != 0 {
                 // Direct Color
                 self.render_affine_line(vram, bg_i, |_, _, _, _, _, _, map_size, _, _, x, y| {
                     vram.get_bg::<E, u16>(2 * (y * map_size + x))
@@ -662,8 +662,8 @@ impl<E: EngineType> Engine2D<E> {
         let tile_start_addr = self.calc_tile_start_addr(&bgcnt);
         let map_start_addr = self.calc_map_start_addr(&bgcnt);
         let bit_depth = 8; // Always 8bpp - Also bytes per row of tileper row of tile
-        let map_size = 128 << bgcnt.screen_size; // In Pixels
-        let (mosaic_x, mosaic_y) = if bgcnt.mosaic {
+        let map_size = 128 << bgcnt.screen_size(); // In Pixels
+        let (mosaic_x, mosaic_y) = if bgcnt.mosaic() {
             (
                 self.mosaic.bg_size.h_size as usize,
                 self.mosaic.bg_size.v_size as usize,
@@ -678,7 +678,7 @@ impl<E: EngineType> Engine2D<E> {
             base_y += dy;
             let (x, y) =
                 if x_raw < 0 || x_raw > map_size as i32 || y_raw < 0 || y_raw > map_size as i32 {
-                    if bgcnt.wrap {
+                    if bgcnt.wrap() {
                         (
                             (x_raw % map_size as i32) as usize,
                             (y_raw % map_size as i32) as usize,
@@ -715,8 +715,8 @@ impl<E: EngineType> Engine2D<E> {
         let bgcnt = self.bgcnts[bg_i];
         let tile_start_addr = self.calc_tile_start_addr(&bgcnt);
         let map_start_addr = self.calc_map_start_addr(&bgcnt);
-        let bit_depth = if bgcnt.bpp8 { 8 } else { 4 }; // Also bytes per row of tile
-        let (mosaic_x, mosaic_y) = if bgcnt.mosaic {
+        let bit_depth = if bgcnt.bpp8() { 8 } else { 4 }; // Also bytes per row of tile
+        let (mosaic_x, mosaic_y) = if bgcnt.mosaic() {
             (
                 self.mosaic.bg_size.h_size as usize,
                 self.mosaic.bg_size.v_size as usize,
@@ -732,7 +732,7 @@ impl<E: EngineType> Engine2D<E> {
 
         let x_overflowed = (map_x / 32) % 2 == 1;
         let y_overflowed = (map_y / 32) % 2 == 1;
-        let (mut map_start_addr_x_offset, map_start_addr_y_offset) = match bgcnt.screen_size {
+        let (mut map_start_addr_x_offset, map_start_addr_y_offset) = match bgcnt.screen_size() {
             0 => (0, 0),
             1 => {
                 if x_overflowed {
@@ -769,7 +769,7 @@ impl<E: EngineType> Engine2D<E> {
             if *map_x + 1 >= 32 {
                 assert_eq!(*map_x, 31);
                 *map_x = 0usize;
-                *map_start_addr_x_offset = match bgcnt.screen_size {
+                *map_start_addr_x_offset = match bgcnt.screen_size() {
                     0 => *map_start_addr_x_offset,
                     1 => 0x800,
                     2 => 0,
@@ -922,9 +922,9 @@ impl<E: EngineType> Engine2D<E> {
                 0
             }
             // Transparent Color
-            else if bgcnt.bpp8 & self.dispcnt.contains(DISPCNTFlags::BG_EXTENDED_PALETTES) {
+            else if bgcnt.bpp8() & self.dispcnt.contains(DISPCNTFlags::BG_EXTENDED_PALETTES) {
                 // Wrap bit is Change Ext Palette Slot for BG0/BG1
-                let slot = if bg_i < 2 && bgcnt.wrap {
+                let slot = if bg_i < 2 && bgcnt.wrap() {
                     bg_i + 2
                 } else {
                     bg_i
@@ -975,9 +975,9 @@ impl<E: EngineType> Engine2D<E> {
             0
         }
         // Transparent Color
-        else if bgcnt.bpp8 & self.dispcnt.contains(DISPCNTFlags::BG_EXTENDED_PALETTES) {
+        else if bgcnt.bpp8() & self.dispcnt.contains(DISPCNTFlags::BG_EXTENDED_PALETTES) {
             // Wrap bit is Change Ext Palette Slot for BG0/BG1
-            let slot = if bg_i < 2 && bgcnt.wrap {
+            let slot = if bg_i < 2 && bgcnt.wrap() {
                 bg_i + 2
             } else {
                 bg_i
@@ -1045,12 +1045,12 @@ impl<E: EngineType> Engine2D<E> {
         self.bgys_latch = self.bgys.clone();
     }
 
-    pub(super) fn calc_tile_start_addr(&self, bgcnt: &BGCNT) -> usize {
-        self.dispcnt.char_base as usize * 0x1_0000 + bgcnt.tile_block as usize * 0x4000
+    pub(super) fn calc_tile_start_addr(&self, bgcnt: &BGControl) -> usize {
+        self.dispcnt.char_base as usize * 0x1_0000 + bgcnt.tile_block() as usize * 0x4000
     }
 
-    pub(super) fn calc_map_start_addr(&self, bgcnt: &BGCNT) -> usize {
-        self.dispcnt.screen_base as usize * 0x1_0000 + bgcnt.map_block as usize * 0x800
+    pub(super) fn calc_map_start_addr(&self, bgcnt: &BGControl) -> usize {
+        self.dispcnt.screen_base as usize * 0x1_0000 + bgcnt.map_block() as usize * 0x800
     }
 }
 
@@ -1105,14 +1105,14 @@ impl<E: EngineType> Engine2D<E> {
             0x002 => self.dispcnt.read(2),
             0x003 => self.dispcnt.read(3),
             // DISPSTAT and VCOUNT are read in GPU
-            0x008 => self.bgcnts[0].read(0),
-            0x009 => self.bgcnts[0].read(1),
-            0x00A => self.bgcnts[1].read(0),
-            0x00B => self.bgcnts[1].read(1),
-            0x00C => self.bgcnts[2].read(0),
-            0x00D => self.bgcnts[2].read(1),
-            0x00E => self.bgcnts[3].read(0),
-            0x00F => self.bgcnts[3].read(1),
+            0x008 => self.bgcnts[0].byte0(),
+            0x009 => self.bgcnts[0].byte1(),
+            0x00A => self.bgcnts[1].byte0(),
+            0x00B => self.bgcnts[1].byte1(),
+            0x00C => self.bgcnts[2].byte0(),
+            0x00D => self.bgcnts[2].byte1(),
+            0x00E => self.bgcnts[3].byte0(),
+            0x00F => self.bgcnts[3].byte1(),
             0x010 => self.hofs[0].byte0(),
             0x011 => self.hofs[0].byte1(),
             0x012 => self.vofs[0].byte0(),
@@ -1198,14 +1198,14 @@ impl<E: EngineType> Engine2D<E> {
             0x002 => self.dispcnt.write(scheduler, 2, value),
             0x003 => self.dispcnt.write(scheduler, 3, value),
             // DISPSTAT and VCOUNT are written in GPU
-            0x008 => self.bgcnts[0].write(scheduler, 0, value),
-            0x009 => self.bgcnts[0].write(scheduler, 1, value),
-            0x00A => self.bgcnts[1].write(scheduler, 0, value),
-            0x00B => self.bgcnts[1].write(scheduler, 1, value),
-            0x00C => self.bgcnts[2].write(scheduler, 0, value),
-            0x00D => self.bgcnts[2].write(scheduler, 1, value),
-            0x00E => self.bgcnts[3].write(scheduler, 0, value),
-            0x00F => self.bgcnts[3].write(scheduler, 1, value),
+            0x008 => self.bgcnts[0].set_byte0(value),
+            0x009 => self.bgcnts[0].set_byte1(value),
+            0x00A => self.bgcnts[1].set_byte0(value),
+            0x00B => self.bgcnts[1].set_byte1(value),
+            0x00C => self.bgcnts[2].set_byte0(value),
+            0x00D => self.bgcnts[2].set_byte1(value),
+            0x00E => self.bgcnts[3].set_byte0(value),
+            0x00F => self.bgcnts[3].set_byte1(value),
             0x010 => self.hofs[0].set_byte0(value),
             0x011 => self.hofs[0].set_byte1(value),
             0x012 => self.vofs[0].set_byte0(value),

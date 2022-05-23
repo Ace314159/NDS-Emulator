@@ -182,60 +182,16 @@ impl<E: EngineType> IORegister for DISPCNT<E> {
     }
 }
 
-#[derive(Clone, Copy)]
-pub struct BGCNT {
-    pub priority: u8,
-    pub tile_block: u8,
-    pub mosaic: bool,
-    pub bpp8: bool,
-    pub map_block: u8,
-    pub wrap: bool, // BG0/BG1 = Change Ext Palette Slot, BG2/BG3 = Display Area Overflow
-    pub screen_size: u8,
-}
-
-impl BGCNT {
-    pub fn new() -> BGCNT {
-        BGCNT {
-            priority: 0,
-            tile_block: 0,
-            mosaic: false,
-            bpp8: false,
-            map_block: 0,
-            wrap: false,
-            screen_size: 0,
-        }
-    }
-}
-
-impl IORegister for BGCNT {
-    fn read(&self, byte: usize) -> u8 {
-        match byte {
-            0 => {
-                (self.bpp8 as u8) << 7
-                    | (self.mosaic as u8) << 6
-                    | self.tile_block << 2
-                    | self.priority
-            }
-            1 => self.screen_size << 6 | (self.wrap as u8) << 5 | self.map_block,
-            _ => unreachable!(),
-        }
-    }
-
-    fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8) {
-        match byte {
-            0 => {
-                self.priority = value & 0x3;
-                self.tile_block = value >> 2 & 0xF;
-                self.mosaic = value >> 6 & 0x1 != 0;
-                self.bpp8 = value >> 7 & 0x1 != 0;
-            }
-            1 => {
-                self.map_block = value & 0x1F;
-                self.wrap = value >> 5 & 0x1 != 0;
-                self.screen_size = value >> 6 & 0x3;
-            }
-            _ => unreachable!(),
-        }
+bitfield! {
+    #[derive(Clone, Copy)]
+    pub struct BGControl: u16 {
+        pub priority: u8 @ 0..=1,
+        pub tile_block: u8 @ 2..=5,
+        pub mosaic: bool @ 6,
+        pub bpp8: bool @ 7,
+        pub map_block: u8 @ 8..=12,
+        pub wrap: bool @ 13, // BG0/BG1 = Change Ext Palette Slot, BG2/BG3 = Display Area Overflow
+        pub screen_size: u8 @ 14..=15,
     }
 }
 
