@@ -261,13 +261,13 @@ impl HW {
                     }
                     _ => todo!(),
                 }
-                if let Some((addr, capture_i, use_pcm8)) = self.spu.capture_addr(num) {
+                if let Some((_addr, capture_i, use_pcm8)) = self.spu.capture_addr(num) {
                     if use_pcm8 {
-                        let value = self.spu.capture_data(capture_i);
-                        self.arm7_write::<u8>(addr, value);
+                        let _value: u8 = self.spu.capture_data(capture_i);
+                        //self.arm7_write::<u8>(addr, value);
                     } else {
-                        let value = self.spu.capture_data(capture_i);
-                        self.arm7_write::<u16>(addr, value);
+                        let _value: u16 = self.spu.capture_data(capture_i);
+                        //self.arm7_write::<u16>(addr, value);
                     }
                 }
             }
