@@ -12,12 +12,14 @@ const MAX_BITS: usize = 64;
 fn parse_tokens(input: proc_macro::TokenStream) -> Result<TokenStream> {
     let input_copy: TokenStream = input.clone().into();
     let bitfield_struct = syn::parse::<BitfieldStruct>(input)?;
+    let attrs = &bitfield_struct.attrs;
     let struct_vis = &bitfield_struct.vis;
     let name = &bitfield_struct.ident;
     let base_type = &bitfield_struct.base_type;
     let base_type_size = bitfield_struct.base_type_size;
 
     let expanded_struct = quote! {
+        #(#attrs)*
         #struct_vis struct #name(#base_type);
     };
 
@@ -157,6 +159,7 @@ struct BitfieldFieldsNamed {
 }
 
 struct BitfieldStruct {
+    pub attrs: Vec<Attribute>,
     pub vis: Visibility,
     pub _struct_token: Token![struct],
     pub ident: Ident,
@@ -237,6 +240,7 @@ impl Parse for BitfieldFieldsNamed {
 
 impl Parse for BitfieldStruct {
     fn parse(input: ParseStream) -> Result<Self> {
+        let attrs = input.call(Attribute::parse_outer)?;
         let vis = input.parse()?;
         let _struct_token = input.parse()?;
         let ident = input.parse()?;
@@ -270,6 +274,7 @@ impl Parse for BitfieldStruct {
         let fields = input.parse()?;
         let _semi_token = input.parse()?;
         Ok(BitfieldStruct {
+            attrs,
             vis,
             _struct_token,
             ident,
