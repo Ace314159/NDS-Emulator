@@ -1,0 +1,5 @@
+error: Bitfield base type size can only be up to 64 bits
+ --> tests/fail/bad-base-type-3.rs:4:22
+  |
+4 |     struct Bitfield: u128 {
+  |                      ^^^^

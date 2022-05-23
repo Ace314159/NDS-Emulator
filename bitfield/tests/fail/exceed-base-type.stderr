@@ -1,0 +1,5 @@
+error: Bitfield range exceeds base type size
+ --> tests/fail/exceed-base-type.rs:6:18
+  |
+6 |         b: bool, 8,
+  |                  ^

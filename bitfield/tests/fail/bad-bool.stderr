@@ -1,0 +1,5 @@
+error: Bitfield range is too large for a bool
+ --> tests/fail/bad-bool.rs:6:18
+  |
+6 |         b: bool, 6..=7,
+  |                  ^^^^^

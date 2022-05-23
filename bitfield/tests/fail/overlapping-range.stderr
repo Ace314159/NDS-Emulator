@@ -1,0 +1,5 @@
+error: Bitfield range overlaps with another bitfield range
+ --> tests/fail/overlapping-range.rs:6:16
+  |
+6 |         b: u8, 6..=7,
+  |                ^^^^^

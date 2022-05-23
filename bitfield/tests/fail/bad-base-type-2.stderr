@@ -1,0 +1,5 @@
+error: Bitfield base type must be an unsigned integral type
+ --> tests/fail/bad-base-type-2.rs:4:22
+  |
+4 |     struct Bitfield: ut {
+  |                      ^^
