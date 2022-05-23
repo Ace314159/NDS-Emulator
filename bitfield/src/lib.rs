@@ -1,4 +1,4 @@
-use proc_macro::TokenStream;
+use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use syn::{
     parse::{Parse, ParseStream},
@@ -9,8 +9,8 @@ use syn::{
 
 const MAX_BITS: usize = 64;
 
-fn parse_tokens(input: TokenStream) -> Result<proc_macro2::TokenStream> {
-    let input_copy: proc_macro2::TokenStream = input.clone().into();
+fn parse_tokens(input: proc_macro::TokenStream) -> Result<TokenStream> {
+    let input_copy: TokenStream = input.clone().into();
     let bitfield_struct = syn::parse::<BitfieldStruct>(input)?;
     let struct_vis = &bitfield_struct.vis;
     let name = &bitfield_struct.ident;
@@ -28,7 +28,7 @@ fn parse_tokens(input: TokenStream) -> Result<proc_macro2::TokenStream> {
         .iter()
         .map(|f| {
             let vis = &f.vis;
-            let name = &f.ident;
+            let name = f.ident.as_ref();
             let field_type = &f.used_type;
             let range = &f.range;
             let lo = range.lo;
@@ -39,10 +39,12 @@ fn parse_tokens(input: TokenStream) -> Result<proc_macro2::TokenStream> {
             };
 
             if field_type.to_token_stream().to_string() == "bool" && lo != hi {
-                return make_range_error("Bitfield range is too large for a bool")
+                return make_range_error("Bitfield range is too large for a bool");
             }
             if range.range_limit.is_some() && lo == hi {
-                return make_range_error("Bitfield range bounds cannot be the same. A range is not needed");
+                return make_range_error(
+                    "Bitfield range bounds cannot be the same. A range is not needed",
+                );
             }
             if lo > hi {
                 return make_range_error("Bitfield range bounds are invalid");
@@ -65,7 +67,12 @@ fn parse_tokens(input: TokenStream) -> Result<proc_macro2::TokenStream> {
             }
             full_mask &= !(update_full_mask);
 
-            let set_name = format_ident!("set_{}", name);
+            let set_name = if let Some(name) = name {
+                format_ident!("set_{}", name)
+            } else {
+                return Ok(TokenStream::new());
+            };
+
             Ok(quote! {
                 #vis fn #name(&self) -> #field_type {
                     let mask = #mask as #base_type;
@@ -117,7 +124,7 @@ fn parse_tokens(input: TokenStream) -> Result<proc_macro2::TokenStream> {
 }
 
 #[proc_macro]
-pub fn bitfield(input: TokenStream) -> TokenStream {
+pub fn bitfield(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     parse_tokens(input)
         .unwrap_or_else(Error::into_compile_error)
         .into()
@@ -133,7 +140,7 @@ struct BitfieldRange {
 
 struct BitfieldField {
     pub vis: Visibility,
-    pub ident: Ident,
+    pub ident: Option<Ident>,
     pub _colon_token: Token![:],
     pub used_type: Type,
     pub _comma_token: Token![,],
@@ -183,7 +190,7 @@ impl Parse for BitfieldRange {
 }
 
 impl ToTokens for BitfieldRange {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
         self.lo_token.to_tokens(tokens);
         self.range_limit.to_tokens(tokens);
         self.hi_token.to_tokens(tokens);
@@ -193,7 +200,12 @@ impl ToTokens for BitfieldRange {
 impl Parse for BitfieldField {
     fn parse(input: ParseStream) -> Result<Self> {
         let vis = input.parse()?;
-        let ident = input.parse()?;
+        let ident = if let Ok(ident) = input.parse::<Ident>() {
+            Some(ident)
+        } else {
+            input.parse::<Token![_]>()?;
+            None
+        };
         let _colon_token = input.parse()?;
         let used_type = input.parse()?;
         let _comma_token = input.parse()?;

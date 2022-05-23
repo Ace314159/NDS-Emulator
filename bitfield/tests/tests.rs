@@ -1,7 +1,7 @@
 use bitfield::bitfield;
 
 bitfield! {
-    struct Bitfield: u16 {
+    struct BasicBitfield: u16 {
         a: bool, 0,
         b: bool, 1,
         c: u8, 2..=3,
@@ -14,47 +14,56 @@ bitfield! {
 
 #[test]
 fn basic_usage() {
-    let mut bitfield = Bitfield(0);
+    let mut basic_bitfield = BasicBitfield(0);
 
     // Check access
-    assert_eq!(bitfield.0, 0);
-    assert_eq!(bitfield.a(), false);
-    assert_eq!(bitfield.b(), false);
-    assert_eq!(bitfield.c(), 0);
-    assert_eq!(bitfield.d(), 0);
-    assert_eq!(bitfield.e(), false);
-    assert_eq!(bitfield.f(), 0);
-    assert_eq!(bitfield.g(), 0);
-    assert_eq!(bitfield.byte0(), 0);
-    assert_eq!(bitfield.byte1(), 0);
+    assert_eq!(basic_bitfield.0, 0);
+    assert_eq!(basic_bitfield.a(), false);
+    assert_eq!(basic_bitfield.b(), false);
+    assert_eq!(basic_bitfield.c(), 0);
+    assert_eq!(basic_bitfield.d(), 0);
+    assert_eq!(basic_bitfield.e(), false);
+    assert_eq!(basic_bitfield.f(), 0);
+    assert_eq!(basic_bitfield.g(), 0);
+    assert_eq!(basic_bitfield.byte0(), 0);
+    assert_eq!(basic_bitfield.byte1(), 0);
 
     // Set bits
-    bitfield.set_a(true);
-    bitfield.set_e(true);
-    bitfield.set_d(0b010);
-    assert_eq!(bitfield.0, 0b10100001);
-    assert_eq!(bitfield.a(), true);
-    assert_eq!(bitfield.b(), false);
-    assert_eq!(bitfield.c(), 0);
-    assert_eq!(bitfield.d(), 0b010);
-    assert_eq!(bitfield.e(), true);
-    assert_eq!(bitfield.f(), 0);
-    assert_eq!(bitfield.g(), 0);
-    assert_eq!(bitfield.byte0(), 0b10100001);
-    assert_eq!(bitfield.byte1(), 0);
+    basic_bitfield.set_a(true);
+    basic_bitfield.set_e(true);
+    basic_bitfield.set_d(0b010);
+    assert_eq!(basic_bitfield.0, 0b10100001);
+    assert_eq!(basic_bitfield.a(), true);
+    assert_eq!(basic_bitfield.b(), false);
+    assert_eq!(basic_bitfield.c(), 0);
+    assert_eq!(basic_bitfield.d(), 0b010);
+    assert_eq!(basic_bitfield.e(), true);
+    assert_eq!(basic_bitfield.f(), 0);
+    assert_eq!(basic_bitfield.g(), 0);
+    assert_eq!(basic_bitfield.byte0(), 0b10100001);
+    assert_eq!(basic_bitfield.byte1(), 0);
 
     // Byte operations
-    bitfield.set_byte1(0xAA);
-    assert_eq!(bitfield.0, 0b1010101010100001);
-    assert_eq!(bitfield.a(), true);
-    assert_eq!(bitfield.b(), false);
-    assert_eq!(bitfield.c(), 0);
-    assert_eq!(bitfield.d(), 0b010);
-    assert_eq!(bitfield.e(), true);
-    assert_eq!(bitfield.f(), 0b01010);
-    assert_eq!(bitfield.g(), 0b101);
-    assert_eq!(bitfield.byte0(), 0b10100001);
-    assert_eq!(bitfield.byte1(), 0xAA);
+    basic_bitfield.set_byte1(0xAA);
+    assert_eq!(basic_bitfield.0, 0b1010101010100001);
+    assert_eq!(basic_bitfield.a(), true);
+    assert_eq!(basic_bitfield.b(), false);
+    assert_eq!(basic_bitfield.c(), 0);
+    assert_eq!(basic_bitfield.d(), 0b010);
+    assert_eq!(basic_bitfield.e(), true);
+    assert_eq!(basic_bitfield.f(), 0b01010);
+    assert_eq!(basic_bitfield.g(), 0b101);
+    assert_eq!(basic_bitfield.byte0(), 0b10100001);
+    assert_eq!(basic_bitfield.byte1(), 0xAA);
+}
+
+bitfield! {
+    struct SkippedBitfield: u8 {
+        _: bool, 0,
+        a: bool, 1,
+        _: u8, 2..=5,
+        b: u8, 6..=7,
+    }
 }
 
 #[test]
