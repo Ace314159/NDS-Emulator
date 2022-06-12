@@ -1,4 +1,4 @@
-use bitflags::*;
+use bitfield::bitfield;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Mode {
@@ -11,44 +11,56 @@ pub enum Mode {
     UND = 0b11011,
 }
 
-bitflags! {
-    struct StatusReg: u32 {
-        const N =  0x80000000;
-        const Z =  0x40000000;
-        const C =  0x20000000;
-        const V =  0x10000000;
-        const Q =  0x08000000;
-        const F =  0x00000040;
-        const I =  0x00000080;
-        const T =  0x00000020;
-        const M4 = 0x00000010;
-        const M3 = 0x00000008;
-        const M2 = 0x00000004;
-        const M1 = 0x00000002;
-        const M0 = 0x00000001;
+bitfield! {
+    #[derive(Debug, PartialEq, Clone, Copy)]
+    struct StatusRegBits: u32 {
+        n: bool @ 31,
+        z: bool @ 30,
+        c: bool @ 29,
+        v: bool @ 28,
+        q: bool @ 27,
+        _: _ @ 8..=26,
+        i: bool @ 7,
+        f: bool @ 6,
+        t: bool @ 5,
+        mode: u8 @ 0..=4,
     }
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+struct StatusReg {
+    pub bits: StatusRegBits,
+    pub mode: Mode,
 }
 
 impl StatusReg {
     pub fn reset() -> StatusReg {
-        StatusReg::from_bits(Mode::SYS as u32).unwrap()
-    }
-
-    pub fn get_mode(&self) -> Mode {
-        match Some(self.bits() & 0x1F) {
-            Some(m) if m == Mode::USR as u32 => Mode::USR,
-            Some(m) if m == Mode::FIQ as u32 => Mode::FIQ,
-            Some(m) if m == Mode::IRQ as u32 => Mode::IRQ,
-            Some(m) if m == Mode::SVC as u32 => Mode::SVC,
-            Some(m) if m == Mode::ABT as u32 => Mode::ABT,
-            Some(m) if m == Mode::SYS as u32 => Mode::SYS,
-            Some(m) if m == Mode::UND as u32 => Mode::UND,
-            _ => panic!("Invalid Mode"),
+        StatusReg {
+            bits: StatusRegBits::new(),
+            mode: Mode::SYS,
         }
     }
 
+    pub fn get_mode(&self) -> Mode {
+        self.mode
+    }
+
     pub fn set_mode(&mut self, mode: Mode) {
-        self.bits = (self.bits() & !0x1F) | mode as u32;
+        self.bits.set_mode(mode as u8);
+        self.mode = mode;
+    }
+
+    pub fn update_mode(&mut self) {
+        self.mode = match self.bits.mode() {
+            bits if bits == Mode::USR as u8 => Mode::USR,
+            bits if bits == Mode::FIQ as u8 => Mode::FIQ,
+            bits if bits == Mode::IRQ as u8 => Mode::IRQ,
+            bits if bits == Mode::SVC as u8 => Mode::SVC,
+            bits if bits == Mode::ABT as u8 => Mode::ABT,
+            bits if bits == Mode::SYS as u8 => Mode::SYS,
+            bits if bits == Mode::UND as u8 => Mode::UND,
+            _ => panic!("Invalid Mode"),
+        };
     }
 }
 
@@ -85,7 +97,8 @@ impl RegValues {
         // TODO: Figure out actual values
         reg_values.regs[12] = pc; // R12
         reg_values.regs[1] = pc; // R14
-        reg_values.cpsr.bits = 0xD3;
+        reg_values.cpsr.bits.0 = 0xD3;
+        reg_values.cpsr.update_mode();
         if IS_ARM9 {
             reg_values.svc[0] = 0x03003FC0; // R13
             reg_values.irq[0] = 0x03003F80; // R13
@@ -106,6 +119,7 @@ impl RegValues {
         self.cpsr.set_mode(mode);
         self.load_banked(mode);
         *self.spsr_mut() = cpsr;
+        self.update_spsr_mode();
     }
 
     pub fn set_mode(&mut self, mode: Mode) {
@@ -116,7 +130,8 @@ impl RegValues {
 
     pub fn restore_cpsr(&mut self) {
         self.save_banked();
-        self.cpsr.bits = self.spsr();
+        self.cpsr.bits.0 = self.spsr();
+        self.cpsr.update_mode();
         self.load_banked(self.cpsr.get_mode());
     }
 
@@ -149,32 +164,49 @@ impl RegValues {
 
     pub fn spsr(&self) -> u32 {
         match self.cpsr.get_mode() {
-            Mode::SVC => self.spsr[0].bits,
-            Mode::UND => self.spsr[1].bits,
-            Mode::IRQ => self.spsr[2].bits,
-            Mode::FIQ => self.spsr[3].bits,
+            Mode::SVC => self.spsr[0].bits.0,
+            Mode::UND => self.spsr[1].bits.0,
+            Mode::IRQ => self.spsr[2].bits.0,
+            Mode::FIQ => self.spsr[3].bits.0,
             Mode::ABT => unreachable!(), // Unused modes (hopefully)
-            _ => self.cpsr.bits,
+            _ => self.cpsr.bits.0,
         }
     }
 
+    // Make sure to update the mode after using
     pub fn spsr_mut(&mut self) -> &mut u32 {
         match self.cpsr.get_mode() {
-            Mode::SVC => &mut self.spsr[0].bits,
-            Mode::UND => &mut self.spsr[1].bits,
-            Mode::IRQ => &mut self.spsr[2].bits,
-            Mode::FIQ => &mut self.spsr[3].bits,
+            Mode::SVC => &mut self.spsr[0].bits.0,
+            Mode::UND => &mut self.spsr[1].bits.0,
+            Mode::IRQ => &mut self.spsr[2].bits.0,
+            Mode::FIQ => &mut self.spsr[3].bits.0,
             Mode::ABT => unreachable!(), // Unused modes (hopefully)
-            _ => &mut self.cpsr.bits,
+            _ => &mut self.cpsr.bits.0,
         }
+    }
+
+    pub fn update_spsr_mode(&mut self) {
+        match self.cpsr.get_mode() {
+            Mode::SVC => &mut self.spsr[0].update_mode(),
+            Mode::UND => &mut self.spsr[1].update_mode(),
+            Mode::IRQ => &mut self.spsr[2].update_mode(),
+            Mode::FIQ => &mut self.spsr[3].update_mode(),
+            Mode::ABT => unreachable!(), // Unused modes (hopefully)
+            _ => &mut self.cpsr.update_mode(),
+        };
     }
 
     pub fn cpsr(&self) -> u32 {
-        self.cpsr.bits
+        self.cpsr.bits.0
     }
 
+    // Make sure to update the mode after using
     pub fn cpsr_mut(&mut self) -> &mut u32 {
-        &mut self.cpsr.bits
+        &mut self.cpsr.bits.0
+    }
+
+    pub fn update_cpsr_mode(&mut self) {
+        self.cpsr.update_mode();
     }
 
     pub fn sp(&self) -> u32 {
@@ -194,58 +226,58 @@ impl RegValues {
     }
 
     pub fn _get_n(&self) -> bool {
-        self.cpsr.contains(StatusReg::N)
+        self.cpsr.bits.n()
     }
     pub fn _get_z(&self) -> bool {
-        self.cpsr.contains(StatusReg::Z)
+        self.cpsr.bits.z()
     }
     pub fn get_c(&self) -> bool {
-        self.cpsr.contains(StatusReg::C)
+        self.cpsr.bits.c()
     }
     pub fn _get_v(&self) -> bool {
-        self.cpsr.contains(StatusReg::V)
+        self.cpsr.bits.v()
     }
     pub fn _get_q(&self) -> bool {
-        self.cpsr.contains(StatusReg::Q)
+        self.cpsr.bits.q()
     }
     pub fn get_i(&self) -> bool {
-        self.cpsr.contains(StatusReg::I)
+        self.cpsr.bits.i()
     }
     pub fn _get_f(&self) -> bool {
-        self.cpsr.contains(StatusReg::F)
+        self.cpsr.bits.f()
     }
     pub fn get_flags(&self) -> u32 {
-        self.cpsr.bits >> 24
+        self.cpsr.bits.0 >> 24
     }
     pub fn get_t(&self) -> bool {
-        self.cpsr.contains(StatusReg::T)
+        self.cpsr.bits.t()
     }
     pub fn get_mode(&self) -> Mode {
         self.cpsr.get_mode()
     }
     pub fn set_n(&mut self, value: bool) {
-        self.cpsr.set(StatusReg::N, value)
+        self.cpsr.bits.set_n(value);
     }
     pub fn set_z(&mut self, value: bool) {
-        self.cpsr.set(StatusReg::Z, value)
+        self.cpsr.bits.set_z(value);
     }
     pub fn set_c(&mut self, value: bool) {
-        self.cpsr.set(StatusReg::C, value)
+        self.cpsr.bits.set_c(value);
     }
     pub fn set_v(&mut self, value: bool) {
-        self.cpsr.set(StatusReg::V, value)
+        self.cpsr.bits.set_v(value);
     }
     pub fn set_q(&mut self, value: bool) {
-        self.cpsr.set(StatusReg::Q, value)
+        self.cpsr.bits.set_q(value);
     }
     pub fn set_i(&mut self, value: bool) {
-        self.cpsr.set(StatusReg::I, value)
+        self.cpsr.bits.set_i(value);
     }
     pub fn _set_f(&mut self, value: bool) {
-        self.cpsr.set(StatusReg::F, value)
+        self.cpsr.bits.set_f(value);
     }
     pub fn set_t(&mut self, value: bool) {
-        self.cpsr.set(StatusReg::T, value)
+        self.cpsr.bits.set_t(value);
     }
     //fn set_mode(&mut self, mode: Mode) { self.cpsr.set_mode(mode) }
 }

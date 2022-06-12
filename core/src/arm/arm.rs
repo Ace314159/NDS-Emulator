@@ -208,10 +208,12 @@ impl<const IS_ARM9: bool> ARM<IS_ARM9> {
             };
             let set = |value: &mut u32| *value = *value & !mask | operand & mask;
             if use_spsr {
-                set(self.regs.spsr_mut())
+                set(self.regs.spsr_mut());
+                self.regs.update_spsr_mode();
             } else {
                 self.regs.save_banked();
                 set(&mut self.regs.cpsr_mut());
+                self.regs.update_cpsr_mode();
                 self.regs.load_banked(self.regs.get_mode());
             }
         } else {
