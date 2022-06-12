@@ -29,6 +29,8 @@ fn parse_tokens(input: proc_macro::TokenStream) -> Result<TokenStream> {
         .named
         .iter()
         .map(|f| {
+            let skip_getter = f.skip_getter;
+            let skip_setter = f.skip_setter;
             let vis = &f.vis;
             let name = f.ident.as_ref();
             let field_type = &f.used_type;
@@ -75,18 +77,32 @@ fn parse_tokens(input: proc_macro::TokenStream) -> Result<TokenStream> {
                 return Ok(TokenStream::new());
             };
 
-            Ok(quote! {
-                #vis fn #name(&self) -> #field_type {
-                    let mask = #mask as #base_type;
-                    let value = (self.0 >> #lo) & mask;
-                    #getter_ret
+            let getter = if !skip_getter {
+                quote! {
+                    #vis fn #name(&self) -> #field_type {
+                        let mask = #mask as #base_type;
+                        let value = (self.0 >> #lo) & mask;
+                        #getter_ret
+                    }
                 }
+            } else {
+                TokenStream::new()
+            };
+            let setter = if !skip_setter {
+                quote! {
+                    #vis fn #set_name(&mut self, value: #field_type) {
+                        let value = value as #base_type;
+                        let mask = #mask as #base_type;
+                        self.0 = (self.0 & !(mask << #lo)) | ((value & mask) << #lo);
+                    }
+                }
+            } else {
+                TokenStream::new()
+            };
 
-                #vis fn #set_name(&mut self, value: #field_type) {
-                    let value = value as #base_type;
-                    let mask = #mask as #base_type;
-                    self.0 = (self.0 & !(mask << #lo)) | ((value & mask) << #lo);
-                }
+            Ok(quote! {
+                #getter
+                #setter
             })
         })
         .collect::<Result<Vec<_>>>()?;
@@ -145,6 +161,8 @@ struct BitfieldRange {
 }
 
 struct BitfieldField {
+    pub skip_getter: bool,
+    pub skip_setter: bool,
     pub vis: Visibility,
     pub ident: Option<Ident>,
     pub _colon_token: Token![:],
@@ -206,6 +224,73 @@ impl ToTokens for BitfieldRange {
 
 impl Parse for BitfieldField {
     fn parse(input: ParseStream) -> Result<Self> {
+        let attrs = input.call(Attribute::parse_outer)?;
+
+        let mut skip_getter = false;
+        let mut skip_setter = false;
+        if attrs.len() > 1 {
+            return Err(Error::new_spanned(
+                &attrs[1],
+                "Only up to one attribute is allowed",
+            ));
+        }
+        if attrs.len() == 1 {
+            let attr = attrs.first().unwrap();
+            match attr.style {
+                AttrStyle::Outer => (),
+                _ => {
+                    return Err(Error::new_spanned(
+                        attr,
+                        "Bitfield field attribute must be outer",
+                    ));
+                }
+            }
+            if attr.path.leading_colon.is_some() {
+                return Err(Error::new_spanned(
+                    attr,
+                    "Bitfield field attribute must not have leading colons",
+                ));
+            }
+            if attr.path.segments.len() != 1 {
+                return Err(Error::new_spanned(
+                    attr,
+                    "Bitfield field attribute must have exactly 1 segment",
+                ));
+            }
+
+            let segment = attr.path.segments.first().unwrap();
+            if segment.ident.to_string() != "skip" {
+                return Err(Error::new_spanned(
+                    attr,
+                    "Bitfield field attribute segment must be `skip`",
+                ));
+            }
+            match &segment.arguments {
+                PathArguments::None => (),
+                _ => {
+                    return Err(Error::new_spanned(
+                        attr,
+                        "Bitfield field attribute must have no path arguments",
+                    ));
+                }
+            };
+            let skipped_list: Punctuated<Ident, Token![,]> =
+                attr.parse_args_with(Punctuated::parse_terminated)?;
+            for item in skipped_list {
+                let item_str = item.to_string();
+                if item_str == "getter" {
+                    skip_getter = true;
+                } else if item_str == "setter" {
+                    skip_setter = true;
+                } else {
+                    return Err(Error::new_spanned(
+                        item,
+                        "Bitfield field attribute arguments must be `getter` or `setter`",
+                    ));
+                }
+            }
+        }
+
         let vis = input.parse()?;
         let ident = if let Ok(ident) = input.parse::<Ident>() {
             Some(ident)
@@ -218,6 +303,8 @@ impl Parse for BitfieldField {
         let _range_sep_token = input.parse()?;
         let range = input.parse()?;
         Ok(BitfieldField {
+            skip_getter,
+            skip_setter,
             vis,
             ident,
             _colon_token,
