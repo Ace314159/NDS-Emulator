@@ -41,6 +41,7 @@ pub struct HW {
     main_mem: Vec<u8>,
     iwram: Vec<u8>,
     shared_wram: Vec<u8>,
+    arm7_page_table: Vec<*mut u8>,
     // Devices
     pub gpu: GPU,
     spu: SPU,
@@ -94,6 +95,7 @@ impl HW {
             main_mem: vec![0; HW::MAIN_MEM_SIZE],
             iwram: vec![0; HW::IWRAM_SIZE],
             shared_wram: vec![0; HW::SHARED_WRAM_SIZE],
+            arm7_page_table: vec![std::ptr::null_mut(); HW::ARM7_PAGE_TABLE_SIZE],
             // Devices
             gpu: GPU::new(&mut scheduler),
             spu: SPU::new(&mut scheduler),
@@ -291,6 +293,23 @@ impl HW {
         self.arm9_write(0x027FFC30, 0xFFFFu16);
         self.arm9_write(0x027FFC40, 0x0001u16);
         self
+    }
+
+    fn map_page_table(
+        page_table: &mut [*mut u8],
+        page_shift: usize,
+        page_size: usize,
+        addr_start: usize,
+        addr_end: usize,
+        mem: &mut [u8],
+    ) {
+        let mem_mask = mem.len() - 1;
+        let mut page_table_i = (addr_start as usize) >> page_shift;
+        for addr in (addr_start..addr_end).step_by(page_size) {
+            let mem_addr = addr & mem_mask;
+            page_table[page_table_i] = mem[mem_addr..mem_addr + page_size].as_mut_ptr();
+            page_table_i += 1;
+        }
     }
 }
 
