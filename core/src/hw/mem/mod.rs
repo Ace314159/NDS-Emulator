@@ -13,26 +13,19 @@ impl HW {
     const IWRAM_MASK: u32 = HW::IWRAM_SIZE as u32 - 1;
 
     // TODO: Replace with const generic
-    fn ipc_fifo_recv<T: MemoryValue>(&mut self, is_arm9: bool, addr: u32) -> T {
-        if addr != 0x0410_0000 || size_of::<T>() != 4 {
-            todo!()
-        }
+    fn ipc_fifo_recv(&mut self, is_arm9: bool) -> u32 {
         if is_arm9 {
             let (value, interrupt) = self.ipc.arm9_recv();
             self.interrupts[0].request |= interrupt;
-            num::cast::<u32, T>(value).unwrap()
+            value
         } else {
             let (value, interrupt) = self.ipc.arm7_recv();
             self.interrupts[1].request |= interrupt;
-            num::cast::<u32, T>(value).unwrap()
+            value
         }
     }
 
-    fn ipc_fifo_send<T: MemoryValue>(&mut self, is_arm9: bool, addr: u32, value: T) {
-        if addr != 0x0400_0188 || size_of::<T>() != 4 {
-            todo!()
-        }
-        let value = num::cast::<T, u32>(value).unwrap();
+    fn ipc_fifo_send(&mut self, is_arm9: bool, value: u32) {
         if is_arm9 {
             self.interrupts[1].request |= self.ipc.arm7_send(value);
         } else {
@@ -40,16 +33,13 @@ impl HW {
         }
     }
 
-    fn read_game_card<T: MemoryValue>(&mut self, is_arm9: bool, addr: u32) -> T {
-        if addr != 0x0410_0010 || size_of::<T>() != 4 {
-            todo!()
-        }
+    fn read_game_card(&mut self, is_arm9: bool) -> u32 {
         let value = self.cartridge.read_gamecard(
             &mut self.scheduler,
             is_arm9,
             self.exmem.nds_arm7_access != is_arm9,
         );
-        num::cast::<u32, T>(value).unwrap()
+        value
     }
 
     // TODO: Replace with const generic
@@ -97,7 +87,7 @@ impl HW {
         value
     }
 
-    fn write_from_bytes<T: MemoryValue, F: Fn(&mut D, u32, u8), D>(
+    fn _write_from_bytes<T: MemoryValue, F: Fn(&mut D, u32, u8), D>(
         device: &mut D,
         write_fn: &F,
         addr: u32,
