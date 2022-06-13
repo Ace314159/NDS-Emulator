@@ -83,11 +83,25 @@ impl<const IS_ARM9: bool> ARM<IS_ARM9> {
     }
 
     // ARM.5: Data Processing
-    fn data_proc<const I: bool, const S: bool>(&mut self, hw: &mut HW, instr: u32) {
+    fn data_proc<
+        const I: bool,
+        const OP3: bool,
+        const OP2: bool,
+        const OP1: bool,
+        const OP0: bool,
+        const S: bool,
+        const SHIFT1: bool,
+        const SHIFT0: bool,
+        const R: bool,
+    >(
+        &mut self,
+        hw: &mut HW,
+        instr: u32,
+    ) {
         let immediate_op2 = I;
         let change_status = S;
         let mut temp_inc_pc = false;
-        let opcode = (instr >> 21) & 0xF;
+        let opcode = (OP3 as u32) << 3 | (OP2 as u32) << 2 | (OP1 as u32) << 1 | (OP0 as u32);
         let dest_reg = (instr >> 12) & 0xF;
         let (change_status, special_change_status) = if dest_reg == 15 && change_status {
             (false, true)
@@ -103,7 +117,7 @@ impl<const IS_ARM9: bool> ARM<IS_ARM9> {
                 operand.rotate_right(shift * 2)
             }
         } else {
-            let shift_by_reg = (instr >> 4) & 0x1 != 0;
+            let shift_by_reg = R;
             let shift = if shift_by_reg {
                 assert_eq!((instr >> 7) & 0x1, 0);
                 self.regs[15] = self.regs[15].wrapping_add(4); // Temp inc
@@ -112,7 +126,7 @@ impl<const IS_ARM9: bool> ARM<IS_ARM9> {
             } else {
                 (instr >> 7) & 0x1F
             };
-            let shift_type = (instr >> 5) & 0x3;
+            let shift_type = (SHIFT1 as u32) << 1 | (SHIFT0 as u32);
             let op2 = self.regs[instr & 0xF];
             // TODO: I Cycle occurs too early
             self.shift(
@@ -915,7 +929,7 @@ pub(super) fn gen_lut<const IS_ARM9: bool>() -> [InstructionHandler<u32, IS_ARM9
         } else if skeleton & 0b1100_0000_0000_0000_0000_0000_0000
             == 0b0000_0000_0000_0000_0000_0000_0000
         {
-            compose_instr_handler!(data_proc, skeleton, 25, 20)
+            compose_instr_handler!(data_proc, skeleton, 25, 24, 23, 22, 21, 20, 6, 5, 4)
         } else if skeleton & 0b1100_0000_0000_0000_0000_0000_0000
             == 0b0100_0000_0000_0000_0000_0000_0000
         {
