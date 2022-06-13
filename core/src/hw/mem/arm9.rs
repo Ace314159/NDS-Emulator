@@ -1,6 +1,6 @@
 mod io;
 
-use super::{AccessType, IORegister, MemoryValue, CP15, HW};
+use super::{AccessType, IORegister, MemoryValue, HW};
 use crate::hw::gpu::{Engine2D, EngineType, GPU};
 use crate::num;
 use std::mem::size_of;
@@ -8,79 +8,91 @@ use std::mem::size_of;
 type MemoryRegion = ARM9MemoryRegion;
 
 impl HW {
-    const ITCM_MASK: u32 = HW::ITCM_SIZE as u32 - 1;
-    const DTCM_MASK: u32 = HW::DTCM_SIZE as u32 - 1;
+    const ARM9_PAGE_SHIFT: usize = 12;
+    pub(in crate::hw) const ARM9_PAGE_TABLE_SIZE: usize = 1 << (32 - HW::ARM9_PAGE_SHIFT + 1);
+    pub const ARM9_PAGE_SIZE: usize = 1 << HW::ARM9_PAGE_SHIFT;
+    const ARM9_PAGE_TABLE_MASK: u32 = (HW::ARM9_PAGE_SIZE as u32) - 1;
 
     pub fn arm9_read<T: MemoryValue>(&mut self, addr: u32) -> T {
-        match MemoryRegion::from_addr(addr, &self.cp15) {
-            MemoryRegion::ITCM => HW::read_mem(&self.itcm, addr & HW::ITCM_MASK),
-            MemoryRegion::DTCM => HW::read_mem(&self.dtcm, addr & HW::DTCM_MASK),
-            MemoryRegion::MainMem => HW::read_mem(&self.main_mem, addr & HW::MAIN_MEM_MASK),
-            MemoryRegion::SharedWRAM if self.wramcnt.arm9_mask == 0 => {
-                warn!("Reading from Unmapped ARM9 Shared WRAM: 0x{:X}", addr);
-                num::zero()
+        let page_table_ptr = self.arm9_page_table[addr as usize >> HW::ARM9_PAGE_SHIFT];
+        if !page_table_ptr.is_null() {
+            unsafe {
+                let slice = std::slice::from_raw_parts(page_table_ptr, HW::ARM9_PAGE_SIZE);
+                HW::read_mem(slice, addr & HW::ARM9_PAGE_TABLE_MASK)
             }
-            MemoryRegion::SharedWRAM => HW::read_mem(
-                &self.shared_wram,
-                self.wramcnt.arm9_offset + (addr & self.wramcnt.arm9_mask),
-            ),
-            MemoryRegion::IO => self.arm9_read_io(addr),
-            MemoryRegion::Palette if addr & 0x7FFF < 0x400 => {
-                HW::read_from_bytes(&self.gpu.engine_a, &Engine2D::read_palette_ram, addr as u32)
-            }
-            MemoryRegion::Palette => {
-                HW::read_from_bytes(&self.gpu.engine_b, &Engine2D::read_palette_ram, addr as u32)
-            }
-            MemoryRegion::VRAM => self.gpu.vram.arm9_read(addr),
-            MemoryRegion::OAM if addr & 0x7FFF < 0x400 => {
-                HW::read_mem(&self.gpu.engine_a.oam, addr & GPU::OAM_MASK as u32)
-            }
-            MemoryRegion::OAM => HW::read_mem(&self.gpu.engine_b.oam, addr & GPU::OAM_MASK as u32),
-            MemoryRegion::GBAROM => self.read_gba_rom(true, addr),
-            MemoryRegion::GBARAM => todo!(),
-            MemoryRegion::BIOS => HW::read_mem(&self.bios9, addr & 0xFFFF),
-            MemoryRegion::Unknown => {
-                warn!("Reading from Unknown 0x{:08X}", addr);
-                num::zero()
+        } else {
+            match MemoryRegion::from_addr(addr) {
+                MemoryRegion::SharedWRAM if self.wramcnt.arm9_mask == 0 => {
+                    warn!("Reading from Unmapped ARM9 Shared WRAM: 0x{:X}", addr);
+                    num::zero()
+                }
+                MemoryRegion::SharedWRAM => HW::read_mem(
+                    &self.shared_wram,
+                    self.wramcnt.arm9_offset + (addr & self.wramcnt.arm9_mask),
+                ),
+                MemoryRegion::IO => self.arm9_read_io(addr),
+                MemoryRegion::Palette if addr & 0x7FFF < 0x400 => {
+                    HW::read_from_bytes(&self.gpu.engine_a, &Engine2D::read_palette_ram, addr as u32)
+                }
+                MemoryRegion::Palette => {
+                    HW::read_from_bytes(&self.gpu.engine_b, &Engine2D::read_palette_ram, addr as u32)
+                }
+                MemoryRegion::VRAM => self.gpu.vram.arm9_read(addr),
+                MemoryRegion::OAM if addr & 0x7FFF < 0x400 => {
+                    HW::read_mem(&self.gpu.engine_a.oam, addr & GPU::OAM_MASK as u32)
+                }
+                MemoryRegion::OAM => HW::read_mem(&self.gpu.engine_b.oam, addr & GPU::OAM_MASK as u32),
+                MemoryRegion::GBAROM => self.read_gba_rom(true, addr),
+                MemoryRegion::GBARAM => todo!(),
+                MemoryRegion::Unknown => {
+                    warn!("Reading from Unknown 0x{:08X}", addr);
+                    num::zero()
+                }
             }
         }
     }
 
     pub fn arm9_write<T: MemoryValue>(&mut self, addr: u32, value: T) {
-        match MemoryRegion::from_addr(addr, &self.cp15) {
-            MemoryRegion::ITCM => HW::write_mem(&mut self.itcm, addr & HW::ITCM_MASK, value),
-            MemoryRegion::DTCM => HW::write_mem(&mut self.dtcm, addr & HW::DTCM_MASK, value),
-            MemoryRegion::MainMem => {
-                HW::write_mem(&mut self.main_mem, addr & HW::MAIN_MEM_MASK, value)
+        let page_table_ptr = self.arm9_page_table[addr as usize >> HW::ARM9_PAGE_SHIFT];
+        if !page_table_ptr.is_null() {
+            if addr >> 16 == 0xFFFF {
+                warn!("Writing to BIOS9 0x{:08x} = 0x{:X}", addr, value);
+                return;
             }
-            MemoryRegion::SharedWRAM if self.wramcnt.arm9_mask == 0 => {
-                warn!("Writing to Unmapped ARM9 Shared WRAM")
+            unsafe {
+                let slice = std::slice::from_raw_parts_mut(page_table_ptr, HW::ARM9_PAGE_SIZE);
+                HW::write_mem(slice, addr & HW::ARM9_PAGE_TABLE_MASK, value);
             }
-            MemoryRegion::SharedWRAM => HW::write_mem(
-                &mut self.shared_wram,
-                self.wramcnt.arm9_offset + addr & self.wramcnt.arm9_mask,
-                value,
-            ),
-            MemoryRegion::IO => self.arm9_write_io(addr, value),
-            MemoryRegion::Palette if addr & 0x7FFF < 0x400 => {
-                HW::write_palette_ram(&mut self.gpu.engine_a, addr, value)
+        } else {
+            match MemoryRegion::from_addr(addr) {
+                MemoryRegion::SharedWRAM if self.wramcnt.arm9_mask == 0 => {
+                    warn!("Writing to Unmapped ARM9 Shared WRAM")
+                }
+                MemoryRegion::SharedWRAM => HW::write_mem(
+                    &mut self.shared_wram,
+                    self.wramcnt.arm9_offset + addr & self.wramcnt.arm9_mask,
+                    value,
+                ),
+                MemoryRegion::IO => self.arm9_write_io(addr, value),
+                MemoryRegion::Palette if addr & 0x7FFF < 0x400 => {
+                    HW::write_palette_ram(&mut self.gpu.engine_a, addr, value)
+                }
+                MemoryRegion::Palette => HW::write_palette_ram(&mut self.gpu.engine_b, addr, value),
+                MemoryRegion::VRAM => self.gpu.vram.arm9_write(addr, value),
+                MemoryRegion::OAM if addr & 0x7FFF < 0x400 => HW::write_mem(
+                    &mut self.gpu.engine_a.oam,
+                    addr & GPU::OAM_MASK as u32,
+                    value,
+                ),
+                MemoryRegion::OAM => HW::write_mem(
+                    &mut self.gpu.engine_b.oam,
+                    addr & GPU::OAM_MASK as u32,
+                    value,
+                ),
+                MemoryRegion::GBAROM => (),
+                MemoryRegion::GBARAM => todo!(),
+                MemoryRegion::Unknown => warn!("Writing to Unknown 0x{:08X} = 0x{:X}", addr, value),
             }
-            MemoryRegion::Palette => HW::write_palette_ram(&mut self.gpu.engine_b, addr, value),
-            MemoryRegion::VRAM => self.gpu.vram.arm9_write(addr, value),
-            MemoryRegion::OAM if addr & 0x7FFF < 0x400 => HW::write_mem(
-                &mut self.gpu.engine_a.oam,
-                addr & GPU::OAM_MASK as u32,
-                value,
-            ),
-            MemoryRegion::OAM => HW::write_mem(
-                &mut self.gpu.engine_b.oam,
-                addr & GPU::OAM_MASK as u32,
-                value,
-            ),
-            MemoryRegion::GBAROM => (),
-            MemoryRegion::GBARAM => todo!(),
-            MemoryRegion::BIOS => warn!("Writing to BIOS9 0x{:08x} = 0x{:X}", addr, value),
-            MemoryRegion::Unknown => warn!("Writing to Unknown 0x{:08X} = 0x{:X}", addr, value),
         }
     }
 
@@ -109,6 +121,46 @@ impl HW {
     ) -> usize {
         // TODO: Use accurate timings
         1
+    }
+
+    pub fn init_arm9_page_tables(&mut self) {
+        Self::map_page_table(
+            &mut self.arm9_page_table,
+            HW::ARM9_PAGE_SHIFT,
+            HW::ARM9_PAGE_SIZE,
+            0x02000000,
+            0x03000000,
+            &mut self.main_mem,
+        );
+        Self::map_page_table(
+            &mut self.arm9_page_table,
+            HW::ARM9_PAGE_SHIFT,
+            HW::ARM9_PAGE_SIZE,
+            0xFFFF0000,
+            0x1_0000_0000,
+            &mut self.bios9,
+        );
+
+        // DTCM has second priority
+        let dtcm_range = self.cp15.dtcm_range();
+        Self::map_page_table(
+            &mut self.arm9_page_table,
+            HW::ARM9_PAGE_SHIFT,
+            HW::ARM9_PAGE_SIZE,
+            dtcm_range.start as usize,
+            dtcm_range.end as usize,
+            &mut self.dtcm,
+        );
+        // ITCM has highest priority
+        let itcm_range = self.cp15.itcm_range();
+        Self::map_page_table(
+            &mut self.arm9_page_table,
+            HW::ARM9_PAGE_SHIFT,
+            HW::ARM9_PAGE_SIZE,
+            itcm_range.start as usize,
+            itcm_range.end as usize,
+            &mut self.itcm,
+        );
     }
 
     pub fn init_arm9(&mut self) -> u32 {
@@ -143,9 +195,6 @@ impl HW {
 
 #[derive(PartialEq)]
 pub enum ARM9MemoryRegion {
-    ITCM,
-    DTCM,
-    MainMem,
     SharedWRAM,
     IO,
     Palette,
@@ -153,21 +202,13 @@ pub enum ARM9MemoryRegion {
     OAM,
     GBAROM,
     GBARAM,
-    BIOS,
     Unknown,
 }
 
 impl ARM9MemoryRegion {
-    pub fn from_addr(addr: u32, cp15: &CP15) -> Self {
+    pub fn from_addr(addr: u32) -> Self {
         use ARM9MemoryRegion::*;
-        if cp15.addr_in_itcm(addr) {
-            return ITCM;
-        }
-        if cp15.addr_in_dtcm(addr) {
-            return DTCM;
-        }
         match addr >> 24 {
-            0x2 => MainMem,
             0x3 => SharedWRAM,
             0x4 => IO,
             0x5 => Palette,
@@ -175,7 +216,6 @@ impl ARM9MemoryRegion {
             0x7 => OAM,
             0x8 | 0x9 => GBAROM,
             0xA => GBARAM,
-            0xFF if addr >> 16 == 0xFFFF => BIOS,
             _ => {
                 warn!("Uknown Memory Access: {:X}", addr);
                 Unknown

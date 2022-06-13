@@ -42,6 +42,7 @@ pub struct HW {
     iwram: Vec<u8>,
     shared_wram: Vec<u8>,
     arm7_page_table: Vec<*mut u8>,
+    arm9_page_table: Vec<*mut u8>,
     // Devices
     pub gpu: GPU,
     spu: SPU,
@@ -96,6 +97,7 @@ impl HW {
             iwram: vec![0; HW::IWRAM_SIZE],
             shared_wram: vec![0; HW::SHARED_WRAM_SIZE],
             arm7_page_table: vec![std::ptr::null_mut(); HW::ARM7_PAGE_TABLE_SIZE],
+            arm9_page_table: vec![std::ptr::null_mut(); HW::ARM9_PAGE_TABLE_SIZE],
             // Devices
             gpu: GPU::new(&mut scheduler),
             spu: SPU::new(&mut scheduler),
@@ -120,6 +122,8 @@ impl HW {
             // Misc
             scheduler,
         };
+        hw.init_arm7_page_tables();
+        hw.init_arm9_page_tables();
         if direct_boot {
             hw.init_mem()
         } else {

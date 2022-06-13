@@ -815,6 +815,11 @@ impl<const IS_ARM9: bool> ARM<IS_ARM9> {
                 cp_info,
                 self.regs[arm_src_dest_reg],
             );
+            // Check if we modified ITCM or DTCM
+            if cp_src_dest_reg == 9 && cp_operand_reg == 1 && cp_info <= 1 {
+                // TODO: Only update ITCM and DTCM portions
+                hw.init_arm9_page_tables()
+            }
         }
     }
 

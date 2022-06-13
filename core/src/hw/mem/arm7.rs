@@ -93,8 +93,7 @@ impl HW {
         1
     }
 
-    pub fn init_arm7(&mut self) -> u32 {
-        // Init Page Table
+    pub fn init_arm7_page_tables(&mut self) {
         Self::map_page_table(
             &mut self.arm7_page_table,
             HW::ARM7_PAGE_SHIFT,
@@ -119,7 +118,9 @@ impl HW {
             0x04000000,
             &mut self.iwram,
         );
+    }
 
+    pub fn init_arm7(&mut self) -> u32 {
         let start_addr = self.cartridge.header().arm7_ram_addr;
         let rom_offset = self.cartridge.header().arm7_rom_offset as usize;
         let size = self.cartridge.header().arm7_size;

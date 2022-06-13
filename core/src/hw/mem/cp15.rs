@@ -1,3 +1,4 @@
+use _core::ops::Range;
 use bitflags::*;
 
 use super::HW;
@@ -63,13 +64,12 @@ impl CP15 {
         }
     }
 
-    pub fn addr_in_itcm(&self, addr: u32) -> bool {
-        addr < self.itcm_control.virtual_size
+    pub fn itcm_range(&self) -> Range<u32> {
+        0..self.itcm_control.virtual_size
     }
 
-    pub fn addr_in_dtcm(&self, addr: u32) -> bool {
-        (self.dtcm_control.base..self.dtcm_control.base + self.dtcm_control.virtual_size)
-            .contains(&addr)
+    pub fn dtcm_range(&self) -> Range<u32> {
+        self.dtcm_control.base..self.dtcm_control.base + self.dtcm_control.virtual_size
     }
 
     fn read_control_reg(&self, m: u32, p: u32) -> u32 {
