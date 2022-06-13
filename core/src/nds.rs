@@ -2,6 +2,7 @@ use std::{
     fs::{self, File, OpenOptions},
     path::{Path, PathBuf},
 };
+use crate::likely;
 
 use crate::arm::ARM;
 use crate::hw::HW;
@@ -37,7 +38,7 @@ impl NDS {
 
     pub fn emulate_frame(&mut self) {
         while !self.hw.rendered_frame() {
-            if !self.hw.gpu.bus_stalled() {
+            if likely(!self.hw.gpu.bus_stalled()) {
                 self.arm9.handle_irq(&mut self.hw);
                 self.arm9_cycles_ahead += if self.hw.cp15.arm9_halted {
                     self.hw.cycles_until_event()

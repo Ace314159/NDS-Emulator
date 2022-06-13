@@ -1,6 +1,7 @@
 use super::{instructions::InstructionHandler, registers::Mode, ARM, HW};
 
 use crate::hw::AccessType;
+use crate::likely;
 
 impl<const IS_ARM9: bool> ARM<IS_ARM9> {
     pub(super) fn fill_arm_instr_buffer(&mut self, hw: &mut HW) {
@@ -23,7 +24,7 @@ impl<const IS_ARM9: bool> ARM<IS_ARM9> {
         self.instr_buffer[0] = self.instr_buffer[1];
         self.regs[15] = self.regs[15].wrapping_add(4);
 
-        if self.should_exec((instr >> 28) & 0xF) {
+        if likely(self.should_exec((instr >> 28) & 0xF)) {
             self.arm_lut[((instr as usize) >> 16 & 0xFF0) | ((instr as usize) >> 4 & 0xF)](
                 self, hw, instr,
             );

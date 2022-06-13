@@ -5,7 +5,7 @@ mod registers;
 mod thumb;
 
 use crate::hw::{AccessType, MemoryValue, HW};
-use crate::num;
+use crate::{likely, num};
 use registers::{Mode, RegValues};
 
 pub struct ARM<const IS_ARM9: bool> {
@@ -99,7 +99,7 @@ impl<const IS_ARM9: bool> ARM<IS_ARM9> {
             (hw.arm7_interrupts_requested(), 0)
         };
         let use_i = IS_ARM9 || !hw.haltcnt.halted();
-        if (use_i && self.regs.get_i()) || !interrupts_requested {
+        if likely((use_i && self.regs.get_i()) || !interrupts_requested) {
             return;
         }
         if IS_ARM9 { hw.cp15.arm9_halted = false } else { hw.haltcnt.unhalt(); }

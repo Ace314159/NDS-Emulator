@@ -15,6 +15,7 @@ mod timers;
 use std::convert::TryInto;
 use std::fs::File;
 
+use crate::unlikely;
 use cartridge::Cartridge;
 pub use gpu::{EngineA, EngineB, GPU};
 use interrupt_controller::{InterruptController, InterruptRequest};
@@ -137,14 +138,14 @@ impl HW {
     }
 
     pub fn arm7_interrupts_requested(&mut self) -> bool {
-        if self.keypad.interrupt_requested() {
+        if unlikely(self.keypad.interrupt_requested()) {
             self.interrupts[0].request |= InterruptRequest::KEYPAD
         }
         self.interrupts[0].interrupts_requested(self.haltcnt.halted())
     }
 
     pub fn arm9_interrupts_requested(&mut self) -> bool {
-        if self.keypad.interrupt_requested() {
+        if unlikely(self.keypad.interrupt_requested()) {
             self.interrupts[1].request |= InterruptRequest::KEYPAD
         }
         self.interrupts[1].interrupts_requested(false)

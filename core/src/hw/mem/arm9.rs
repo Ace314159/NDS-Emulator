@@ -2,7 +2,7 @@ mod io;
 
 use super::{AccessType, IORegister, MemoryValue, HW};
 use crate::hw::gpu::{Engine2D, EngineType, GPU};
-use crate::num;
+use crate::{num, unlikely};
 use std::mem::size_of;
 
 type MemoryRegion = ARM9MemoryRegion;
@@ -55,7 +55,7 @@ impl HW {
     pub fn arm9_write<T: MemoryValue>(&mut self, addr: u32, value: T) {
         let page_table_ptr = self.arm9_page_table[addr as usize >> HW::ARM9_PAGE_SHIFT];
         if !page_table_ptr.is_null() {
-            if addr >> 16 == 0xFFFF {
+            if unlikely(addr >> 16 == 0xFFFF) {
                 warn!("Writing to BIOS9 0x{:08x} = 0x{:X}", addr, value);
                 return;
             }
