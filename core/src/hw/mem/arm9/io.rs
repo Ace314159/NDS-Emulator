@@ -309,18 +309,12 @@ impl HW {
             0x0400_0213 => self.interrupts[1]
                 .enable
                 .write(&mut self.scheduler, 3, value),
-            0x0400_0214 => self.interrupts[1]
+            0x0400_0214..=0x0400_0217 => {
+                self.interrupts[1]
                 .request
-                .write(&mut self.scheduler, 0, value),
-            0x0400_0215 => self.interrupts[1]
-                .request
-                .write(&mut self.scheduler, 1, value),
-            0x0400_0216 => self.interrupts[1]
-                .request
-                .write(&mut self.scheduler, 2, value),
-            0x0400_0217 => self.interrupts[1]
-                .request
-                .write(&mut self.scheduler, 3, value),
+                .write(&mut self.scheduler, (addr as usize) & 0x3, value);
+                self.gpu.engine3d.check_interrupts(&mut self.interrupts[1].request);
+            },
             0x0400_0240..=0x0400_0246 => self.gpu.vram.write_vram_cnt(addr as usize & 0xF, value),
             0x0400_0247 => self.wramcnt.write(&mut self.scheduler, 0, value),
             0x0400_0248..=0x0400_0249 => self
@@ -361,7 +355,7 @@ impl HW {
             0x0400_0320..=0x0400_06A3 => {
                 self.gpu
                     .engine3d
-                    .write_register(&mut self.scheduler, addr, value)
+                    .write_register(&mut self.interrupts[1].request, &mut self.scheduler, addr, value)
             }
             0x0400_1000..=0x0400_1003 => {
                 self.gpu
@@ -422,11 +416,11 @@ impl HW {
     }
 
     fn write_geometry_fifo(&mut self, value: u32) {
-        self.gpu.engine3d.write_geometry_fifo(value);
+        self.gpu.engine3d.write_geometry_fifo(&mut self.interrupts[1].request, value);
     }
 
     fn write_geometry_command(&mut self, addr: u32, value: u32) {
-        self.gpu.engine3d.write_geometry_command(addr, value);
+        self.gpu.engine3d.write_geometry_command(&mut self.interrupts[1].request, addr, value);
         self.check_geometry_command_fifo();
     }
 }

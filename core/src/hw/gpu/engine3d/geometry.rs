@@ -1,7 +1,7 @@
 use super::{
     math::{FixedPoint, Matrix, Vec4},
     registers::*,
-    Engine3D,
+    Engine3D, InterruptRequest,
 };
 
 impl Engine3D {
@@ -9,13 +9,18 @@ impl Engine3D {
         !self.polygons_submitted && self.gxfifo.len() < Engine3D::FIFO_LEN / 2
     }
 
-    fn push_geometry_command(&mut self, command: GeometryCommand, param: u32) {
+    fn push_geometry_command(
+        &mut self,
+        interrupts: &mut InterruptRequest,
+        command: GeometryCommand,
+        param: u32,
+    ) {
         let entry = GeometryCommandEntry::new(command, param);
         self.gxfifo.push_back(entry);
-        self.exec_commands();
+        self.exec_commands(interrupts);
     }
 
-    pub fn exec_commands(&mut self) {
+    pub fn exec_commands(&mut self, interrupts: &mut InterruptRequest) {
         if !self.polygons_submitted {
             while let Some(entry) = self.gxfifo.pop_front() {
                 self.exec_command(entry);
@@ -24,6 +29,7 @@ impl Engine3D {
                 }
             }
         }
+        self.check_interrupts(interrupts);
         self.bus_stalled = self.gxfifo.len() >= Engine3D::FIFO_LEN;
     }
 
@@ -258,7 +264,7 @@ impl Engine3D {
         self.params.clear();
     }
 
-    pub fn write_geometry_fifo(&mut self, value: u32) {
+    pub fn write_geometry_fifo(&mut self, interrupts: &mut InterruptRequest, value: u32) {
         if self.packed_commands == 0 {
             if value == 0 {
                 return;
@@ -276,7 +282,7 @@ impl Engine3D {
 
         while self.packed_commands != 0 {
             if self.cur_command != GeometryCommand::NOP {
-                self.push_geometry_command(self.cur_command, value);
+                self.push_geometry_command(interrupts, self.cur_command, value);
             }
 
             assert!(self.params_processed <= self.num_params);
@@ -298,10 +304,15 @@ impl Engine3D {
         }
     }
 
-    pub fn write_geometry_command(&mut self, addr: u32, value: u32) {
+    pub fn write_geometry_command(
+        &mut self,
+        interrupts: &mut InterruptRequest,
+        addr: u32,
+        value: u32,
+    ) {
         let command = GeometryCommand::from_addr(addr & 0xFFF);
         if command != GeometryCommand::Unimplemented {
-            self.push_geometry_command(command, value);
+            self.push_geometry_command(interrupts, command, value);
         }
     }
 

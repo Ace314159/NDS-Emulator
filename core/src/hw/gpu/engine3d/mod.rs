@@ -160,7 +160,7 @@ impl Engine3D {
         }
     }
 
-    pub fn write_register(&mut self, scheduler: &mut Scheduler, addr: u32, value: u8) {
+    pub fn write_register(&mut self, interrupts: &mut InterruptRequest, scheduler: &mut Scheduler, addr: u32, value: u8) {
         assert_eq!(addr >> 12, 0x04000);
         match addr & 0xFFF {
             0x350..=0x353 => self
@@ -172,7 +172,7 @@ impl Engine3D {
             0x380..=0x3BF => {
                 self.write_toon_table(addr as usize & (2 * self.toon_table.len() - 1), value)
             }
-            0x600..=0x603 => self.write_gxstat(scheduler, (addr as usize) & 0x3, value),
+            0x600..=0x603 => self.write_gxstat(interrupts, (addr as usize) & 0x3, value),
             _ => warn!("Ignoring Engine3D Write 0x{:08X} = {:02X}", addr, value),
         }
     }

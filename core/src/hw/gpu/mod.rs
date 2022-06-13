@@ -259,7 +259,7 @@ impl HW {
         if self.gpu.powcnt1.contains(POWCNT1::ENABLE_3D_RENDERING) {
             self.gpu.engine3d.render(&self.gpu.vram);
 
-            self.gpu.engine3d.exec_commands();
+            self.gpu.engine3d.exec_commands(&mut self.interrupts[1].request);
             self.check_geometry_command_fifo();
         }
     }

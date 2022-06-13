@@ -1,4 +1,4 @@
-use super::{math::Vec4, Color, Engine3D, IORegister, Scheduler, GPU};
+use super::{math::Vec4, Color, Engine3D, IORegister, InterruptRequest, Scheduler, GPU};
 
 pub struct DISP3DCNT {
     pub texture_mapping: bool,
@@ -147,7 +147,7 @@ impl Engine3D {
 
     pub(super) fn write_gxstat(
         &mut self,
-        _scheduler: &mut crate::hw::scheduler::Scheduler,
+        interrupts: &mut InterruptRequest,
         byte: usize,
         value: u8,
     ) {
@@ -157,6 +157,7 @@ impl Engine3D {
             3 => self.gxstat.command_fifo_irq = CommandFifoIRQ::from(value >> 6 & 0x3),
             _ => unreachable!(),
         }
+        self.check_interrupts(interrupts);
     }
 
     pub(super) fn read_ram_count(&self, byte: usize) -> u8 {
