@@ -61,26 +61,32 @@ impl NDS {
         }
     }
 
+    #[inline]
     pub fn get_screens(&self) -> [&Vec<u16>; 2] {
         self.hw.gpu.get_screens()
     }
 
+    #[inline]
     pub fn press_key(&mut self, key: Key) {
         self.hw.press_key(key);
     }
 
+    #[inline]
     pub fn release_key(&mut self, key: Key) {
         self.hw.release_key(key);
     }
 
+    #[inline]
     pub fn press_screen(&mut self, x: usize, y: usize) {
         self.hw.press_screen(x, y);
     }
 
+    #[inline]
     pub fn release_screen(&mut self) {
         self.hw.release_screen();
     }
 
+    #[inline]
     pub fn render_palettes(
         &self,
         extended: bool,
@@ -93,10 +99,12 @@ impl NDS {
             .render_palettes(extended, slot, palette, engine, graphics_type)
     }
 
+    #[inline]
     pub fn render_map(&self, engine: Engine, bg_i: usize) -> (Vec<u16>, usize, usize) {
         self.hw.render_map(engine, bg_i)
     }
 
+    #[inline]
     pub fn render_tiles(
         &self,
         engine: Engine,
@@ -120,6 +128,7 @@ impl NDS {
         )
     }
 
+    #[inline]
     pub fn render_bank(&self, bank: usize, ignore_alpha: bool) -> (Vec<u16>, usize, usize) {
         self.hw.render_bank(ignore_alpha, bank)
     }
