@@ -5,7 +5,7 @@ mod registers;
 mod thumb;
 
 use crate::hw::{AccessType, MemoryValue, HW};
-use crate::{likely, num};
+use crate::{likely, num, unlikely};
 use registers::{Mode, RegValues};
 
 pub struct ARM<const IS_ARM9: bool> {
@@ -41,7 +41,7 @@ impl<const IS_ARM9: bool> ARM<IS_ARM9> {
 
     pub fn emulate_instr(&mut self, hw: &mut HW) -> usize {
         self.cycles_spent = 0;
-        if self.regs.get_t() {
+        if unlikely(self.regs.get_t()) {
             self.emulate_thumb_instr(hw)
         } else {
             self.emulate_arm_instr(hw)
@@ -104,7 +104,7 @@ impl<const IS_ARM9: bool> ARM<IS_ARM9> {
         }
         if IS_ARM9 { hw.cp15.arm9_halted = false } else { hw.haltcnt.unhalt(); }
         self.regs.change_mode(Mode::IRQ);
-        let lr = if self.regs.get_t() {
+        let lr = if unlikely(self.regs.get_t()) {
             self.read::<u16>(hw, AccessType::N, self.regs[15]);
             self.regs[15].wrapping_sub(2).wrapping_add(4)
         } else {
