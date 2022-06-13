@@ -36,7 +36,7 @@ struct StatusReg {
 impl StatusReg {
     pub fn reset() -> StatusReg {
         StatusReg {
-            bits: StatusRegBits::new(),
+            bits: StatusRegBits(Mode::SYS as u32),
             mode: Mode::SYS,
         }
     }
@@ -59,7 +59,10 @@ impl StatusReg {
             bits if bits == Mode::ABT as u8 => Mode::ABT,
             bits if bits == Mode::SYS as u8 => Mode::SYS,
             bits if bits == Mode::UND as u8 => Mode::UND,
-            _ => panic!("Invalid Mode"),
+            bits => {
+                warn!("Invalid Mode {:X}", bits);
+                Mode::USR
+            },
         };
     }
 }
