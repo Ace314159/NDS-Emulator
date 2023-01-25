@@ -10,7 +10,6 @@ use crate::hw::HW;
 pub use crate::hw::{Engine, GraphicsType, Key};
 
 pub struct NDS {
-    arm9_cycles_ahead: i32, // Measured in 66 MHz ARM9 cycles
     arm7: ARM<false>,
     arm9: ARM<true>,
     hw: HW,
@@ -29,7 +28,6 @@ impl NDS {
         let direct_boot = true;
         let mut hw = HW::new(bios7, bios9, firmware_file, rom, save_file, direct_boot);
         NDS {
-            arm9_cycles_ahead: 0,
             arm7: ARM::new(&mut hw, direct_boot),
             arm9: ARM::new(&mut hw, direct_boot),
             hw,
@@ -39,25 +37,17 @@ impl NDS {
     pub fn emulate_frame(&mut self) {
         while !self.hw.rendered_frame() {
             if likely(!self.hw.gpu.bus_stalled()) {
-                self.arm9.handle_irq(&mut self.hw);
-                self.arm9_cycles_ahead += if self.hw.cp15.arm9_halted {
-                    self.hw.cycles_until_event()
-                } else {
-                    self.arm9.emulate_instr(&mut self.hw)
-                } as i32;
+                let cycle = self.hw.cycle();
+                // The max cycle desync was ~30 when the CPUs were running tightly
+                let target = std::cmp::min(cycle + 30, self.hw.cycle_at_next_event());
 
-                while self.arm9_cycles_ahead >= 0 {
-                    self.arm7.handle_irq(&mut self.hw);
-                    let arm7_cycles_ran = if self.hw.haltcnt.halted() {
-                        1
-                    } else {
-                        self.arm7.emulate_instr(&mut self.hw)
-                    };
-                    self.hw.clock(arm7_cycles_ran);
-                    self.arm9_cycles_ahead -= 2 * arm7_cycles_ran as i32
-                }
+                self.arm9.emulate(&mut self.hw, target * 2);
+                self.arm7.emulate(&mut self.hw, target);
+                self.hw.clock_until(target);
             } else {
-                self.hw.clock_until_event()
+                self.hw.clock_until_event();
+                self.arm9.set_cycle(self.hw.cycle() * 2);
+                self.arm7.set_cycle(self.hw.cycle());
             }
         }
     }

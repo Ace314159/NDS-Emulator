@@ -170,11 +170,11 @@ impl HW {
         dest_addr &= !addr_mask;
         let mut first = true;
         let original_dest_addr = dest_addr;
-        let mut cycles_passed = 0;
+        let mut _cycles_passed = 0;
         for _ in 0..count {
             let cycle_type = if first { AccessType::N } else { AccessType::S };
-            cycles_passed += access_time_fn(self, cycle_type, src_addr);
-            cycles_passed += access_time_fn(self, cycle_type, dest_addr);
+            _cycles_passed += access_time_fn(self, cycle_type, src_addr);
+            _cycles_passed += access_time_fn(self, cycle_type, dest_addr);
             let value = read_fn(self, src_addr);
             write_fn(self, dest_addr, value);
 
@@ -199,14 +199,15 @@ impl HW {
         if dest_addr_ctrl == 3 {
             channel.dad_latch = original_dest_addr
         }
-        cycles_passed += 2; // 2 I cycles
+        _cycles_passed += 2; // 2 I cycles
 
         if !channel.cnt.enable {
             self.dmas[i].disable(num)
         }
 
         // TODO: Don't halt CPU if PC is in TCM
-        self.clock(cycles_passed);
+        // TODO: Add this back - Removed because it broke when CPU synchronization was made looser
+        // self.clock(_cycles_passed);
 
         if irq {
             let interrupt = match num {

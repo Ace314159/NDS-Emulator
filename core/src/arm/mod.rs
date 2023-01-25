@@ -9,7 +9,7 @@ use crate::{likely, num, unlikely};
 use registers::{Mode, RegValues};
 
 pub struct ARM<const IS_ARM9: bool> {
-    cycles_spent: usize,
+    cycle: usize,
     regs: RegValues,
     instr_buffer: [u32; 2],
     next_access_type: AccessType,
@@ -22,7 +22,7 @@ pub struct ARM<const IS_ARM9: bool> {
 impl<const IS_ARM9: bool> ARM<IS_ARM9> {
     pub fn new(hw: &mut HW, direct_boot: bool) -> ARM<IS_ARM9> {
         let mut cpu = ARM {
-            cycles_spent: 0,
+            cycle: 0,
             regs: if direct_boot {
                 RegValues::direct_boot::<IS_ARM9>(if IS_ARM9 { hw.init_arm9() } else { hw.init_arm7() })
             } else {
@@ -39,24 +39,34 @@ impl<const IS_ARM9: bool> ARM<IS_ARM9> {
         cpu
     }
 
-    pub fn emulate_instr(&mut self, hw: &mut HW) -> usize {
-        self.cycles_spent = 0;
-        if unlikely(self.regs.get_t()) {
-            self.emulate_thumb_instr(hw)
-        } else {
-            self.emulate_arm_instr(hw)
+    pub fn set_cycle(&mut self, cycle: usize) {
+        self.cycle = cycle;
+    }
+
+    pub fn emulate(&mut self, hw: &mut HW, target: usize) {
+        while self.cycle < target {
+            self.handle_irq(hw);
+            if self.is_halted(hw) {
+                self.cycle = target;
+                return;
+            }
+
+            if unlikely(self.regs.get_t()) {
+                self.emulate_thumb_instr(hw)
+            } else {
+                self.emulate_arm_instr(hw)
+            }
         }
-        self.cycles_spent
     }
 
     pub fn read<T: MemoryValue>(&mut self, hw: &mut HW, access_type: AccessType, addr: u32) -> T {
         let value = if IS_ARM9 {
             let value = hw.arm9_read::<T>(addr);
-            self.cycles_spent += hw.arm9_get_access_time::<T>(self.next_access_type, addr);
+            self.cycle += hw.arm9_get_access_time::<T>(self.next_access_type, addr);
             value
         } else {
             let value = hw.arm7_read::<T>(addr);
-            self.cycles_spent += hw.arm7_get_access_time::<T>(self.next_access_type, addr);
+            self.cycle += hw.arm7_get_access_time::<T>(self.next_access_type, addr);
             value
         };
         self.next_access_type = access_type;
@@ -71,10 +81,10 @@ impl<const IS_ARM9: bool> ARM<IS_ARM9> {
         value: T,
     ) {
         if IS_ARM9 {
-            self.cycles_spent += hw.arm9_get_access_time::<T>(self.next_access_type, addr);
+            self.cycle += hw.arm9_get_access_time::<T>(self.next_access_type, addr);
             hw.arm9_write::<T>(addr, value);
         } else {
-            self.cycles_spent += hw.arm7_get_access_time::<T>(self.next_access_type, addr);
+            self.cycle += hw.arm7_get_access_time::<T>(self.next_access_type, addr);
             hw.arm7_write::<T>(addr, value);
         }
         self.next_access_type = access_type;
@@ -88,8 +98,12 @@ impl<const IS_ARM9: bool> ARM<IS_ARM9> {
     }
 
     pub fn internal(&mut self) {
-        self.cycles_spent += 1;
+        self.cycle += 1;
         self.next_access_type = AccessType::N;
+    }
+
+    fn is_halted(&self, hw: &HW) -> bool {
+        if IS_ARM9 { hw.cp15.arm9_halted } else { hw.haltcnt.halted() }
     }
 
     pub fn handle_irq(&mut self, hw: &mut HW) {

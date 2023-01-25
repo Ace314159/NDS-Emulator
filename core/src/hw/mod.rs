@@ -133,8 +133,8 @@ impl HW {
         }
     }
 
-    pub fn clock(&mut self, arm7_cycles: usize) {
-        self.handle_events(arm7_cycles);
+    pub fn clock_until(&mut self, target: usize) {
+        self.handle_events(target);
     }
 
     pub fn arm7_interrupts_requested(&mut self) -> bool {

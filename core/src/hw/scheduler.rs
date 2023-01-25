@@ -8,8 +8,9 @@ use super::{spu, HW};
 type EventHandler = fn(&mut HW, Event);
 
 impl HW {
-    pub fn handle_events(&mut self, arm7_cycles: usize) {
-        self.scheduler.cycle += arm7_cycles;
+    pub fn handle_events(&mut self, new_cycle: usize) {
+        assert!(self.scheduler.cycle <= new_cycle);
+        self.scheduler.cycle = new_cycle;
         while let Some(wrapper) = self.scheduler.get_next_event() {
             (wrapper.handler)(self, wrapper.event);
         }
@@ -25,12 +26,16 @@ impl HW {
         (wrapper.handler)(self, wrapper.event);
     }
 
-    pub fn cycles_until_event(&self) -> usize {
+    pub fn cycle(&self) -> usize {
+        self.scheduler.cycle
+    }
+
+    pub fn cycle_at_next_event(&self) -> usize {
         let (_wrapper, Reverse(cycle)) = self.scheduler.event_queue.peek().unwrap();
         if self.scheduler.cycle > *cycle {
-            0
+            self.scheduler.cycle
         } else {
-            cycle - self.scheduler.cycle
+            *cycle
         }
     }
 

@@ -88,9 +88,10 @@ impl Timer {
     }
 
     fn calc_counter(&self, global_cycle: usize) -> u16 {
-        let cycles_passed = global_cycle - self.start_cycle;
+        let cycles_passed = global_cycle as i64 - self.start_cycle as i64;  // Avoid underflow
         // Counter stores the reload value
-        if cycles_passed >= self.time_till_first_clock {
+        if cycles_passed >= self.time_till_first_clock as i64 {
+            let cycles_passed = cycles_passed as usize;  // Cast back to usize for division
             let cycles_passed = cycles_passed - self.time_till_first_clock;
             let counter_change = cycles_passed / Timers::PRESCALERS[self.cnt.prescaler as usize];
             assert!(counter_change < 0x1_0000);
