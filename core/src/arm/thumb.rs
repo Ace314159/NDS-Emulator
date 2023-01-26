@@ -684,7 +684,9 @@ pub(super) fn gen_lut<const IS_ARM9: bool>() -> [InstructionHandler<u16, IS_ARM9
             compose_instr_handler!(cond_branch, skeleton, 11, 10, 9, 8)
         } else if opcode & 0b1111_1000 == 0b1110_0000 {
             ARM::uncond_branch
-        } else if (IS_ARM9 && opcode & 0b1110_0000 == 0b1110_0000) || (!IS_ARM9 && opcode & 0b1111_0000 == 0b1111_0000) {
+        } else if (IS_ARM9 && opcode & 0b1110_0000 == 0b1110_0000)
+            || (!IS_ARM9 && opcode & 0b1111_0000 == 0b1111_0000)
+        {
             compose_instr_handler!(branch_with_link, skeleton, 12, 11)
         } else {
             ARM::undefined_instr_thumb

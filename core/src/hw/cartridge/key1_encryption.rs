@@ -10,7 +10,9 @@ impl Key1Encryption {
     const KEY_TABLE_SIZE: usize = 0x1048 / 4;
 
     pub fn new(bios7: &[u8]) -> Self {
-        let original_key_buf = bytemuck::cast_slice(&bios7[0x30..=0x1077]).try_into().unwrap();
+        let original_key_buf = bytemuck::cast_slice(&bios7[0x30..=0x1077])
+            .try_into()
+            .unwrap();
         Key1Encryption {
             in_use: false,
             key_buf: original_key_buf,
@@ -22,10 +24,14 @@ impl Key1Encryption {
     pub fn init_key_code(&mut self, id_code: u32, level: u32, modulo: u32) {
         self.in_use = true;
         self.key_buf = self.original_key_buf;
-        
+
         let mut key_code = [id_code, id_code / 2, id_code * 2];
-        if level >= 1 { self.apply_keycode(&mut key_code, modulo) }
-        if level >= 2 { self.apply_keycode(&mut key_code, modulo) }
+        if level >= 1 {
+            self.apply_keycode(&mut key_code, modulo)
+        }
+        if level >= 2 {
+            self.apply_keycode(&mut key_code, modulo)
+        }
         if level >= 3 {
             key_code[1] *= 2;
             key_code[2] /= 2;
@@ -49,20 +55,30 @@ impl Key1Encryption {
         let mut decrypt_range = (0x2..=0x11 as usize).rev();
         let range = if ENCRYPT {
             &mut encrypt_range as &mut dyn Iterator<Item = _>
-        } else { &mut decrypt_range };
+        } else {
+            &mut decrypt_range
+        };
 
         for i in range {
             let z = (key_buf[i] ^ x) as usize;
             x = key_buf[0x048 / 4 + (z >> 24 & 0xFF)];
             x = x.wrapping_add(key_buf[0x448 / 4 + (z >> 16 & 0xFF)]);
-            x ^= key_buf[0x848 / 4 + (z >>  8 & 0xFF)];
+            x ^= key_buf[0x848 / 4 + (z >> 8 & 0xFF)];
             x = x.wrapping_add(key_buf[0xC48 / 4 + (z >> 0 & 0xFF)]);
             x ^= y;
             y = z as u32;
         }
 
-        ptr[0 / 4] = x ^ if ENCRYPT { key_buf[0x40 / 4] } else { key_buf[0x4 / 4] };
-        ptr[4 / 4] = y ^ if ENCRYPT { key_buf[0x44 / 4] } else { key_buf[0x0 / 4] };
+        ptr[0 / 4] = x ^ if ENCRYPT {
+            key_buf[0x40 / 4]
+        } else {
+            key_buf[0x4 / 4]
+        };
+        ptr[4 / 4] = y ^ if ENCRYPT {
+            key_buf[0x44 / 4]
+        } else {
+            key_buf[0x0 / 4]
+        };
     }
 
     fn encrypt64(key_buf: &[u32], ptr: &mut [u32]) {

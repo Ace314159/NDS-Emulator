@@ -2,7 +2,7 @@ use std::convert::TryInto;
 
 pub struct Header {
     pub game_title: [u8; 12], // ASCII
-    pub game_code: u32,   // ASCII - 0 = homebrew
+    pub game_code: u32,       // ASCII - 0 = homebrew
     pub maker_code: [u8; 2],  // ASCII - 0 = homebrew
     pub unit_code: UnitCode,
     pub encryption_seed: u8, // 0x0 - 0x7

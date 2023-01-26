@@ -1,6 +1,6 @@
 use super::{mem::IORegister, scheduler::Scheduler};
 
-use chrono::{Datelike, Timelike, offset::Local};
+use chrono::{offset::Local, Datelike, Timelike};
 
 pub struct RTC {
     // Register
@@ -39,31 +39,38 @@ impl RTC {
             Parameter::StatusReg1 => {
                 self.last_byte = true;
                 (self.date_time.read_status_reg1(), Parameter::StatusReg1)
-            },
+            }
             Parameter::StatusReg2 => {
                 self.last_byte = true;
                 (self.date_time.read_status_reg2(), Parameter::StatusReg2)
-            },
+            }
             Parameter::DateTime(byte) => {
                 self.last_byte = byte == 7 - 1;
                 (self.date_time.read(byte), Parameter::DateTime(byte + 1))
-            },
+            }
             Parameter::Time(byte) => {
                 self.last_byte = byte == 3 - 1;
                 (self.date_time.read(byte + 4), Parameter::Time(byte + 1))
-            },
-            Parameter::Alarm1FreqDuty(0) if self.date_time.int_mode & 0x1 == 0 => { // TODO: Figure out
+            }
+            Parameter::Alarm1FreqDuty(0) if self.date_time.int_mode & 0x1 == 0 => {
+                // TODO: Figure out
                 self.last_byte = true;
                 (self.date_time.steady_int, Parameter::Alarm1FreqDuty(0))
-            },
+            }
             Parameter::Alarm1FreqDuty(byte) => {
                 self.last_byte = byte == 3 - 1;
-                (self.date_time.alarm1.read(byte), Parameter::Alarm1FreqDuty(byte + 1))
-            },
+                (
+                    self.date_time.alarm1.read(byte),
+                    Parameter::Alarm1FreqDuty(byte + 1),
+                )
+            }
             Parameter::Alarm2(byte) => {
                 self.last_byte = byte == 3 - 1;
-                (self.date_time.alarm2.read(byte), Parameter::Alarm2(byte + 1))
-            },
+                (
+                    self.date_time.alarm2.read(byte),
+                    Parameter::Alarm2(byte + 1),
+                )
+            }
             Parameter::ClockAdjust => {
                 self.last_byte = true;
                 (self.date_time.clock_adjust, Parameter::ClockAdjust)
@@ -78,67 +85,86 @@ impl RTC {
                 self.date_time.write_status_reg1(value);
                 self.last_byte = true;
                 Parameter::StatusReg1
-            },
+            }
             Parameter::StatusReg2 => {
                 self.date_time.write_status_reg2(value);
                 self.last_byte = true;
                 Parameter::StatusReg2
-            },
+            }
             Parameter::DateTime(byte) => {
                 self.date_time.write(byte, value);
                 self.last_byte = byte == 7 - 1;
                 Parameter::DateTime(byte + 1)
-            },
+            }
             Parameter::Time(byte) => {
                 self.date_time.write(byte + 4, value);
                 self.last_byte = byte == 3 - 1;
                 Parameter::Time(byte + 1)
-            },
-            Parameter::Alarm1FreqDuty(0) if self.date_time.int_mode & 0x1 == 0 => { // TODO: Figure out
+            }
+            Parameter::Alarm1FreqDuty(0) if self.date_time.int_mode & 0x1 == 0 => {
+                // TODO: Figure out
                 self.date_time.steady_int = value;
                 self.last_byte = true;
                 Parameter::Alarm1FreqDuty(0)
-            },
+            }
             Parameter::Alarm1FreqDuty(byte) => {
                 self.date_time.alarm1.write(byte, value);
                 self.last_byte = byte == 3 - 1;
                 Parameter::Alarm1FreqDuty(byte + 1)
-            },
+            }
             Parameter::Alarm2(byte) => {
                 self.date_time.alarm2.write(byte, value);
                 self.last_byte = byte == 3 - 1;
                 Parameter::Alarm2(byte + 1)
-            },
+            }
             Parameter::ClockAdjust => {
                 self.date_time.clock_adjust = value;
                 self.last_byte = true;
                 Parameter::ClockAdjust
-            },
+            }
         }
     }
 }
 
 impl IORegister for RTC {
     fn read(&self, byte: usize) -> u8 {
-        if byte == 1 { return 0 }
+        if byte == 1 {
+            return 0;
+        }
 
         let cs = if !self.cs_write { self.cs as u8 } else { 0 };
-        let sck = if !self.sck_write { self.sck_write as u8 } else { 0 };
+        let sck = if !self.sck_write {
+            self.sck_write as u8
+        } else {
+            0
+        };
         let data = if !self.data_write { self.data as u8 } else { 0 };
-        (self.cs_write as u8) << 6 | (self.sck_write as u8) << 5 | (self.data_write as u8) << 4 |
-            cs << 2 | sck << 1 | data << 0
+        (self.cs_write as u8) << 6
+            | (self.sck_write as u8) << 5
+            | (self.data_write as u8) << 4
+            | cs << 2
+            | sck << 1
+            | data << 0
     }
 
     fn write(&mut self, _scheduler: &mut Scheduler, byte: usize, value: u8) {
-        if byte == 1 { return }
+        if byte == 1 {
+            return;
+        }
 
         let prev_sck = self.sck;
         self.cs_write = value >> 6 & 0x1 != 0;
         self.sck_write = value >> 5 & 0x1 != 0;
         self.data_write = value >> 4 & 0x1 != 0;
-        if self.cs_write { self.cs = value >> 2 & 0x1 != 0 }
-        if self.sck_write { self.sck = value >> 1 & 0x1 != 0 }
-        if self.data_write { self.data = value >> 0 & 0x1 != 0 }
+        if self.cs_write {
+            self.cs = value >> 2 & 0x1 != 0
+        }
+        if self.sck_write {
+            self.sck = value >> 1 & 0x1 != 0
+        }
+        if self.data_write {
+            self.data = value >> 0 & 0x1 != 0
+        }
 
         self.mode = match self.mode {
             Mode::StartCmd(false) if !self.cs => Mode::StartCmd(true),
@@ -149,43 +175,53 @@ impl IORegister for RTC {
                 assert!(self.data_write);
                 let command = command << 1 | self.data as u8;
                 assert_eq!(command >> 4 & 0xF, RTC::COMMAND_CODE);
-                
+
                 let parameter = Parameter::from(command >> 1 & 0x7);
                 let (parameter, access_type) = if command & 0x1 != 0 {
                     let (parameter_byte, next_parameter) = self.read_parameter(parameter);
                     (next_parameter, AccessType::Read(parameter_byte, 0))
-                } else { (parameter, AccessType::Write(0, 0)) };
+                } else {
+                    (parameter, AccessType::Write(0, 0))
+                };
                 Mode::ExecCmd(parameter, access_type)
-            },
+            }
             Mode::SetCmd(command, bit) if prev_sck && !self.sck => {
                 assert!(self.cs && self.data_write);
                 Mode::SetCmd(command << 1 | self.data as u8, bit + 1)
-            },
+            }
             Mode::SetCmd(_, _) => self.mode,
 
             Mode::ExecCmd(parameter, AccessType::Read(byte, 7)) if prev_sck && !self.sck => {
                 let done = self.last_byte;
                 self.data = byte & 0x1 != 0;
-                if done { Mode::EndCmd } else {
+                if done {
+                    Mode::EndCmd
+                } else {
                     let (parameter_byte, next_parameter) = self.read_parameter(parameter);
                     Mode::ExecCmd(next_parameter, AccessType::Read(parameter_byte, 0))
                 }
-            },
+            }
             Mode::ExecCmd(parameter, AccessType::Read(byte, bit)) if prev_sck && !self.sck => {
                 self.data = byte & 0x1 != 0;
                 Mode::ExecCmd(parameter, AccessType::Read(byte >> 1, bit + 1))
-            },
+            }
             Mode::ExecCmd(_, AccessType::Read(_, _)) => self.mode,
 
             Mode::ExecCmd(parameter, AccessType::Write(byte, 7)) if prev_sck && !self.sck => {
                 let done = self.last_byte;
                 self.write_parameter(parameter, byte | (self.data as u8) << 7);
-                if done { Mode::EndCmd } else {
+                if done {
+                    Mode::EndCmd
+                } else {
                     Mode::ExecCmd(parameter, AccessType::Write(byte + 1, 0))
                 }
-            },
-            Mode::ExecCmd(parameter, AccessType::Write(byte, bit)) if prev_sck && !self.sck =>
-                Mode::ExecCmd(parameter, AccessType::Write(byte | (self.data as u8) << bit, bit + 1)),
+            }
+            Mode::ExecCmd(parameter, AccessType::Write(byte, bit)) if prev_sck && !self.sck => {
+                Mode::ExecCmd(
+                    parameter,
+                    AccessType::Write(byte | (self.data as u8) << bit, bit + 1),
+                )
+            }
             Mode::ExecCmd(_, AccessType::Write(_, _)) => self.mode,
 
             Mode::EndCmd if !self.cs => Mode::StartCmd(false),
@@ -292,7 +328,7 @@ impl DateTime {
                     (hour >= 12, hour)
                 };
                 return (bit_6 as u8) << 6 | to_bcd(hour as u8);
-            },
+            }
             5 => now.minute(),
             6 => now.second(),
             _ => unreachable!(),
@@ -306,7 +342,10 @@ impl DateTime {
     }
 
     fn read_status_reg2(&self) -> u8 {
-        (self.test_mode as u8) << 7 | (self.int2_enable as u8) << 6 | (self.gp_bits2 << 4) | (self.int_mode)
+        (self.test_mode as u8) << 7
+            | (self.int2_enable as u8) << 6
+            | (self.gp_bits2 << 4)
+            | (self.int_mode)
     }
 
     fn write(&mut self, byte: u8, _value: u8) {
@@ -378,16 +417,16 @@ impl AlarmReg {
             0 => {
                 self.cmp_spec_day = value >> 7 & 0x1 != 0;
                 self.day = value & 0x7;
-            },
+            }
             1 => {
                 self.cmp_spec_hour = value >> 7 & 0x1 != 0;
                 self.is_pm = value >> 6 & 0x1 != 0;
                 self.hour = value & 0x3F;
-            },
+            }
             2 => {
                 self.cmp_spec_min = value >> 7 & 0x1 != 0;
                 self.min = value & 0x7F;
-            },
+            }
             _ => unreachable!(),
         }
     }

@@ -160,7 +160,13 @@ impl Engine3D {
         }
     }
 
-    pub fn write_register(&mut self, interrupts: &mut InterruptRequest, scheduler: &mut Scheduler, addr: u32, value: u8) {
+    pub fn write_register(
+        &mut self,
+        interrupts: &mut InterruptRequest,
+        scheduler: &mut Scheduler,
+        addr: u32,
+        value: u8,
+    ) {
         assert_eq!(addr >> 12, 0x04000);
         match addr & 0xFFF {
             0x350..=0x353 => self

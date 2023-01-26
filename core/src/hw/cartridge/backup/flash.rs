@@ -1,5 +1,5 @@
-use std::fs::File;
 use memmap::MmapMut;
+use std::fs::File;
 
 use super::Backup;
 

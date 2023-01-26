@@ -3,8 +3,8 @@ mod flash;
 mod game_db;
 mod no_backup;
 
-use std::{fs::File, io::Write};
 use memmap::{MmapMut, MmapOptions};
+use std::{fs::File, io::Write};
 
 use super::Header;
 

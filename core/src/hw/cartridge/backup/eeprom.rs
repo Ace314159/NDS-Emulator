@@ -1,6 +1,6 @@
-use std::marker::PhantomData;
-use std::fs::File;
 use memmap::MmapMut;
+use std::fs::File;
+use std::marker::PhantomData;
 
 use super::Backup;
 

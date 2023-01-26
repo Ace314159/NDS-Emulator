@@ -66,7 +66,7 @@ impl Cartridge {
     pub fn encrypt_secure_area(&mut self) {
         let start = self.header.arm9_rom_offset as usize;
         if !Self::SECURE_AREA_RANGE.contains(&start) {
-            return
+            return;
         }
 
         let secure_area_range = || start..start + Self::SECURE_AREA_SIZE;
@@ -75,23 +75,26 @@ impl Cartridge {
         // Check secure area exists
         for i in 0..3 {
             if secure_area_32[i] != Self::DESTROYED_SECURE_AREA_ID {
-                return
+                return;
             }
         }
         if secure_area[0xC] != 0xFF || secure_area[0xD] != 0xDE {
-            return
+            return;
         }
 
         // First 8 bytes over secure area is overwritten by BIOS after decryption, so put correct string
         secure_area[..0x8].copy_from_slice(Self::DECRYPTED_SECURE_AREA_ID.as_bytes());
-        let secure_area_32: &mut [u32] = bytemuck::cast_slice_mut(&mut self.rom[secure_area_range()]);
+        let secure_area_32: &mut [u32] =
+            bytemuck::cast_slice_mut(&mut self.rom[secure_area_range()]);
         // Level 3 for entire secure area
-        self.key1_encryption.init_key_code(self.header.game_code, 3, 2);
+        self.key1_encryption
+            .init_key_code(self.header.game_code, 3, 2);
         for chunk in secure_area_32.chunks_exact_mut(2) {
             self.key1_encryption.encrypt(chunk);
         }
         // Level 2 for first 8 bytes (first 8 bytes encrypted twice)
-        self.key1_encryption.init_key_code(self.header.game_code, 2, 2);
+        self.key1_encryption
+            .init_key_code(self.header.game_code, 2, 2);
         self.key1_encryption.encrypt(&mut secure_area_32[..0x8]);
         self.key1_encryption.in_use = false;
     }
@@ -143,14 +146,17 @@ impl Cartridge {
 
     fn copy_rom(&mut self, range: Range<usize>) {
         for addr in range.step_by(4) {
-            self.game_card_words.push_back(u32::from_le_bytes(self.rom[addr..addr + 4].try_into().unwrap()));
+            self.game_card_words.push_back(u32::from_le_bytes(
+                self.rom[addr..addr + 4].try_into().unwrap(),
+            ));
         }
     }
 
     pub fn run_encrypted_command(&mut self) {
         // Command is in given as big endian, but the decryption works with little endian
         self.command.reverse();
-        self.key1_encryption.decrypt(bytemuck::cast_slice_mut(&mut self.command));
+        self.key1_encryption
+            .decrypt(bytemuck::cast_slice_mut(&mut self.command));
         self.command.reverse();
 
         // TODO: Verify command parameters
@@ -161,22 +167,22 @@ impl Cartridge {
                 for _ in 0..self.rom_bytes_left / 4 {
                     self.game_card_words.push_back(self.chip_id);
                 }
-            },
+            }
             0x2 => {
-                let addr = (self.command[2] as usize & 0xF0) << (12 - 4) |
-                    (self.command[1] as usize) << 8 |
-                    self.command[0] as usize & 0x0F;
+                let addr = (self.command[2] as usize & 0xF0) << (12 - 4)
+                    | (self.command[1] as usize) << 8
+                    | self.command[0] as usize & 0x0F;
                 assert!((0x4000..=0x7000).contains(&addr));
                 assert_eq!(addr & 0xFFF, 0);
                 assert_eq!(self.rom_bytes_left, 0x1000);
                 self.copy_rom(addr..addr + self.rom_bytes_left);
-            },
+            }
             0x4 => {
                 // Endless stream of HIGH-Z bytes?
                 for _ in 0..self.rom_bytes_left / 4 {
                     self.game_card_words.push_back(0xFFFF_FFFF);
                 }
-            },
+            }
             0xA => {
                 // TODO: Add 3rd mode instead of using same mode for boot and key2 encrypted
                 self.key1_encryption.in_use = false;
@@ -185,13 +191,16 @@ impl Cartridge {
                 for _ in 0..self.rom_bytes_left / 4 {
                     self.game_card_words.push_back(0);
                 }
-            },
+            }
             _ => {
-                warn!("Unimplemented Encrypted Cartridge Command: {:X?}", self.command);
+                warn!(
+                    "Unimplemented Encrypted Cartridge Command: {:X?}",
+                    self.command
+                );
                 for _ in 0..self.rom_bytes_left / 4 {
                     self.game_card_words.push_back(0);
                 }
-            },
+            }
         }
     }
 
@@ -205,8 +214,9 @@ impl Cartridge {
                 self.copy_rom(0..self.rom_bytes_left);
             }
             0x3C => {
-                self.key1_encryption.init_key_code(self.header.game_code, 2, 2);
-            },
+                self.key1_encryption
+                    .init_key_code(self.header.game_code, 2, 2);
+            }
             0xB7 => {
                 for byte in self.command[5..].iter() {
                     assert_eq!(*byte, 0)
@@ -255,7 +265,10 @@ impl Cartridge {
                 }
             }
             _ => {
-                warn!("Unimplemented Unencrypted Cartridge Command: {:X?}", self.command);
+                warn!(
+                    "Unimplemented Unencrypted Cartridge Command: {:X?}",
+                    self.command
+                );
                 for _ in 0..self.rom_bytes_left / 4 {
                     self.game_card_words.push_back(0);
                 }

@@ -1,8 +1,8 @@
+use crate::likely;
 use std::{
     fs::{self, File, OpenOptions},
     path::{Path, PathBuf},
 };
-use crate::likely;
 
 use crate::arm::ARM;
 use crate::hw::HW;

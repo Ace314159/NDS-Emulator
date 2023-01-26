@@ -62,7 +62,7 @@ impl StatusReg {
             bits => {
                 warn!("Invalid Mode {:X}", bits);
                 Mode::USR
-            },
+            }
         };
     }
 }

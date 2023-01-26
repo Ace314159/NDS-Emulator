@@ -152,8 +152,7 @@ impl HW {
         let dest_addr_ctrl = channel.cnt.dest_addr_ctrl;
         let transfer_32 = channel.cnt.transfer_32;
         let irq = channel.cnt.irq;
-        channel.cnt.enable =
-            channel.cnt.start_timing != Occasion::Immediate && channel.cnt.repeat;
+        channel.cnt.enable = channel.cnt.start_timing != Occasion::Immediate && channel.cnt.repeat;
         info!(
             "Running {:?} ARM{} DMA{}: Writing {} values to {:08X} from {:08X}, size: {}",
             channel.cnt.start_timing,

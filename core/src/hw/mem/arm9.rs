@@ -31,17 +31,23 @@ impl HW {
                     self.wramcnt.arm9_offset + (addr & self.wramcnt.arm9_mask),
                 ),
                 MemoryRegion::IO => self.arm9_read_io(addr),
-                MemoryRegion::Palette if addr & 0x7FFF < 0x400 => {
-                    HW::read_from_bytes(&self.gpu.engine_a, &Engine2D::read_palette_ram, addr as u32)
-                }
-                MemoryRegion::Palette => {
-                    HW::read_from_bytes(&self.gpu.engine_b, &Engine2D::read_palette_ram, addr as u32)
-                }
+                MemoryRegion::Palette if addr & 0x7FFF < 0x400 => HW::read_from_bytes(
+                    &self.gpu.engine_a,
+                    &Engine2D::read_palette_ram,
+                    addr as u32,
+                ),
+                MemoryRegion::Palette => HW::read_from_bytes(
+                    &self.gpu.engine_b,
+                    &Engine2D::read_palette_ram,
+                    addr as u32,
+                ),
                 MemoryRegion::VRAM => self.gpu.vram.arm9_read(addr),
                 MemoryRegion::OAM if addr & 0x7FFF < 0x400 => {
                     HW::read_mem(&self.gpu.engine_a.oam, addr & GPU::OAM_MASK as u32)
                 }
-                MemoryRegion::OAM => HW::read_mem(&self.gpu.engine_b.oam, addr & GPU::OAM_MASK as u32),
+                MemoryRegion::OAM => {
+                    HW::read_mem(&self.gpu.engine_b.oam, addr & GPU::OAM_MASK as u32)
+                }
                 MemoryRegion::GBAROM => self.read_gba_rom(true, addr),
                 MemoryRegion::GBARAM => todo!(),
                 MemoryRegion::Unknown => {

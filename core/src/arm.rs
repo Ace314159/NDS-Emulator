@@ -24,7 +24,11 @@ impl<const IS_ARM9: bool> ARM<IS_ARM9> {
         let mut cpu = ARM {
             cycle: 0,
             regs: if direct_boot {
-                RegValues::direct_boot::<IS_ARM9>(if IS_ARM9 { hw.init_arm9() } else { hw.init_arm7() })
+                RegValues::direct_boot::<IS_ARM9>(if IS_ARM9 {
+                    hw.init_arm9()
+                } else {
+                    hw.init_arm7()
+                })
             } else {
                 RegValues::new::<IS_ARM9>()
             },
@@ -103,7 +107,11 @@ impl<const IS_ARM9: bool> ARM<IS_ARM9> {
     }
 
     fn is_halted(&self, hw: &HW) -> bool {
-        if IS_ARM9 { hw.cp15.arm9_halted } else { hw.haltcnt.halted() }
+        if IS_ARM9 {
+            hw.cp15.arm9_halted
+        } else {
+            hw.haltcnt.halted()
+        }
     }
 
     pub fn handle_irq(&mut self, hw: &mut HW) {
@@ -116,7 +124,11 @@ impl<const IS_ARM9: bool> ARM<IS_ARM9> {
         if likely((use_i && self.regs.get_i()) || !interrupts_requested) {
             return;
         }
-        if IS_ARM9 { hw.cp15.arm9_halted = false } else { hw.haltcnt.unhalt(); }
+        if IS_ARM9 {
+            hw.cp15.arm9_halted = false
+        } else {
+            hw.haltcnt.unhalt();
+        }
         self.regs.change_mode(Mode::IRQ);
         let lr = if unlikely(self.regs.get_t()) {
             self.read::<u16>(hw, AccessType::N, self.regs[15]);
