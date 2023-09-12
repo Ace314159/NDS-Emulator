@@ -27,8 +27,7 @@ impl Display {
     const SCALE: usize = 1;
 
     pub fn new(imgui: &mut imgui::Context) -> Display {
-        let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
-        glfw.set_error_callback(glfw::FAIL_ON_ERRORS);
+        let glfw = glfw::init(glfw::LOG_ERRORS).unwrap();
 
         let width = (Display::WIDTH * Display::SCALE) as u32;
         let height = 19 + (Display::HEIGHT * Display::SCALE) as u32; // TODO: Don't hardcode main menu bar height

@@ -11,7 +11,7 @@ members = ["core", "bitfield"]
 imgui = "0.7.0"
 imgui-opengl-renderer = "0.11.0"
 gl = "0.14.0"
-glfw = "0.41.0"
+glfw = { version = "0.41.0", default-features = false }
 nds-core = { path = "core" }
 
 [profile.release]
